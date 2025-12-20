@@ -1,0 +1,20 @@
+services:
+  express-finger:
+    build:
+      context: ./app
+      dockerfile: ../Dockerfile
+    container_name: express-finger
+    restart: unless-stopped
+    network_mode: "host"
+    environment:
+      - PGUSER=your_username
+      - PGPASSWORD=your_password
+      - PGHOST=127.0.0.1
+      - PGDATABASE=your_database
+      - PGPORT=5432
+      - API_KEY=your_api_key
+      - RAW_DIR=/data/raw
+    volumes:
+      - ./data/raw:/data/raw
+    working_dir: /app
+    command: ["node", "server.js"]
