@@ -10,6 +10,7 @@ export async function cleanupOldRawFiles() {
     for (const f of files) {
       const fpath = path.join(config.RAW_DIR, f)
       const st = await stat(fpath)
+      if (!st.isFile()) continue
       if (now - st.mtimeMs > config.CLEANUP_AGE_DAYS * 24 * 60 * 60 * 1000) {
         await unlink(fpath)
         console.log(`🧹 deleted old raw file: ${f}`)
