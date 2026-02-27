@@ -9,8 +9,10 @@ import {
 } from './middleware/index.js'
 import { deviceRoutes, apiRoutes } from './routes/index.js'
 import { ensureSchema, ensureRawDir, cleanupOldRawFiles } from './utils/index.js'
+import { initWorker } from './utils/worker.js'
 
 const app = express()
+app.set('trust proxy', true)
 
 // Middleware global
 app.use(compression())
@@ -30,21 +32,22 @@ app.get('/', (_req, res) =>
   res.json({ status: 'OK', service: 'GSI ADMS listener', time: new Date().toISOString() })
 )
 
-// Inisialisasi dan startup
-;(async () => {
-  try {
-    await ensureSchema()
-    await ensureRawDir()
-    await cleanupOldRawFiles()
-    
-    // Setup cleanup interval
-    setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
-    
-    app.listen(config.PORT, () => {
-      console.log(`✅ GSI ADMS listener ready on port ${config.PORT}`)
-    })
-  } catch (error) {
-    console.error('Failed to start server:', error)
-    process.exit(1)
-  }
-})()
+  // Inisialisasi dan startup
+  ; (async () => {
+    try {
+      await ensureSchema()
+      await ensureRawDir()
+      await cleanupOldRawFiles()
+      initWorker()
+
+      // Setup cleanup interval
+      setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
+
+      app.listen(config.PORT, () => {
+        console.log(`✅ GSI ADMS listener ready on port ${config.PORT}`)
+      })
+    } catch (error) {
+      console.error('Failed to start server:', error)
+      process.exit(1)
+    }
+  })()

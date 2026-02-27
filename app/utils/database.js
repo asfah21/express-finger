@@ -26,6 +26,17 @@ export async function ensureSchema() {
       device_sn TEXT,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS devices (
+      id SERIAL PRIMARY KEY,
+      sn TEXT UNIQUE,
+      name TEXT,
+      ip TEXT,
+      port INT DEFAULT 4370,
+      is_active BOOLEAN DEFAULT true,
+      last_sync TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
   `)
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_user_time
@@ -37,6 +48,9 @@ export async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_attlog_ts_desc_cover
       ON attendance_logs ("timestamp" DESC)
       INCLUDE (id, user_id, type, device_sn, created_at);
+    
+    CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices (ip);
+    CREATE INDEX IF NOT EXISTS idx_devices_active ON devices (is_active);
   `)
 }
 
@@ -60,4 +74,20 @@ export async function saveManyLogs(rows, deviceSN = null) {
     ON CONFLICT (user_id, timestamp) DO NOTHING
   `
   await pool.query(query, flat)
+}
+
+/**
+ * Update or create device info (Dynamic IP support)
+ * This allows the PULL worker to always have the latest IP
+ */
+export async function upsertDevice(sn, ip) {
+  if (!sn || !ip) return
+  const cleanIp = ip.includes('::ffff:') ? ip.split('::ffff:')[1] : ip
+  const query = `
+    INSERT INTO devices (sn, ip, last_sync, is_active)
+    VALUES ($1, $2, now(), true)
+    ON CONFLICT (sn) DO UPDATE 
+    SET ip = EXCLUDED.ip, last_sync = now()
+  `
+  await pool.query(query, [sn, cleanIp])
 }

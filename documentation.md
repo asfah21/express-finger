@@ -5,9 +5,11 @@ Express Finger adalah aplikasi Node.js berkinerja tinggi yang dirancang sebagai 
 ## Fitur
 
 -   **Dukungan Protokol ADMS**: Kompatibel sepenuhnya dengan protokol push perangkat Solution Fingerprint.
+-   **Auto-Tracking IP (Dynamic IP)**: Server otomatis mengupdate IP mesin setiap kali mesin melakukan kontak (PUSH), sehingga fitur PULL tetap berjalan meskipun IP mesin berubah-ubah.
 -   **Persistensi Data**: Menyimpan log absensi secara efisien di PostgreSQL.
 -   **Backup Data Mentah**: Menyimpan data request mentah ke sistem file untuk cadangan dan audit.
 -   **RESTful API**: Menyediakan endpoint untuk mengambil log, statistik harian, dan file data mentah.
+-   **Worker Service (Hybrid)**: Fitur penarikan data (PULL) otomatis setiap 5 menit untuk sinkronisasi data yang gagal terkirim via PUSH.
 -   **Keamanan**: Endpoint API dilindungi menggunakan mekanisme API Key.
 -   **Siap Docker**: Dilengkapi dengan konfigurasi Docker dan Docker Compose untuk kemudahan deployment.
 -   **Logging**: Pencatatan request HTTP yang komprehensif.
@@ -101,6 +103,18 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
 -   **Deskripsi**: Mengunduh konten file mentah tertentu.
+
+#### 5. Manajemen Perangkat (Device Registry)
+-   **Method**: `GET`, `POST`, `PUT`, `DELETE`
+-   **URL**: `/api/devices`
+-   **Headers**: `x-api-key: <API_KEY_ANDA>`
+-   **Deskripsi**: Mengelola daftar perangkat fingerprint (IP & SN) untuk keperluan penarikan data (PULL).
+
+#### 6. Sinkronisasi Log (PULL Sync)
+-   **URL**: `/api/sync` atau `/api/sync/all`
+-   **Method**: `POST`
+-   **Headers**: `x-api-key: <API_KEY_ANDA>`
+-   **Deskripsi**: Menarik data log secara manual dari perangkat menggunakan protokol TCP (Port 4370). Ini adalah solusi **Hybrid** untuk memastikan data yang tidak terkirim via PUSH (ADMS) tetap masuk ke server.
 
 ## Struktur Proyek
 

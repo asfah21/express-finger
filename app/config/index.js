@@ -13,4 +13,6 @@ export const config = {
   MAX_LIMIT: Number(process.env.MAX_LIMIT || 1000),
   CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000,
   CLEANUP_AGE_DAYS: 7,
+  WORKER_ENABLED: process.env.WORKER_ENABLED !== 'false', // Default true
+  SYNC_INTERVAL_MS: Number(process.env.SYNC_INTERVAL_MS || 5 * 60 * 1000), // Default 5 menit
 }

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'fs/promises'
 import { config } from '../config/index.js'
-import { smartParseMany, saveManyLogs, ensureRawDir } from '../utils/index.js'
+import { smartParseMany, saveManyLogs, ensureRawDir, upsertDevice } from '../utils/index.js'
 
 // Device controller
 export const deviceController = {
@@ -8,6 +8,12 @@ export const deviceController = {
     try {
       const url = new URL(req.url, 'http://x')
       const deviceSN = url.searchParams.get('SN') || null
+      const deviceIP = req.ip
+
+      if (deviceSN) {
+        await upsertDevice(deviceSN, deviceIP)
+      }
+
       await ensureRawDir()
 
       const raw = typeof req.body === 'string'
@@ -31,7 +37,12 @@ export const deviceController = {
     }
   },
 
-  handleGetRequest(_req, res) {
+  async handleGetRequest(req, res) {
+    const url = new URL(req.url, 'http://x')
+    const deviceSN = url.searchParams.get('SN') || null
+    if (deviceSN) {
+      await upsertDevice(deviceSN, req.ip)
+    }
     res.status(200).send('OK')
   }
 }
