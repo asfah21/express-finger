@@ -60,6 +60,14 @@ docker-compose up -d --build
 
 Perintah ini akan menjalankan layanan `zkteco-listener` pada jaringan host.
 
+## Keamanan & Integritas Data
+
+Aplikasi ini didesain agar aman dijalankan pada environment yang sudah memiliki data/tabel sebelumnya:
+
+1.  **Skema Aman**: Inisialisasi database menggunakan perintah `IF NOT EXISTS`. Jika tabel `attendance_logs` sudah ada, aplikasi tidak akan menimpa atau menghapusnya.
+2.  **Tanpa Duplikasi**: Menggunakan mekanisme `ON CONFLICT DO NOTHING` sehingga data lama Anda tetap aman dan tidak akan terjadi penggandaan log jika mesin mengirim ulang data yang sama.
+3.  **Konektivitas**: Menggunakan `network_mode: "host"` di Docker, sehingga aplikasi langsung menggunakan layanan PostgreSQL yang sudah berjalan di server host Anda.
+
 ## Dokumentasi API
 
 ### Endpoint Komunikasi Perangkat
