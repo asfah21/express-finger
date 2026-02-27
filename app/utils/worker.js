@@ -33,9 +33,9 @@ export async function runSyncWorker() {
                         'UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2',
                         [result.sn, dev.ip]
                     )
-                    console.log(`🤖 Worker: Successfully synced ${result.count} logs from ${dev.ip}`)
+                    console.log(`🤖 Worker: Successfully synced ${result.count} logs from SN ${result.sn} (${dev.ip})`)
                 } catch (err) {
-                    console.error(`🤖 Worker: Failed to sync ${dev.ip}:`, err.message)
+                    console.error(`🤖 Worker: Failed to sync SN ${dev.sn || 'Unknown'} at ${dev.ip}:`, err.message)
                 }
             }
         }
