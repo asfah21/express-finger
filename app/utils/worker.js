@@ -1,6 +1,7 @@
 import { pool } from './database.js'
 import { pullDeviceLogs } from './zklib.js'
 import { config } from '../config/index.js'
+import { priorityDevices } from '../config/priority_devices.js'
 
 let isSyncing = false
 
@@ -26,16 +27,27 @@ export async function runSyncWorker() {
         } else {
             for (const dev of devices) {
                 try {
-                    console.log(`🤖 Worker: Syncing device ${dev.ip}...`)
-                    const result = await pullDeviceLogs(dev.ip, dev.port || 4370)
+                    // Cek apakah SN ini punya IP prioritas di file konfigurasi
+                    const priority = priorityDevices[dev.sn]
+                    const syncIp = priority ? priority.ip : dev.ip
+                    const syncPort = priority ? (priority.port || 4370) : (dev.port || 4370)
+
+                    if (priority) {
+                        console.log(`🤖 Worker: Using priority IP ${syncIp} for SN ${dev.sn}`)
+                    }
+
+                    console.log(`🤖 Worker: Syncing device ${syncIp}...`)
+                    const result = await pullDeviceLogs(syncIp, syncPort)
 
                     await pool.query(
                         'UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2',
                         [result.sn, dev.ip]
                     )
-                    console.log(`🤖 Worker: Successfully synced ${result.count} logs from SN ${result.sn} (${dev.ip})`)
+                    console.log(`🤖 Worker: Successfully synced ${result.count} logs from SN ${result.sn} (${syncIp})`)
                 } catch (err) {
-                    console.error(`🤖 Worker: Failed to sync SN ${dev.sn || 'Unknown'} at ${dev.ip}:`, err.message)
+                    const priority = priorityDevices[dev.sn]
+                    const targetIp = priority ? priority.ip : dev.ip
+                    console.error(`🤖 Worker: Failed to sync SN ${dev.sn || 'Unknown'} at ${targetIp}:`, err.message)
                 }
             }
         }
