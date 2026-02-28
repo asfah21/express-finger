@@ -27,9 +27,10 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
                 uid: log.userSn || null,
                 userId: log.deviceUserId,
                 timestamp: log.recordTime,
-                // Mengambil status/type asli dari mesin (0: Masuk, 1: Pulang, 4: Lembur Masuk, dsb)
-                type: log.attendanceStatus !== undefined ? Number(log.attendanceStatus) :
-                    (log.status !== undefined ? Number(log.status) : 0)
+                // Sekarang 'status' tersedia langsung dari library (hasil patch decodeRecordData40)
+                // 0: Masuk, 1: Pulang, 2: Break Out, 3: Break In, 4: Lembur Masuk, 5: Lembur Keluar
+                type: log.status !== undefined ? Number(log.status) :
+                    (log.attendanceStatus !== undefined ? Number(log.attendanceStatus) : 0)
             }));
 
             // Menggunakan SN yang dipassing dari database (atau fallback)

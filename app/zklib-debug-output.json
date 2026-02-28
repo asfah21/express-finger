@@ -1,0 +1,105 @@
+{
+  "totalLogs": 4910,
+  "availableFields": [
+    "userSn",
+    "deviceUserId",
+    "recordTime",
+    "status",
+    "verifyType",
+    "ip"
+  ],
+  "sample10": [
+    {
+      "userSn": 1,
+      "deviceUserId": "1",
+      "recordTime": "2025-02-10T05:58:51.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 2,
+      "deviceUserId": "1",
+      "recordTime": "2025-03-17T03:13:14.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 3,
+      "deviceUserId": "7",
+      "recordTime": "2025-03-17T03:22:15.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 4,
+      "deviceUserId": "2",
+      "recordTime": "2025-03-17T03:24:18.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 5,
+      "deviceUserId": "9",
+      "recordTime": "2025-03-17T03:25:15.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 6,
+      "deviceUserId": "9",
+      "recordTime": "2025-03-17T03:25:17.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 7,
+      "deviceUserId": "10",
+      "recordTime": "2025-03-17T03:26:15.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 8,
+      "deviceUserId": "11",
+      "recordTime": "2025-03-17T03:27:23.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 9,
+      "deviceUserId": "2",
+      "recordTime": "2025-03-17T03:28:28.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    },
+    {
+      "userSn": 10,
+      "deviceUserId": "2",
+      "recordTime": "2025-03-17T03:28:48.000Z",
+      "status": 1,
+      "verifyType": 0,
+      "ip": "10.242.15.136"
+    }
+  ],
+  "distributions": {
+    "status": {
+      "0": 1637,
+      "1": 3273
+    },
+    "verifyType": {
+      "0": 4910
+    },
+    "ip": {
+      "10.242.15.136": 4910
+    }
+  }
+}
