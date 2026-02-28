@@ -175,8 +175,18 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
 -   **Method**: `POST` atau `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
 -   **Query Parameters**:
-    -   `stream`: Jika diisi `true`, server akan mengirimkan progres real-time per perangkat (hanya untuk `/sync/all`).
--   **Contoh Monitoring Progres**:
+    -   `sn`: Serial Number mesin (jika sudah terdaftar di database).
+    -   `ip`: IP Address mesin (jika ingin tembak langsung tanpa daftar).
+    -   `stream`: Jika diisi `true`, untuk monitoring real-time (hanya untuk `/sync/all`).
+-   **Contoh Sinkronisasi Satu Mesin (by SN)**:
+    ```bash
+    curl -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync?sn=CKEB233960333"
+    ```
+-   **Contoh Sinkronisasi Satu Mesin (by IP)**:
+    ```bash
+    curl -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync?ip=10.242.15.136"
+    ```
+-   **Contoh Monitoring Progres (Semua Mesin)**:
     ```bash
     curl -N -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync/all?stream=true"
     ```
