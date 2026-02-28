@@ -14,11 +14,13 @@ It seamlessly captures attendance data pushed by biometric devices, securely per
 ## ✨ Key Features
 
 - **📡 ADMS Protocol Support**: Fully compatible with Solution/ZKTeco push protocols.
-- **💾 Robust Data Persistence**: Efficiently stores attendance logs in PostgreSQL.
+- **💾 Robust Data Persistence**: Efficiently stores attendance logs in PostgreSQL, now linked with integrated **Employee Directory**.
 - **📂 Raw Data Archiving**: Automatically saves raw request payloads for audit trails and backup.
+- **🔄 Hybrid Sync Worker**: Smart background PULL sync that auto-skips unroutable public IPs and connects via VPNs/LAN.
+- **⚙️ Dynamic Settings**: Remotely configurable mappings for attendance types and device names without restarting backend.
 - **🔐 Secure API**: Built-in API Key authentication for management endpoints.
 - **🐳 Docker Ready**: Includes `Dockerfile` and `docker-compose.yml` for instant deployment.
-- **📊 Statistical Insights**: API endpoints for daily stats and device health checks.
+- **📊 Statistical Insights**: API endpoints for daily stats, employee data, and device health checks.
 
 ---
 
@@ -107,8 +109,12 @@ This spins up the listener service in a detached container.
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/logs` | Fetch processed attendance logs |
+| `GET` | `/api/logs` | Fetch processed attendance logs (now mapped with Employee details, `absensi` status and `device_name`) |
+| `CRUD` | `/api/employees` | Manage Employee directory mapping (GET, POST, PUT, DELETE) |
+| `G/P` | `/api/settings` | Get/Put status types (Masuk/Pulang) and device name aliasing mappings |
 | `GET` | `/api/stats/daily` | Get daily attendance statistics |
+| `CRUD` | `/api/devices` | Manage allowed/priority devices for the background PULL sync worker |
+| `POST` | `/api/sync` | Trigger an immediate manual PULL sync from a specific device via TCP |
 | `GET` | `/api/raw` | List saved raw data files |
 | `GET` | `/api/raw/:name` | Download a specific raw file |
 

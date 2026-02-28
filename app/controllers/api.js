@@ -3,6 +3,7 @@ import { createReadStream } from 'fs'
 import path from 'path'
 import { config } from '../config/index.js'
 import { pool } from '../utils/database.js'
+import { getSettingsData } from './settings.js'
 
 // API controller
 export const apiController = {
@@ -15,26 +16,37 @@ export const apiController = {
       const params = []
       let i = 1
 
-      if (from) { where.push(`"timestamp" >= $${i++}`); params.push(new Date(String(from))) }
-      if (to) { where.push(`"timestamp" <= $${i++}`); params.push(new Date(String(to))) }
-      if (user_id) { where.push(`user_id = $${i++}`); params.push(String(user_id)) }
-      if (type !== undefined) { where.push(`type = $${i++}`); params.push(Number(type)) }
-      if (device_sn) { where.push(`device_sn = $${i++}`); params.push(String(device_sn)) }
+      if (from) { where.push(`al."timestamp" >= $${i++}`); params.push(new Date(String(from))) }
+      if (to) { where.push(`al."timestamp" <= $${i++}`); params.push(new Date(String(to))) }
+      if (user_id) { where.push(`al.user_id = $${i++}`); params.push(String(user_id)) }
+      if (type !== undefined) { where.push(`al.type = $${i++}`); params.push(Number(type)) }
+      if (device_sn) { where.push(`al.device_sn = $${i++}`); params.push(String(device_sn)) }
 
       const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
       const dataQuery = {
         text: `
-          SELECT id, user_id, type, device_sn, "timestamp", created_at
-          FROM attendance_logs
+          SELECT 
+            al.id, 
+            al.user_id, 
+            e.nik,
+            e.nama,
+            e.jabatan,
+            e.department,
+            al.type, 
+            al.device_sn, 
+            al."timestamp", 
+            al.created_at
+          FROM attendance_logs al
+          LEFT JOIN employee e ON al.user_id = e.user_id
           ${whereSql}
-          ORDER BY "timestamp" DESC
+          ORDER BY al."timestamp" DESC
           LIMIT $${i++} OFFSET $${i++}
         `,
         values: [...params, lim, off],
       }
       const countQuery = {
-        text: `SELECT COUNT(*)::bigint AS total FROM attendance_logs ${whereSql}`,
+        text: `SELECT COUNT(*)::bigint AS total FROM attendance_logs al ${whereSql}`,
         values: params,
       }
 
@@ -42,7 +54,32 @@ export const apiController = {
         pool.query(dataQuery),
         pool.query(countQuery)
       ])
-      const rows = dataRes.rows
+
+      const paramSettings = await getSettingsData()
+      const typeMap = paramSettings?.types || {
+        0: 'Masuk',
+        1: 'Pulang',
+        2: 'Break Out',
+        3: 'Break In',
+        4: 'Lembur Masuk',
+        5: 'Lembur Keluar'
+      }
+      const deviceMap = paramSettings?.devices || {}
+
+      const rows = dataRes.rows.map(row => ({
+        id: row.id,
+        user_id: row.user_id,
+        nik: row.nik || null,
+        nama: row.nama || null,
+        jabatan: row.jabatan || null,
+        department: row.department || null,
+        absensi: typeMap[row.type] || String(row.type),
+        device_name: deviceMap[row.device_sn] || row.device_sn,
+        device_sn: row.device_sn,
+        timestamp: row.timestamp,
+        created_at: row.created_at
+      }))
+
       const total = Number(countRes.rows[0]?.total || 0)
       res.json({ total, limit: lim, offset: off, has_more: off + rows.length < total, rows })
     } catch (e) {

@@ -37,6 +37,16 @@ export async function ensureSchema() {
       last_sync TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS employee (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT UNIQUE NOT NULL,
+      nik TEXT,
+      nama TEXT,
+      jabatan TEXT,
+      department TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
   `)
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_user_time

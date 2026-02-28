@@ -6,11 +6,11 @@ Express Finger adalah aplikasi Node.js berkinerja tinggi yang dirancang sebagai 
 
 -   **Dukungan Protokol ADMS**: Kompatibel sepenuhnya dengan protokol push perangkat Solution Fingerprint.
 -   **Auto-Tracking IP (Dynamic IP)**: Server otomatis mengupdate IP mesin setiap kali mesin melakukan kontak (PUSH), sehingga fitur PULL tetap berjalan meskipun IP mesin berubah-ubah.
--   **Persistensi Data**: Menyimpan log absensi secara efisien di PostgreSQL.
+-   **Persistensi Data**: Menyimpan log absensi terpusat dan data karyawan secara efisien di PostgreSQL.
 -   **Backup Data Mentah**: Menyimpan data request mentah ke sistem file untuk cadangan dan audit.
--   **RESTful API**: Menyediakan endpoint untuk mengambil log, statistik harian, dan file data mentah.
--   **Worker Service (Hybrid)**: Fitur penarikan data (PULL) otomatis setiap 5 menit untuk sinkronisasi data yang gagal terkirim via PUSH.
--   **Keamanan**: Endpoint API dilindungi menggunakan mekanisme API Key.
+-   **RESTful API**: Menyediakan endpoint untuk mengambil log, data karyawan, statistik harian, dan pengaturan mesin/status.
+-   **Worker Service (Hybrid)**: Fitur penarikan data (PULL) otomatis untuk sinkronisasi data yang gagal terkirim via PUSH. Worker secara pintar mendeteksi IP Publik (tanpa port-forwarding) dan akan melewatinya secara otomatis untuk menghindari Timeout berlebihan.
+-   **Keamanan**: Endpoint pengelolaan dilindungi menggunakan mekanisme API Key.
 -   **Siap Docker**: Dilengkapi dengan konfigurasi Docker dan Docker Compose untuk kemudahan deployment.
 -   **Logging**: Pencatatan request HTTP yang komprehensif.
 
@@ -92,7 +92,19 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
 -   **URL**: `/api/logs`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mengambil log absensi yang telah diproses dari database.
+-   **Deskripsi**: Mengambil log absensi yang telah diproses dari database. Log yang dihasilkan juga digabungkan (LEFT JOIN) dengan data Employee. Respons mencakup kolom `absensi` (dari pemetaan Type) dan `device_name` (nama alias perangkat).
+
+#### 2. Karyawan (Directory Employee)
+-   **URL**: `/api/employees` (dan `/api/employees/:id`)
+-   **Method**: `GET`, `POST`, `PUT`, `DELETE`
+-   **Headers**: `x-api-key: <API_KEY_ANDA>`
+-   **Deskripsi**: Mengelola daftar karyawan yang akan terkait dengan log absen (kolom: user_id, nik, nama, jabatan, department).
+
+#### 3. Pengaturan Mesin & Tipe Absen (Settings)
+-   **URL**: `/api/settings`
+-   **Method**: `GET`, `PUT`
+-   **Headers**: `x-api-key: <API_KEY_ANDA>`
+-   **Deskripsi**: Mengambil atau memperbarui terjemahan teks untuk tipe absensi (0: Masuk, 1: Pulang, dll) dan pemetaan Device Serial Number menjadi nama yang lebih mudah dibaca. Disimpan sebagai konfigurasi JSON.
 
 #### 2. Ambil Statistik Harian
 -   **URL**: `/api/stats/daily`
@@ -100,29 +112,29 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
 -   **Deskripsi**: Statistik spesifik mengenai absensi harian.
 
-#### 3. Daftar File Mentah
+#### 6. Daftar File Mentah
 -   **URL**: `/api/raw`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
 -   **Deskripsi**: Mendapatkan daftar file request mentah yang tersimpan di sistem.
 
-#### 4. Unduh File Mentah
+#### 7. Unduh File Mentah
 -   **URL**: `/api/raw/:name`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
 -   **Deskripsi**: Mengunduh konten file mentah tertentu.
 
-#### 5. Manajemen Perangkat (Device Registry)
+#### 8. Manajemen Perangkat (Device Registry)
+-   **URL**: `/api/devices` (dan `/api/devices/:id`)
 -   **Method**: `GET`, `POST`, `PUT`, `DELETE`
--   **URL**: `/api/devices`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
 -   **Deskripsi**: Mengelola daftar perangkat fingerprint (IP & SN) untuk keperluan penarikan data (PULL).
 
-#### 6. Sinkronisasi Log (PULL Sync)
+#### 9. Sinkronisasi Log (PULL Sync)
 -   **URL**: `/api/sync` atau `/api/sync/all`
 -   **Method**: `POST`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Menarik data log secara manual dari perangkat menggunakan protokol TCP (Port 4370). Ini adalah solusi **Hybrid** untuk memastikan data yang tidak terkirim via PUSH (ADMS) tetap masuk ke server.
+-   **Deskripsi**: Menarik data log secara manual dari perangkat menggunakan protokol TCP (Port 4370). Ini adalah solusi **Hybrid** (bisa dipicu oleh worker otomatis) untuk memastikan data yang tidak terkirim via PUSH (ADMS) tetap masuk ke server. PULL akan melewati perangkat dengan IP berjenis Public IP demi menghindari macet *timeout*.
 
 ## Struktur Proyek
 

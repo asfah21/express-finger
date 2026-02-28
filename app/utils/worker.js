@@ -25,15 +25,24 @@ export async function runSyncWorker() {
         if (devices.length === 0) {
             console.log('🤖 Worker: No active devices found in registry.')
         } else {
+            // Helper function to check if IP is a local network IP (LAN/VPN)
+            const isPrivateIP = (ip) => /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip) || ip === '127.0.0.1';
+
             for (const dev of devices) {
                 try {
-                    // Cek apakah SN ini punya IP prioritas di file konfigurasi
                     const priority = priorityDevices[dev.sn]
+
+                    // Jika tidak ada di priority dan IP-nya adalah Public IP (berasal dari ADMS), skip PULL
+                    if (!priority && !isPrivateIP(dev.ip)) {
+                        console.log(`⏭️ Worker: Skipping PULL for SN ${dev.sn} (Public IP ${dev.ip} is likely not reachable)`)
+                        continue
+                    }
+
                     const syncIp = priority ? priority.ip : dev.ip
                     const syncPort = priority ? (priority.port || 4370) : (dev.port || 4370)
 
                     if (priority) {
-                        console.log(`🤖 Worker: Using priority IP ${syncIp} for SN ${dev.sn}`)
+                        console.log(`🤖 Worker: Using priority configuration ${syncIp}:${syncPort} for SN ${dev.sn}`)
                     }
 
                     console.log(`🤖 Worker: Syncing device ${syncIp}...`)
@@ -43,11 +52,16 @@ export async function runSyncWorker() {
                         'UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2',
                         [result.sn, dev.ip]
                     )
-                    console.log(`🤖 Worker: Successfully synced ${result.count} logs from SN ${result.sn} (${syncIp})`)
+                    console.log(`✅ Worker: Successfully synced ${result.count} logs from SN ${result.sn} (${syncIp})`)
                 } catch (err) {
                     const priority = priorityDevices[dev.sn]
                     const targetIp = priority ? priority.ip : dev.ip
-                    console.error(`🤖 Worker: Failed to sync SN ${dev.sn || 'Unknown'} at ${targetIp}:`, err.message)
+
+                    // Bersihkan pesan error agar lebih mudah dibaca
+                    const errMsg = err.message.includes('ETIMEDOUT') ? 'Connection Timeout (Cek apakah Port terbuka)' :
+                        err.message.includes('Timeout error') ? 'Device tidak merespon/terkunci (Mungkin karena mode ADMS aktif)' : err.message;
+
+                    console.error(`❌ Worker: Failed to sync SN ${dev.sn || 'Unknown'} at ${targetIp} -> ${errMsg}`)
                 }
             }
         }
