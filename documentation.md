@@ -105,7 +105,7 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
     -   **URL dengan Filter User ID**: `http://188.245.70.138:8080/api/logs?user_id=16`
     -   **Perintah cURL**:
         ```bash
-        curl -H "x-api-key: gsi-gUe9wek2ok8oXNMbwIkjqweq98912ihkq-azvan" \
+        curl -H "x-api-key: <YOUR_API_KEY>" \
              "http://188.245.70.138:8080/api/logs?user_id=16"
         ```
 
@@ -113,57 +113,107 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
 -   **URL**: `/api/employees` (dan `/api/employees/:id`)
 -   **Method**: `GET`, `POST`, `PUT`, `DELETE`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mengelola daftar karyawan yang akan terkait dengan log absen (kolom: user_id, nik, nama, jabatan, department).
+-   **Payload (POST/PUT)**:
+    ```json
+    {
+      "user_id": "16",
+      "nik": "123456",
+      "nama": "Azvan",
+      "jabatan": "Developer",
+      "department": "IT"
+    }
+    ```
+-   **Deskripsi**: Mengelola daftar karyawan. Data ini digunakan untuk memberikan info nama/jabatan pada logs absensi.
 
 #### 3. Pengaturan Mesin & Tipe Absen (Settings)
 -   **URL**: `/api/settings`
 -   **Method**: `GET`, `PUT`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mengambil atau memperbarui terjemahan teks untuk tipe absensi (0: Masuk, 1: Pulang, dll) dan pemetaan Device Serial Number menjadi nama yang lebih mudah dibaca. Disimpan sebagai konfigurasi JSON.
+-   **Payload (PUT)**:
+    ```json
+    {
+      "types": { "0": "Masuk", "1": "Pulang" },
+      "devices": { "SN123": "Lobby Utama" }
+    }
+    ```
+-   **Deskripsi**: Mengelola pemetaan teks untuk tipe absensi dan alias nama perangkat.
 
-#### 2. Ambil Statistik Harian
--   **URL**: `/api/stats/daily`
+#### 4. Ambil Statistik Harian
+-   **URL**: `/api/stats/daily?date=YYYY-MM-DD`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Statistik spesifik mengenai absensi harian.
+-   **Deskripsi**: Ringkasan absensi harian per karyawan (jam masuk pertama, jam pulang terakhir, total scan).
 
-#### 6. Daftar File Mentah
+#### 5. Daftar File Mentah
 -   **URL**: `/api/raw`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mendapatkan daftar file request mentah yang tersimpan di sistem.
+-   **Deskripsi**: Mendapatkan daftar file request mentah (ADMS push) yang tersimpan di sistem.
 
-#### 7. Unduh File Mentah
+#### 6. Unduh File Mentah
 -   **URL**: `/api/raw/:name`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mengunduh konten file mentah tertentu.
 
-#### 8. Manajemen Perangkat (Device Registry)
+#### 7. Manajemen Perangkat (Device Registry)
 -   **URL**: `/api/devices` (dan `/api/devices/:id`)
 -   **Method**: `GET`, `POST`, `PUT`, `DELETE`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mengelola daftar perangkat fingerprint (IP & SN) untuk keperluan penarikan data (PULL).
+-   **Payload (POST/PUT)**:
+    ```json
+    {
+      "sn": "CKEB233960333",
+      "name": "Mesin Depan",
+      "ip": "10.242.15.136",
+      "port": 4370,
+      "is_active": true
+    }
+    ```
 
-#### 9. Sinkronisasi Log (PULL Sync)
--   **URL**: `/api/sync` atau `/api/sync/all`
--   **Method**: `POST`
+#### 8. Sinkronisasi Log (PULL Sync)
+-   **URL**: `/api/sync` (untuk satu mesin) atau `/api/sync/all` (untuk semua mesin)
+-   **Method**: `POST` atau `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Menarik data log secara manual dari perangkat menggunakan protokol TCP (Port 4370). Ini adalah solusi **Hybrid** (bisa dipicu oleh worker otomatis) untuk memastikan data yang tidak terkirim via PUSH (ADMS) tetap masuk ke server. PULL akan melewati perangkat dengan IP berjenis Public IP demi menghindari macet *timeout*.
+-   **Query Parameters**:
+    -   `stream`: Jika diisi `true`, server akan mengirimkan progres real-time per perangkat (hanya untuk `/sync/all`).
+-   **Contoh Monitoring Progres**:
+    ```bash
+    curl -N -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync/all?stream=true"
+    ```
+
+---
+
+## Mekanisme Worker (Background Sync)
+
+Aplikasi memiliki Worker otomatis yang berjalan di latar belakang:
+-   **Tugas**: Melakukan PULL sync ke semua perangkat yang aktif secara berkala.
+-   **Interval**: Diatur via `SYNC_INTERVAL_MS` di `.env` (default 5 menit).
+-   **Smart Logic**: Worker akan melewati (skip) perangkat dengan Public IP untuk menghindari hang, **KECUALI** perangkat tersebut didaftarkan dalam `app/config/priority_devices.js`.
+
+---
+
+## Troubleshooting
+
+### 1. Data Tidak Masuk padahal Fingerprint Berhasil
+-   **Cek Koneksi**: Pastikan mesin bisa "ping" ke server (untuk ADMS/Push).
+-   **Port TCP 4370**: Jika menggunakan PULL, pastikan Port 4370 di sisi mesin terbuka (Forwarding jika pakai Public IP).
+-   **API Key**: Pastikan middleware tidak memblokir request karena key salah.
+-   **Logs**: Cek file mentah di `/api/raw` untuk melihat apakah mesin sebenarnya mengirim data tapi gagal diproses.
+
+### 2. Error ETIMEDOUT saat PULL
+-   Ini berarti server tidak bisa menjangkau Port 4370 mesin. Jika mesin di lokasi berbeda, gunakan VPN atau ZeroTier, lalu daftarkan IP VPN tersebut di `priority_devices.js`.
+
+---
 
 ## Struktur Proyek
 
 ```
 express-finger/
 ├── app/
-│   ├── config/         # File konfigurasi
-│   ├── controllers/    # Request handlers (api, device)
-│   ├── middleware/     # Custom middleware (auth, cors, dll)
-│   ├── routes/         # Definisi route
-│   ├── utils/          # Fungsi bantu (helper)
-│   ├── server.js       # Entry point aplikasi
-│   └── package.json    # Dependensi
-├── data/               # Mounting point volume data
-├── docker-compose.yml  # Definisi layanan Docker
-└── Dockerfile          # Instruksi build image Docker
+│   ├── config/         # Konfigurasi & Priority List
+│   ├── controllers/    # Logika API (Employee, Sync, Device)
+│   ├── utils/          # Parser ADMS, Database Batch (Chunking)
+│   └── server.js       # Entry Point
+├── data/               # Penyimpanan logs mentah
+└── docker-compose.yml
 ```

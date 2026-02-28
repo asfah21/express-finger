@@ -12,6 +12,8 @@ export const priorityDevices = {
     // Contoh mesin fokus dengan ZeroTier
     'CKEB233960333': { ip: '10.242.15.136', port: 4370 },
 
-    // Tambahkan SN lainnya di sini jika menggunakan IP Statis/VPN/ZeroTier
-    // 'SN_LAIN': { ip: '10.242.x.x', port: 4370 }
+    // Daftarkan mesin yang sebelumnya di-skip karena Public IP
+    'ZTC8243601284': { ip: '114.10.132.88', port: 4370 },
+    'ZTC8252600078': { ip: '114.10.132.88', port: 4370 },
+    'ZTC8253400119': { ip: '114.10.132.88', port: 4370 },
 }

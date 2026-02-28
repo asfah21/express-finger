@@ -64,27 +64,45 @@ export async function ensureSchema() {
   `)
 }
 
-// Batch insert
+// Batch insert with chunking
 export async function saveManyLogs(rows, deviceSN = null) {
   if (!rows.length) return
-  const flat = []
-  for (const r of rows) {
-    const uid = r?.uid != null ? Number(r.uid) : null
-    const userId = r?.userId != null ? String(r.userId) : null
-    const ts = r?.timestamp ? new Date(r.timestamp) : new Date()
-    const type = r?.type != null ? Number(r.type) : null
-    flat.push(uid, userId, ts, type, deviceSN)
+
+  // Chunking to avoid parameter limit issues and handle errors better
+  const chunkSize = 100
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize)
+    const flat = []
+
+    for (const r of chunk) {
+      const uid = r?.uid != null ? Number(r.uid) : null
+      const userId = r?.userId != null ? String(r.userId) : null
+      const ts = r?.timestamp ? new Date(r.timestamp) : new Date()
+      // Skip invalid dates
+      if (isNaN(ts.getTime())) continue
+
+      const type = r?.type != null ? Number(r.type) : 0
+      flat.push(uid, userId, ts, type, deviceSN)
+    }
+
+    if (flat.length === 0) continue
+
+    const valuesSql = chunk.map((_, idx) =>
+      `($${idx * 5 + 1},$${idx * 5 + 2},$${idx * 5 + 3},$${idx * 5 + 4},$${idx * 5 + 5})`
+    ).join(',')
+
+    const query = `
+      INSERT INTO attendance_logs (uid, user_id, timestamp, type, device_sn)
+      VALUES ${valuesSql}
+      ON CONFLICT (user_id, timestamp) DO UPDATE 
+      SET type = EXCLUDED.type, device_sn = EXCLUDED.device_sn
+    `
+    try {
+      await pool.query(query, flat)
+    } catch (err) {
+      console.error(`❌ Database: Error inserting batch at index ${i}:`, err.message)
+    }
   }
-  const valuesSql = rows.map((_, i) =>
-    `($${i * 5 + 1},$${i * 5 + 2},$${i * 5 + 3},$${i * 5 + 4},$${i * 5 + 5})`
-  ).join(',')
-  const query = `
-    INSERT INTO attendance_logs (uid, user_id, timestamp, type, device_sn)
-    VALUES ${valuesSql}
-    ON CONFLICT (user_id, timestamp) DO UPDATE 
-    SET type = EXCLUDED.type, device_sn = EXCLUDED.device_sn
-  `
-  await pool.query(query, flat)
 }
 
 /**

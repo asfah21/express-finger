@@ -45,6 +45,8 @@ export const syncController = {
      * Sync all active devices in registry
      */
     async syncAll(req, res) {
+        const isStream = req.query.stream === 'true'
+
         try {
             const { rows: devices } = await pool.query('SELECT ip, port, sn FROM devices WHERE is_active = true')
 
@@ -52,23 +54,59 @@ export const syncController = {
                 return res.json({ message: 'No active devices to sync', results: [] })
             }
 
-            const results = []
-            for (const dev of devices) {
-                try {
-                    const res = await pullDeviceLogs(dev.ip, dev.port || 4370)
-                    await pool.query('UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2', [res.sn, dev.ip])
-                    results.push({ ip: dev.ip, success: true, ...res })
-                } catch (err) {
-                    results.push({ ip: dev.ip, success: false, error: err.message })
-                }
+            if (isStream) {
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+                res.setHeader('Transfer-Encoding', 'chunked')
+                res.write(`🚀 Starting Sync for ${devices.length} devices...\n\n`)
             }
 
-            res.json({
-                message: 'Sync process finished',
-                results
-            })
+            const results = []
+            let processed = 0
+
+            for (const dev of devices) {
+                processed++
+                const percent = Math.round((processed / devices.length) * 100)
+
+                if (isStream) {
+                    res.write(`[${percent}%] 🔄 Syncing ${dev.sn || dev.ip} (${processed}/${devices.length})... `)
+                }
+
+                try {
+                    // Rename internal result to avoid shadowing 'res'
+                    const syncResult = await pullDeviceLogs(dev.ip, dev.port || 4370, dev.sn)
+                    await pool.query('UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2', [syncResult.sn, dev.ip])
+
+                    const successMsg = `✅ OK (${syncResult.count} logs)`
+                    results.push({ ip: dev.ip, sn: dev.sn, success: true, count: syncResult.count })
+
+                    if (isStream) res.write(successMsg + '\n')
+                } catch (err) {
+                    const errorMsg = `❌ Failed: ${err.message}`
+                    results.push({ ip: dev.ip, sn: dev.sn, success: false, error: err.message })
+
+                    if (isStream) res.write(errorMsg + '\n')
+                }
+
+                // Flush if possible
+                if (isStream && typeof res.flush === 'function') res.flush()
+            }
+
+            if (isStream) {
+                res.write(`\n✨ All done! Total processed: ${processed} devices.\n`)
+                res.end()
+            } else {
+                res.json({
+                    message: 'Sync process finished',
+                    results
+                })
+            }
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            if (isStream) {
+                res.write(`\n❌ Critical Error: ${error.message}\n`)
+                res.end()
+            } else {
+                res.status(500).json({ error: error.message })
+            }
         }
     }
 }
