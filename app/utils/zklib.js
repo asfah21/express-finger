@@ -57,21 +57,26 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
                 }
 
                 /**
-                 * 2. LOGIKA STATUS CERDAS (CHECK-IN/CHECK-OUT)
-                 * FW 8.x sering tidak mengirimkan field status di library standard.
-                 * Kita cek field-field alternatif dari caobo171 fork, atau gunakan estimasi.
+                 * 2. ATTENDANCE TYPE (CHECK-IN/CHECK-OUT)
+                 * Sumber: ZK Protocol spec — offset 31 dari setiap attendance record (40 bytes)
+                 * Field ini adalah "verify state" / tipe absensi:
+                 *   0 = Check In (masuk)
+                 *   1 = Check Out (pulang)
+                 *   2 = Break Out
+                 *   3 = Break In
+                 *   4 = OT In (lembur masuk)
+                 *   5 = OT Out (lembur keluar)
+                 *
+                 * Library node-zklib sudah memparse field ini dengan benar ke `verifyState`.
+                 * `verifyType` (offset 26) adalah cara verifikasi (fingerprint/card/pw) — BUKAN tipe absensi.
                  */
-                let type = 0; // Default: Masuk (0)
+                let type = 0; // Default: Check In
 
-                if (log.attendanceStatus !== undefined && log.attendanceStatus !== null) {
-                    type = Number(log.attendanceStatus);
-                } else if (log.status !== undefined && log.status !== null) {
-                    type = Number(log.status);
-                } else if (log.state !== undefined && log.state !== null) {
-                    type = Number(log.state);
+                if (log.verifyState !== undefined && log.verifyState !== null) {
+                    type = Number(log.verifyState);
                 } else {
-                    // Default fallback jika tidak ada status yang terbaca
-                    type = 0;
+                    // Fallback jika library lama mengembalikan nama field lain
+                    type = Number(log.attendanceStatus ?? log.status ?? log.state ?? 0);
                 }
 
                 return {
