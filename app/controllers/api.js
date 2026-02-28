@@ -73,6 +73,7 @@ export const apiController = {
         nama: row.nama || null,
         jabatan: row.jabatan || null,
         department: row.department || null,
+        type: row.type,
         absensi: typeMap[row.type] || String(row.type),
         device_name: deviceMap[row.device_sn] || row.device_sn,
         device_sn: row.device_sn,
