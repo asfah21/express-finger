@@ -81,7 +81,8 @@ export async function saveManyLogs(rows, deviceSN = null) {
   const query = `
     INSERT INTO attendance_logs (uid, user_id, timestamp, type, device_sn)
     VALUES ${valuesSql}
-    ON CONFLICT (user_id, timestamp) DO NOTHING
+    ON CONFLICT (user_id, timestamp) DO UPDATE 
+    SET type = EXCLUDED.type, device_sn = EXCLUDED.device_sn
   `
   await pool.query(query, flat)
 }

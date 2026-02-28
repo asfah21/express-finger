@@ -92,7 +92,22 @@ Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang be
 -   **URL**: `/api/logs`
 -   **Method**: `GET`
 -   **Headers**: `x-api-key: <API_KEY_ANDA>`
+-   **Query Parameters**:
+    -   `user_id`: Filter berdasarkan ID User (contoh: `?user_id=16`)
+    -   `from`: Filter tanggal mulai (format: `YYYY-MM-DD` atau ISO string)
+    -   `to`: Filter tanggal akhir
+    -   `type`: Filter tipe absensi (0: Masuk, 1: Pulang, dll)
+    -   `device_sn`: Filter berdasarkan Serial Number perangkat
+    -   `limit`: Batas jumlah data (default 100)
+    -   `offset`: Offset untuk pagination
 -   **Deskripsi**: Mengambil log absensi yang telah diproses dari database. Log yang dihasilkan juga digabungkan (LEFT JOIN) dengan data Employee. Respons mencakup kolom `absensi` (dari pemetaan Type) dan `device_name` (nama alias perangkat).
+-   **Contoh Penggunaan**:
+    -   **URL dengan Filter User ID**: `http://188.245.70.138:8080/api/logs?user_id=16`
+    -   **Perintah cURL**:
+        ```bash
+        curl -H "x-api-key: gsi-gUe9wek2ok8oXNMbwIkjqweq98912ihkq-azvan" \
+             "http://188.245.70.138:8080/api/logs?user_id=16"
+        ```
 
 #### 2. Karyawan (Directory Employee)
 -   **URL**: `/api/employees` (dan `/api/employees/:id`)

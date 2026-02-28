@@ -27,7 +27,9 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
                 uid: log.userSn || null,
                 userId: log.deviceUserId,
                 timestamp: log.recordTime,
-                type: 0 // node-zklib biasanya tidak mengembalikan status pasti, diset default Masuk (0) jika tidak ada
+                // Mengambil status/type asli dari mesin (0: Masuk, 1: Pulang, 4: Lembur Masuk, dsb)
+                type: log.attendanceStatus !== undefined ? Number(log.attendanceStatus) :
+                    (log.status !== undefined ? Number(log.status) : 0)
             }));
 
             // Menggunakan SN yang dipassing dari database (atau fallback)
