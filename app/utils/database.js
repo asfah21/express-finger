@@ -68,26 +68,30 @@ export async function ensureSchema() {
 export async function saveManyLogs(rows, deviceSN = null) {
   if (!rows.length) return
 
-  // Chunking to avoid parameter limit issues and handle errors better
   const chunkSize = 100
+  let totalInserted = 0
+
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize)
     const flat = []
+    const validRows = []
 
     for (const r of chunk) {
       const uid = r?.uid != null ? Number(r.uid) : null
       const userId = r?.userId != null ? String(r.userId) : null
-      const ts = r?.timestamp ? new Date(r.timestamp) : new Date()
-      // Skip invalid dates
-      if (isNaN(ts.getTime())) continue
+      const ts = r?.timestamp ? new Date(r.timestamp) : null
+      // Skip jika timestamp invalid atau userId kosong
+      if (!ts || isNaN(ts.getTime()) || !userId) continue
 
       const type = r?.type != null ? Number(r.type) : 0
       flat.push(uid, userId, ts, type, deviceSN)
+      validRows.push(r)
     }
 
-    if (flat.length === 0) continue
+    if (validRows.length === 0) continue
 
-    const valuesSql = chunk.map((_, idx) =>
+    // Gunakan validRows.length, BUKAN chunk.length untuk menghindari parameter mismatch
+    const valuesSql = validRows.map((_, idx) =>
       `($${idx * 5 + 1},$${idx * 5 + 2},$${idx * 5 + 3},$${idx * 5 + 4},$${idx * 5 + 5})`
     ).join(',')
 
@@ -99,11 +103,15 @@ export async function saveManyLogs(rows, deviceSN = null) {
     `
     try {
       await pool.query(query, flat)
+      totalInserted += validRows.length
     } catch (err) {
-      console.error(`❌ Database: Error inserting batch at index ${i}:`, err.message)
+      console.error(`❌ Database: Error inserting batch ${i}-${i + chunk.length} (${validRows.length} rows):`, err.message)
     }
   }
+
+  return totalInserted
 }
+
 
 /**
  * Update or create device info (Dynamic IP support)

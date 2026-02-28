@@ -1,0 +1,41 @@
+﻿
+=== DATA USER 16 (20 terbaru) ===
+[
+  {
+    "user_id": "16",
+    "timestamp": "2025-12-17T21:04:17.000Z",
+    "type": 1,
+    "device_sn": "TEST123"
+  }
+]
+
+=== RANGE DATA USER 16 ===
+{
+  "paling_lama": "2025-12-17T21:04:17.000Z",
+  "paling_baru": "2025-12-17T21:04:17.000Z",
+  "total": "1"
+}
+
+=== DATA 3 HARI TERAKHIR (semua user) ===
+[
+  {
+    "user_id": "TEST_USER",
+    "timestamp": "2026-02-28T02:32:35.058Z",
+    "type": 0,
+    "device_sn": "TEST_SN"
+  }
+]
+
+=== DATA PER MESIN ===
+[
+  {
+    "device_sn": "TEST_SN",
+    "total": "1",
+    "terakhir": "2026-02-28T02:32:35.058Z"
+  },
+  {
+    "device_sn": "TEST123",
+    "total": "4",
+    "terakhir": "2025-12-21T09:07:24.938Z"
+  }
+]
