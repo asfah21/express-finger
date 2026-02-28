@@ -46,11 +46,11 @@ export async function runSyncWorker() {
                     }
 
                     console.log(`🤖 Worker: Syncing device ${syncIp}...`)
-                    const result = await pullDeviceLogs(syncIp, syncPort)
+                    const result = await pullDeviceLogs(syncIp, syncPort, dev.sn)
 
                     await pool.query(
-                        'UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2',
-                        [result.sn, dev.ip]
+                        'UPDATE devices SET last_sync = now(), ip = $1 WHERE sn = $2',
+                        [dev.ip, dev.sn]
                     )
                     console.log(`✅ Worker: Successfully synced ${result.count} logs from SN ${result.sn} (${syncIp})`)
                 } catch (err) {

@@ -5,8 +5,9 @@ import { saveManyLogs } from './database.js'
  * Pull logs from a device using TCP protocol (Port 4370)
  * @param {string} ip - Device IP address
  * @param {number} port - Device port (default 4370)
+ * @param {string} sn - Expected Device SN
  */
-export async function pullDeviceLogs(ip, port = 4370) {
+export async function pullDeviceLogs(ip, port = 4370, sn = null) {
     // Gunakan ZKLib dari node-zklib (Timeout 10000ms, inport 5200)
     const zk = new ZKLib(ip, parseInt(port), 10000, 5200 + Math.floor(Math.random() * 1000));
 
@@ -29,16 +30,16 @@ export async function pullDeviceLogs(ip, port = 4370) {
                 type: 0 // node-zklib biasanya tidak mengembalikan status pasti, diset default Masuk (0) jika tidak ada
             }));
 
-            // Karena node-zklib tidak menyediakan getSerialNumber, kita fallback ke IP atau parameter
-            const fakeSn = `PULL-${ip}`;
-            await saveManyLogs(formattedLogs, fakeSn);
-            console.log(`✅ Successfully synced ${formattedLogs.length} logs from ${ip}`);
+            // Menggunakan SN yang dipassing dari database (atau fallback)
+            const deviceSn = sn || `PULL-${ip}`;
+            await saveManyLogs(formattedLogs, deviceSn);
+            console.log(`✅ Successfully synced ${formattedLogs.length} logs from ${deviceSn}`);
         }
 
         await zk.disconnect();
         return {
             success: true,
-            sn: `PULL-${ip}`,
+            sn: sn || `PULL-${ip}`,
             count: attendanceData.length
         };
     } catch (error) {
