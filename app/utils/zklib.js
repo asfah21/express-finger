@@ -1,5 +1,4 @@
-import ZKLib from 'zklib'
-import { promisify } from 'util'
+import ZKLib from 'node-zklib'
 import { saveManyLogs } from './database.js'
 
 /**
@@ -8,66 +7,47 @@ import { saveManyLogs } from './database.js'
  * @param {number} port - Device port (default 4370)
  */
 export async function pullDeviceLogs(ip, port = 4370) {
-    // Fix: ZKLib 0.2.11 expects an options object
-    const zk = new ZKLib({
-        ip,
-        port: parseInt(port),
-        timeout: 10000,
-        inport: 5200 + Math.floor(Math.random() * 1000), // Random port to avoid conflicts
-        connectionType: 'tcp'
-    })
-
-    // Promisify the methods needed
-    const connect = promisify(zk.connect).bind(zk)
-    const getAttendance = promisify(zk.getAttendance).bind(zk)
-    const getSerialNumber = promisify(zk.serialNumber).bind(zk)
-    const disconnect = promisify(zk.disconnect).bind(zk)
+    // Gunakan ZKLib dari node-zklib (Timeout 10000ms, inport 5200)
+    const zk = new ZKLib(ip, parseInt(port), 10000, 5200 + Math.floor(Math.random() * 1000));
 
     try {
-        console.log(`🔌 Connecting to device ${ip}:${port}...`)
-        await connect()
+        console.log(`🔌 Connecting to device ${ip}:${port}...`);
+        await zk.createSocket();
 
-        // Get basic info
-        const sn = await getSerialNumber()
-        console.log(`🆔 Device Serial Number: ${sn}`)
+        console.log(`📥 Fetching logs from ${ip}...`);
+        const logs = await zk.getAttendances();
 
-        // Get attendance logs
-        console.log(`📥 Fetching logs from ${ip}...`)
-        const logs = await getAttendance()
-
-        // Some versions of zklib return an array directly, some return { data: [] }
-        const attendanceData = Array.isArray(logs) ? logs : (logs?.data || [])
-        console.log(`📦 Received ${attendanceData.length} logs from device ${sn}`)
+        const attendanceData = logs?.data || [];
+        console.log(`📦 Received ${attendanceData.length} logs from device at ${ip}`);
 
         if (attendanceData.length > 0) {
-            // Format logs to match our schema
+            // node-zklib return mapping: deviceUserId, recordTime, etc
             const formattedLogs = attendanceData.map(log => ({
-                uid: log.uid,
-                userId: log.id || log.userId,
-                timestamp: log.timestamp,
-                type: log.state || log.status // state/status usually corresponds to check type
-            }))
+                uid: log.userSn || null,
+                userId: log.deviceUserId,
+                timestamp: log.recordTime,
+                type: 0 // node-zklib biasanya tidak mengembalikan status pasti, diset default Masuk (0) jika tidak ada
+            }));
 
-            await saveManyLogs(formattedLogs, sn)
-            console.log(`✅ Successfully synced ${formattedLogs.length} logs from ${sn}`)
+            // Karena node-zklib tidak menyediakan getSerialNumber, kita fallback ke IP atau parameter
+            const fakeSn = `PULL-${ip}`;
+            await saveManyLogs(formattedLogs, fakeSn);
+            console.log(`✅ Successfully synced ${formattedLogs.length} logs from ${ip}`);
         }
 
-        await disconnect()
+        await zk.disconnect();
         return {
             success: true,
-            sn,
+            sn: `PULL-${ip}`,
             count: attendanceData.length
-        }
+        };
     } catch (error) {
-        console.error(`❌ Error pulling logs from ${ip}:`, error.message)
+        console.error(`❌ Error pulling logs from ${ip}:`, error.message);
         try {
-            // In case of error, try to close the socket
-            if (zk.socket) {
-                zk.closeSocket()
-            }
+            await zk.disconnect();
         } catch (e) {
             // ignore
         }
-        throw error
+        throw error;
     }
 }

@@ -38,7 +38,7 @@ export const apiController = {
             al."timestamp", 
             al.created_at
           FROM attendance_logs al
-          LEFT JOIN employee e ON al.user_id = e.user_id
+          LEFT JOIN employee e ON al.user_id::text = e.user_id::text
           ${whereSql}
           ORDER BY al."timestamp" DESC
           LIMIT $${i++} OFFSET $${i++}
