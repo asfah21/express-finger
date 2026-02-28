@@ -128,3 +128,8 @@ export async function upsertDevice(sn, ip) {
   `
   await pool.query(query, [sn, cleanIp])
 }
+
+export async function getDevices() {
+  const { rows } = await pool.query('SELECT * FROM devices WHERE is_active = true')
+  return rows
+}

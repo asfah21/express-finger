@@ -10,10 +10,30 @@ import path from 'path'
  * 2. Missing/Undefined attendance types (Smart time-based estimation)
  * 3. Future date noise protection
  */
+import { SYNC_CONFIG } from '../config/sync.js'
+
 export async function pullDeviceLogs(ip, port = 4370, sn = null) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
 
     try {
+        // --- 0. AUTO CLEANUP OLD AUDIT FILES ---
+        try {
+            const pullDir = '/data/pull';
+            const files = await fs.readdir(pullDir);
+            const now = Date.now();
+            const maxAge = SYNC_CONFIG.KEEP_AUDIT_FILES_DAYS * 24 * 60 * 60 * 1000;
+
+            for (const file of files) {
+                const filePath = path.join(pullDir, file);
+                const stats = await fs.stat(filePath);
+                if (now - stats.mtimeMs > maxAge) {
+                    await fs.unlink(filePath);
+                }
+            }
+        } catch (e) {
+            // Abaikan jika folder belum ada
+        }
+
         console.log(`🔌 Connecting (Fw 8+ Mode) to ${ip}:${port}...`);
         await zk.createSocket();
 
@@ -23,7 +43,7 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
 
         console.log(`📦 Received ${attendanceData.length} logs from device ${sn || ip}`);
 
-        // --- Save raw audit file for debugging ---
+        // --- Save raw audit file ---
         try {
             const pullDir = '/data/pull';
             await fs.mkdir(pullDir, { recursive: true });
@@ -38,46 +58,18 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
                 let dt = new Date(log.recordTime);
                 let finalDate = dt;
 
-                /**
-                 * 1. KOREKSI TANGGAL (FIX BIT-SHIFT FW 8.X)
-                 * Masalah: Firmware baru sering terbaca 2025 atau masa depan 2026.
-                 */
+                // 1. KOREKSI TANGGAL (FIX BIT-SHIFT FW 8.X)
                 let year = dt.getFullYear();
-                let month = dt.getMonth(); // 0-indexed
+                let month = dt.getMonth();
 
                 if (year === 2025 && month === 9) {
-                    // Oct 2025 -> Feb 2026
-                    year = 2026;
-                    month = 1;
-                    finalDate = new Date(year, month, dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
-                } else if (year === 2026 && month > 2) {
-                    // Future noise (e.g. Sep 2026) -> Paksa ke Feb 2026
-                    month = 1;
+                    year = 2026; month = 1;
                     finalDate = new Date(year, month, dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
                 }
 
-                /**
-                 * 2. ATTENDANCE TYPE (CHECK-IN/CHECK-OUT)
-                 * Sumber: ZK Protocol spec — offset 31 dari setiap attendance record (40 bytes)
-                 * Field ini adalah "verify state" / tipe absensi:
-                 *   0 = Check In (masuk)
-                 *   1 = Check Out (pulang)
-                 *   2 = Break Out
-                 *   3 = Break In
-                 *   4 = OT In (lembur masuk)
-                 *   5 = OT Out (lembur keluar)
-                 *
-                 * Library node-zklib sudah memparse field ini dengan benar ke `verifyState`.
-                 * `verifyType` (offset 26) adalah cara verifikasi (fingerprint/card/pw) — BUKAN tipe absensi.
-                 */
-                let type = 0; // Default: Check In
-
-                if (log.verifyState !== undefined && log.verifyState !== null) {
-                    type = Number(log.verifyState);
-                } else {
-                    // Fallback jika library lama mengembalikan nama field lain
-                    type = Number(log.attendanceStatus ?? log.status ?? log.state ?? 0);
-                }
+                // 2. ATTENDANCE TYPE
+                // Gunakan field verifyState dari patch node_modules kita
+                let type = Number(log.verifyState ?? log.status ?? log.state ?? 0);
 
                 return {
                     uid: log.userSn || null,
@@ -86,27 +78,21 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
                     type: type
                 };
             }).filter(log => {
-                // Jangan terima data masa depan di atas esok hari
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                return log.timestamp <= tomorrow;
+                const limit = new Date();
+                limit.setDate(limit.getDate() + SYNC_CONFIG.MAX_FUTURE_DAYS);
+                return log.timestamp <= limit;
             });
 
             const deviceSn = sn || `PULL-${ip}`;
             await saveManyLogs(formattedLogs, deviceSn);
-            console.log(`✅ FW 8+ Sync: ${formattedLogs.length} logs successfully processed for ${deviceSn}`);
+            console.log(`✅ FW 8+ Sync Done: ${formattedLogs.length} logs for ${deviceSn}. Type mapping: OK`);
         }
 
         await zk.disconnect();
-        return {
-            success: true,
-            sn: sn || `PULL-${ip}`,
-            count: attendanceData.length
-        };
+        return { success: true, count: attendanceData.length };
     } catch (error) {
-        const errorMsg = error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
-        console.error(`❌ FW 8+ Pull Error for ${ip}:`, errorMsg);
+        console.error(`❌ Error pulling from ${ip}:`, error.message);
         try { await zk.disconnect(); } catch (e) { }
-        throw new Error(errorMsg);
+        throw error;
     }
 }

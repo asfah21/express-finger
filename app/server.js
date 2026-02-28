@@ -9,7 +9,7 @@ import {
 } from './middleware/index.js'
 import { deviceRoutes, apiRoutes } from './routes/index.js'
 import { ensureSchema, ensureRawDir, cleanupOldRawFiles } from './utils/index.js'
-import { initWorker } from './utils/worker.js'
+import { startPullScheduler } from './utils/scheduler.js'
 
 const app = express()
 app.set('trust proxy', true)
@@ -38,7 +38,7 @@ app.get('/', (_req, res) =>
       await ensureSchema()
       await ensureRawDir()
       await cleanupOldRawFiles()
-      initWorker()
+      startPullScheduler()
 
       // Setup cleanup interval
       setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
