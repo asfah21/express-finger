@@ -18,6 +18,9 @@ export async function runSyncWorker() {
     console.log('🤖 Worker: Starting scheduled PULL sync...')
 
     try {
+        // Bersihkan "mesin hantu" (ghost devices) dari hasil bug lama
+        await pool.query("DELETE FROM devices WHERE sn LIKE 'PULL-%'")
+
         const { rows: devices } = await pool.query(
             'SELECT ip, port, sn FROM devices WHERE is_active = true'
         )
@@ -58,8 +61,11 @@ export async function runSyncWorker() {
                     const targetIp = priority ? priority.ip : dev.ip
 
                     // Bersihkan pesan error agar lebih mudah dibaca
-                    const errMsg = err.message.includes('ETIMEDOUT') ? 'Connection Timeout (Cek apakah Port terbuka)' :
-                        err.message.includes('Timeout error') ? 'Device tidak merespon/terkunci (Mungkin karena mode ADMS aktif)' : err.message;
+                    const errString = err && err.message ? err.message :
+                        (typeof err === 'object' ? JSON.stringify(err) : String(err));
+
+                    const errMsg = errString.includes('ETIMEDOUT') ? 'Connection Timeout (Cek apakah Port terbuka)' :
+                        errString.includes('Timeout error') || errString.includes('TIME OUT') ? 'Device tidak merespon/terkunci (Data terlalu banyak atau mode ADMS aktif)' : errString;
 
                     console.error(`❌ Worker: Failed to sync SN ${dev.sn || 'Unknown'} at ${targetIp} -> ${errMsg}`)
                 }

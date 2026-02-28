@@ -43,12 +43,13 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
             count: attendanceData.length
         };
     } catch (error) {
-        console.error(`❌ Error pulling logs from ${ip}:`, error.message);
+        const errorMsg = error && error.err ? error.err.message : (error && error.message ? error.message : (typeof error === 'object' ? JSON.stringify(error) : String(error)));
+        console.error(`❌ Error pulling logs from ${ip}:`, errorMsg);
         try {
             await zk.disconnect();
         } catch (e) {
             // ignore
         }
-        throw error;
+        throw new Error(errorMsg);
     }
 }
