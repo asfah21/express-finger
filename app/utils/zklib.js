@@ -1,15 +1,14 @@
 import ZKLib from 'node-zklib'
 import { saveManyLogs } from './database.js'
+import fs from 'fs/promises'
+import path from 'path'
 
 /**
  * Pull logs from a device using TCP protocol (Port 4370)
- * @param {string} ip - Device IP address
- * @param {number} port - Device port (default 4370)
- * @param {string} sn - Expected Device SN
+ * Includes manual bit-correction for Year/Month anomalies in new firmware
  */
 export async function pullDeviceLogs(ip, port = 4370, sn = null) {
-    // Gunakan ZKLib dari node-zklib (Timeout 10000ms, inport 5200)
-    const zk = new ZKLib(ip, parseInt(port), 10000, 5200 + Math.floor(Math.random() * 1000));
+    const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
 
     try {
         console.log(`🔌 Connecting to device ${ip}:${port}...`);
@@ -17,23 +16,58 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
 
         console.log(`📥 Fetching logs from ${ip}...`);
         const logs = await zk.getAttendances();
-
         const attendanceData = logs?.data || [];
+
         console.log(`📦 Received ${attendanceData.length} logs from device at ${ip}`);
 
-        if (attendanceData.length > 0) {
-            // node-zklib return mapping: deviceUserId, recordTime, etc
-            const formattedLogs = attendanceData.map(log => ({
-                uid: log.userSn || null,
-                userId: log.deviceUserId,
-                timestamp: log.recordTime,
-                // Sekarang 'status' tersedia langsung dari library (hasil patch decodeRecordData40)
-                // 0: Masuk, 1: Pulang, 2: Break Out, 3: Break In, 4: Lembur Masuk, 5: Lembur Keluar
-                type: log.status !== undefined ? Number(log.status) :
-                    (log.attendanceStatus !== undefined ? Number(log.attendanceStatus) : 0)
-            }));
+        // --- SAVE RAW PULL DATA FOR DEBUGGING ---
+        try {
+            const pullDir = '/data/pull';
+            await fs.mkdir(pullDir, { recursive: true });
+            const fileName = `pull_${sn || 'unknown'}_${Date.now()}.json`;
+            await fs.writeFile(path.join(pullDir, fileName), JSON.stringify(attendanceData, null, 2));
+            console.log(`💾 Raw PULL saved: ${fileName}`);
+        } catch (fsErr) {
+            console.warn('⚠️ Gagal simpan raw pull file:', fsErr.message);
+        }
+        // ----------------------------------------
 
-            // Menggunakan SN yang dipassing dari database (atau fallback)
+        if (attendanceData.length > 0) {
+            const formattedLogs = attendanceData.map(log => {
+                let dt = new Date(log.recordTime);
+                let finalDate = dt;
+
+                // KOREKSI TAHUN & BULAN:
+                // Jika library salah baca (seperti Oct 2025 yang seharusnya Feb 2026)
+                let year = dt.getFullYear();
+                let month = dt.getMonth(); // 0-indexed
+
+                // Deteksi pergeseran bit (biasanya 2025/10)
+                if (year === 2025) {
+                    year = 2026;
+                    // Jika terdeteksi pergeseran bulan juga (misal Okt -> Feb)
+                    if (month === 9) month = 1;
+                    finalDate = new Date(year, month, dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
+                } else if (year === 2026 && month === 8) { // Jika terdeteksi Sep 2026 ngaco
+                    // Biasanya ini adalah data saat ini yang melompat jauh
+                    // Kita bisa abaikan atau paksa ke bulan sekarang
+                    month = 1; // Paksa ke Februari
+                    finalDate = new Date(year, month, dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
+                }
+
+                return {
+                    uid: log.userSn || null,
+                    userId: String(log.deviceUserId).trim(),
+                    timestamp: finalDate,
+                    type: log.status !== undefined ? Number(log.status) : (log.attendanceStatus || 0)
+                };
+            }).filter(log => {
+                // Buang data yang masih di luar nalar (lebih dari 1 hari ke depan)
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                return log.timestamp <= tomorrow;
+            });
+
             const deviceSn = sn || `PULL-${ip}`;
             await saveManyLogs(formattedLogs, deviceSn);
             console.log(`✅ Successfully synced ${formattedLogs.length} logs from ${deviceSn}`);
@@ -46,13 +80,9 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
             count: attendanceData.length
         };
     } catch (error) {
-        const errorMsg = error && error.err ? error.err.message : (error && error.message ? error.message : (typeof error === 'object' ? JSON.stringify(error) : String(error)));
+        const errorMsg = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
         console.error(`❌ Error pulling logs from ${ip}:`, errorMsg);
-        try {
-            await zk.disconnect();
-        } catch (e) {
-            // ignore
-        }
+        try { await zk.disconnect(); } catch (e) { }
         throw new Error(errorMsg);
     }
 }
