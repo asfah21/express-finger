@@ -26,8 +26,10 @@ async function runSyncTask() {
     console.log(`🔄 [${new Date().toISOString()}] Job: Pulling data from all priority clinical devices...`);
 
     try {
-        const devices = await getDevices(); // Ambil list device dari DB
+        const devices = await getDevices();
         const pullDevices = devices.filter(d => d.sync_mode === 'PULL' || d.sync_mode === 'HYBRID');
+
+        console.log(`🤖 Scheduler: Found ${devices.length} total devices, ${pullDevices.length} marked for PULL/HYBRID.`);
 
         for (const device of pullDevices) {
             try {

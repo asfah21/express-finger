@@ -10,6 +10,7 @@ export const config = {
   PGPORT: process.env.PGPORT,
   API_KEY: process.env.API_KEY,
   RAW_DIR: process.env.RAW_DIR || path.join(path.resolve(), '../data/raw'),
+  PULL_DIR: process.env.PULL_DIR || path.join(path.resolve(), '../data/pull'),
   MAX_LIMIT: Number(process.env.MAX_LIMIT || 1000),
   CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000,
   CLEANUP_AGE_DAYS: 7,

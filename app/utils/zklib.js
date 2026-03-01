@@ -1,5 +1,6 @@
 import ZKLib from 'node-zklib'
 import { saveManyLogs } from './database.js'
+import { config } from '../config/index.js'
 import fs from 'fs/promises'
 import path from 'path'
 
@@ -18,7 +19,7 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
     try {
         // --- 0. AUTO CLEANUP OLD AUDIT FILES ---
         try {
-            const pullDir = '/data/pull';
+            const pullDir = config.PULL_DIR;
             const files = await fs.readdir(pullDir);
             const now = Date.now();
             const maxAge = SYNC_CONFIG.KEEP_AUDIT_FILES_DAYS * 24 * 60 * 60 * 1000;
@@ -45,7 +46,7 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
 
         // --- Save raw audit file ---
         try {
-            const pullDir = '/data/pull';
+            const pullDir = config.PULL_DIR;
             await fs.mkdir(pullDir, { recursive: true });
             const fileName = `fw8_raw_${sn || 'unknown'}_${Date.now()}.json`;
             await fs.writeFile(path.join(pullDir, fileName), JSON.stringify(attendanceData, null, 2));

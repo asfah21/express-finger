@@ -34,10 +34,18 @@ export async function ensureSchema() {
       ip TEXT,
       port INT DEFAULT 4370,
       is_active BOOLEAN DEFAULT true,
+      sync_mode TEXT DEFAULT 'HYBRID',
       last_sync TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT now()
     );
-
+    
+    -- Ensure sync_mode column exists for existing installations
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS sync_mode TEXT DEFAULT 'HYBRID';
+    
+    -- Ensure all existing devices have a sync_mode set (not NULL)
+    UPDATE devices SET sync_mode = 'HYBRID' WHERE sync_mode IS NULL;
+  `)
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS employee (
       id SERIAL PRIMARY KEY,
       user_id TEXT UNIQUE NOT NULL,
