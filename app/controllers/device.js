@@ -2,6 +2,9 @@ import { mkdir, writeFile } from 'fs/promises'
 import { config } from '../config/index.js'
 import { smartParseMany, saveManyLogs, ensureRawDir, upsertDevice } from '../utils/index.js'
 
+// Simple memory cache to reduce DB load
+const lastDeviceIPs = new Map()
+
 // Device controller
 export const deviceController = {
   async handleCdata(req, res) {
@@ -15,9 +18,9 @@ export const deviceController = {
 
       // 2. Registrasi/Update Device (hanya jika IP berubah)
       if (deviceSN !== 'unknown') {
-        if (this.lastDeviceIPs.get(deviceSN) !== deviceIP) {
+        if (lastDeviceIPs.get(deviceSN) !== deviceIP) {
           await upsertDevice(deviceSN, deviceIP);
-          this.lastDeviceIPs.set(deviceSN, deviceIP);
+          lastDeviceIPs.set(deviceSN, deviceIP);
         }
       }
 
@@ -47,9 +50,6 @@ export const deviceController = {
     }
   },
 
-  // Memory cache sederhana untuk mengurangi beban DB pada getRequest
-  lastDeviceIPs: new Map(),
-
   async handleGetRequest(req, res) {
     try {
       const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'))
@@ -59,9 +59,9 @@ export const deviceController = {
 
       if (deviceSN) {
         // Hanya update DB jika IP baru atau belum pernah tercatat di sesi ini
-        if (this.lastDeviceIPs.get(deviceSN) !== cleanIp) {
+        if (lastDeviceIPs.get(deviceSN) !== cleanIp) {
           await upsertDevice(deviceSN, cleanIp)
-          this.lastDeviceIPs.set(deviceSN, cleanIp)
+          lastDeviceIPs.set(deviceSN, cleanIp)
           // console.log(`🔄 Device Session Updated: SN=${deviceSN} IP=${cleanIp}`);
         }
       }
