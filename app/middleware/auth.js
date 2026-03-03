@@ -1,14 +1,19 @@
 import jwt from 'jsonwebtoken'
 import { config } from '../config/index.js'
+import { getSettingsData } from '../controllers/settings.js'
 
 const SECRET = process.env.JWT_SECRET || 'express-finger-secret-key-123'
 
 // Combined authentication middleware
 // Allows either x-api-key OR a valid JWT token
-export const requireApiKey = (req, res, next) => {
+export const requireApiKey = async (req, res, next) => {
   // Check for API Key first
   const key = req.headers['x-api-key']
-  if (key === config.API_KEY) {
+
+  // Check dynamic key from settings
+  const settings = await getSettingsData()
+
+  if (key && (key === config.API_KEY || key === settings.api_key)) {
     return next()
   }
 

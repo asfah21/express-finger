@@ -87,5 +87,31 @@ export const employeeController = {
         } catch (error) {
             res.status(500).json({ status: 'error', message: error.message })
         }
+    },
+
+    async bulkAddEmployees(req, res) {
+        const { employees } = req.body
+        if (!Array.isArray(employees)) return res.status(400).json({ status: 'error', message: 'Invalid data format' })
+
+        try {
+            const results = []
+            for (const emp of employees) {
+                const { user_id, nik, nama, jabatan, department } = emp
+                if (!user_id) continue
+
+                const { rows } = await pool.query(
+                    `INSERT INTO employee (user_id, nik, nama, jabatan, department) 
+                     VALUES ($1, $2, $3, $4, $5) 
+                     ON CONFLICT (user_id) DO UPDATE 
+                     SET nik = EXCLUDED.nik, nama = EXCLUDED.nama, jabatan = EXCLUDED.jabatan, department = EXCLUDED.department
+                     RETURNING *`,
+                    [String(user_id), nik, nama, jabatan, department]
+                )
+                results.push(rows[0])
+            }
+            res.json({ status: 'success', message: `Imported ${results.length} employees`, data: results })
+        } catch (error) {
+            res.status(500).json({ status: 'error', message: error.message })
+        }
     }
 }

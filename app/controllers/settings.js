@@ -42,7 +42,9 @@ export const settingsController = {
 
     async updateSettings(req, res) {
         try {
-            const newSettings = req.body
+            const currentSettings = await getSettingsData()
+            const newSettings = { ...currentSettings, ...req.body }
+
             // Tulis ulang file settings
             await writeFile(settingsPath, JSON.stringify(newSettings, null, 2))
             res.json({ status: 'success', message: 'Settings updated successfully', data: newSettings })

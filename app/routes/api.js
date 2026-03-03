@@ -29,6 +29,7 @@ router.delete('/devices/:id', deviceManagerController.deleteDevice)
 router.get('/employees', employeeController.listEmployees)
 router.get('/employees/:id', employeeController.getEmployee)
 router.post('/employees', employeeController.addEmployee)
+router.post('/employees/bulk', employeeController.bulkAddEmployees)
 router.put('/employees/:id', employeeController.updateEmployee)
 router.delete('/employees/:id', employeeController.deleteEmployee)
 

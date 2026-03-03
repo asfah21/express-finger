@@ -7,6 +7,7 @@
     <title>Express Finger Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -129,14 +130,26 @@
                 <div id="page-employees" class="page" style="display: none;">
                     <div class="header">
                         <h2>Employee Directory</h2>
-                        <div style="display: flex; gap: 1rem;">
+                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                             <button class="btn-primary" style="width: auto; padding: 0.6rem 1.2rem;"
                                 onclick="openAddEmployee()">+ Add Employee</button>
                             <button class="btn-primary"
                                 style="width: auto; padding: 0.6rem 1.2rem; background: var(--secondary);"
                                 onclick="pullAllEmployees()">
-                                <i class="fas fa-download"></i> Pull All
+                                <i class="fas fa-sync"></i> Pull Mesin
                             </button>
+                            <button class="btn-primary"
+                                style="width: auto; padding: 0.6rem 1.2rem; background: #2d3748;"
+                                onclick="exportEmployees()">
+                                <i class="fas fa-file-excel"></i> Export Excel
+                            </button>
+                            <button class="btn-primary"
+                                style="width: auto; padding: 0.6rem 1.2rem; background: #2d3748;"
+                                onclick="document.getElementById('import-file').click()">
+                                <i class="fas fa-file-import"></i> Import Excel
+                            </button>
+                            <input type="file" id="import-file" style="display: none;" accept=".xlsx, .xls"
+                                onchange="handleImport(event)">
                         </div>
                     </div>
                     <div class="table-container">

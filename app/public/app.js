@@ -240,6 +240,72 @@ async function refreshEmployees() {
     updatePaginationUI('employees');
 }
 
+async function editEmployee(id) {
+    const res = await fetch('/api/employees/' + id);
+    const { data: emp } = await res.json();
+
+    document.getElementById('modal-title').innerText = 'Edit Employee';
+    document.getElementById('modal-content').innerHTML = `
+        <div class="form-group">
+            <label>User ID (Fingerprint ID)</label>
+            <input type="text" id="emp-uid" value="${emp.user_id}">
+        </div>
+        <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="emp-name" value="${emp.nama || ''}">
+        </div>
+        <div class="form-group">
+            <label>NIK</label>
+            <input type="text" id="emp-nik" value="${emp.nik || ''}">
+        </div>
+        <div class="form-group">
+            <label>Jabatan</label>
+            <input type="text" id="emp-jabatan" value="${emp.jabatan || ''}">
+        </div>
+        <div class="form-group">
+            <label>Department</label>
+            <input type="text" id="emp-dept" value="${emp.department || ''}">
+        </div>
+    `;
+    document.getElementById('modal-save-btn').onclick = () => saveEditEmployee(id);
+    toggleModal(true);
+}
+
+async function saveEditEmployee(id) {
+    const data = {
+        user_id: document.getElementById('emp-uid').value,
+        nama: document.getElementById('emp-name').value,
+        nik: document.getElementById('emp-nik').value,
+        jabatan: document.getElementById('emp-jabatan').value,
+        department: document.getElementById('emp-dept').value
+    };
+
+    const res = await fetch('/api/employees/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+        showToast('Employee updated');
+        toggleModal(false);
+        refreshEmployees();
+    } else {
+        showToast('Update failed', 'error');
+    }
+}
+
+async function deleteEmployee(id) {
+    if (!confirm('Are you sure you want to delete this employee?')) return;
+    const res = await fetch('/api/employees/' + id, { method: 'DELETE' });
+    if (res.ok) {
+        showToast('Employee deleted');
+        refreshEmployees();
+    } else {
+        showToast('Delete failed', 'error');
+    }
+}
+
 async function refreshLogs() {
     const s = paginationState.logs;
     const date = document.getElementById('log-date').value;
@@ -266,7 +332,7 @@ async function loadSettings() {
     const data = await res.json();
     if (data.status === 'success') {
         document.getElementById('setting-api-key').value = data.data.api_key || '';
-        // Other settings...
+        document.getElementById('setting-cleanup-days').value = data.data.cleanup_age_days || 30;
     }
 }
 
@@ -275,7 +341,24 @@ async function saveSettings() {
     const cleanupDays = document.getElementById('setting-cleanup-days').value;
 
     showToast('Saving settings...');
-    // Impl logic...
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                api_key: apiKey,
+                cleanup_age_days: parseInt(cleanupDays)
+            })
+        });
+
+        if (res.ok) {
+            showToast('Settings saved successfully', 'success');
+        } else {
+            showToast('Failed to save settings', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
 }
 
 async function updateAccount() {
@@ -353,6 +436,58 @@ async function pullAllEmployees() {
     }
 }
 
+async function exportEmployees() {
+    try {
+        const res = await fetch('/api/employees?limit=5000');
+        const data = await res.json();
+        const employees = data.data?.list || [];
+
+        // Buat sheet dari data JSON
+        const worksheet = XLSX.utils.json_to_sheet(employees);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+
+        // Export file
+        XLSX.writeFile(workbook, `employees_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showToast('Export successful');
+    } catch (err) {
+        showToast('Export failed', 'error');
+    }
+}
+
+function handleImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const employees = XLSX.utils.sheet_to_json(worksheet);
+
+            if (!Array.isArray(employees)) throw new Error('Invalid format');
+            showToast(`Importing ${employees.length} employees...`);
+            const res = await fetch('/api/employees/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employees })
+            });
+            if (res.ok) {
+                showToast(`Successfully imported employees`, 'success');
+                refreshEmployees();
+            } else {
+                showToast('Import failed', 'error');
+            }
+        } catch (err) {
+            showToast('Invalid Excel file', 'error');
+        }
+        event.target.value = '';
+    };
+    reader.readAsArrayBuffer(file);
+}
+
 // Modal Handlers
 function openAddDevice() {
     document.getElementById('modal-title').innerText = 'Add New Device';
@@ -417,6 +552,14 @@ function openAddEmployee() {
             <label>NIK</label>
             <input type="text" id="emp-nik" placeholder="123456">
         </div>
+        <div class="form-group">
+            <label>Jabatan</label>
+            <input type="text" id="emp-jabatan" placeholder="Staff IT">
+        </div>
+        <div class="form-group">
+            <label>Department</label>
+            <input type="text" id="emp-dept" placeholder="IT">
+        </div>
     `;
     document.getElementById('modal-save-btn').onclick = saveNewEmployee;
     toggleModal(true);
@@ -426,7 +569,9 @@ async function saveNewEmployee() {
     const data = {
         user_id: document.getElementById('emp-uid').value,
         nama: document.getElementById('emp-name').value,
-        nik: document.getElementById('emp-nik').value
+        nik: document.getElementById('emp-nik').value,
+        jabatan: document.getElementById('emp-jabatan').value,
+        department: document.getElementById('emp-dept').value
     };
 
     const res = await fetch('/api/employees', {

@@ -101,6 +101,9 @@ Untuk akses programatik (non-browser), sertakan header:
 
 #### 2. Manajemen Karyawan
 -   **URL**: `GET|POST|PUT|DELETE /api/employees`
+-   **Bulk Import**: `POST /api/employees/bulk` (Mendukung file Excel via Dashboard)
+-   **Fields**: `user_id`, `nama`, `nik`, `jabatan`, `department`.
+-   **Export/Import**: Mendukung format **Excel (.xlsx)** melalui GUI Dashboard.
 -   **Deskripsi**: Sinkronisasi data karyawan antara database dan sistem eksternal.
 
 #### 3. Sinkronisasi (PULL)
