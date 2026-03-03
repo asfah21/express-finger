@@ -101,6 +101,12 @@ function showPage(pageId) {
     if (pageId === 'employees') refreshEmployees();
     if (pageId === 'logs') refreshLogs();
     if (pageId === 'settings') loadSettings();
+
+    // Close mobile sidebar if open
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
 }
 
 // Pagination Helpers
@@ -609,6 +615,12 @@ function showToast(message, type = 'info') {
 
     toast.classList.add('active');
     setTimeout(() => toast.classList.remove('active'), 3000);
+}
+
+// Mobile Sidebar Toggle
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('active');
+    document.querySelector('.sidebar-overlay').classList.toggle('active');
 }
 
 // Initialize

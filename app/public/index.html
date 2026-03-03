@@ -14,6 +14,20 @@
     <div id="app">
         <!-- Dashboard view (initially hidden) -->
         <div id="dashboard" style="display: none; width: 100%;">
+            <!-- Mobile Header -->
+            <div class="mobile-header">
+                <div class="sidebar-logo" style="margin-bottom: 0;">
+                    <div class="icon"><i class="fas fa-fingerprint"></i></div>
+                    <span>EXPRESS FINGER</span>
+                </div>
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+            </div>
+
+            <!-- Mobile Overlay -->
+            <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
             <nav class="sidebar">
                 <div class="sidebar-logo">
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
