@@ -15,7 +15,7 @@ const defaultSettings = {
         "5": "Lembur Keluar"
     },
     devices: {
-        "CKEB233960333": "Mesin Pintu Depan"
+        "CKEB233960333": "Office 1"
     }
 }
 
