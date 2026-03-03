@@ -3,12 +3,27 @@ import { pool } from '../utils/database.js'
 export const employeeController = {
     async listEmployees(req, res) {
         try {
-            const { limit = 25, offset = 0 } = req.query
+            const { limit = 25, offset = 0, search = '' } = req.query
             const lim = parseInt(limit)
             const off = parseInt(offset)
 
-            const { rows } = await pool.query('SELECT * FROM employee ORDER BY id ASC LIMIT $1 OFFSET $2', [lim, off])
-            const { rows: countRes } = await pool.query('SELECT COUNT(*)::int as total FROM employee')
+            let query = 'SELECT * FROM employee'
+            let countQuery = 'SELECT COUNT(*)::int as total FROM employee'
+            let params = [lim, off]
+            let countParams = []
+
+            if (search) {
+                const searchPattern = `%${search}%`
+                query += ' WHERE (nama ILIKE $3 OR user_id ILIKE $3)'
+                countQuery += ' WHERE (nama ILIKE $1 OR user_id ILIKE $1)'
+                params.push(searchPattern)
+                countParams.push(searchPattern)
+            }
+
+            query += ' ORDER BY id ASC LIMIT $1 OFFSET $2'
+
+            const { rows } = await pool.query(query, params)
+            const { rows: countRes } = await pool.query(countQuery, countParams)
 
             res.json({
                 status: 'success',

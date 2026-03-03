@@ -265,7 +265,12 @@ async function refreshDevices() {
 
 async function refreshEmployees() {
     const s = paginationState.employees;
-    const res = await fetch(`/api/employees?limit=${s.size}&offset=${s.page * s.size}`);
+    const search = document.getElementById('employee-search').value;
+
+    let url = `/api/employees?limit=${s.size}&offset=${s.page * s.size}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const res = await fetch(url);
     const data = await res.json();
 
     s.total = data.data?.total || 0;
@@ -285,6 +290,17 @@ async function refreshEmployees() {
     `).join('') || '<tr><td colspan="6" style="text-align: center;">No employees found</td></tr>';
 
     updatePaginationUI('employees');
+}
+
+let empSearchTimer;
+function handleEmployeeSearch(val) {
+    clearTimeout(empSearchTimer);
+    empSearchTimer = setTimeout(() => {
+        if (val.length >= 3 || val.length === 0) {
+            paginationState.employees.page = 0;
+            refreshEmployees();
+        }
+    }, 600);
 }
 
 async function editEmployee(id) {
