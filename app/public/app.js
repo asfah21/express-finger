@@ -78,11 +78,8 @@ async function logout() {
 
 function showPage(pageId) {
     if (pageId === 'settings') {
-        const pass = prompt('Masukkan Password Akses Pengaturan:');
-        if (pass !== 'Gsi651!@') {
-            showToast('Password Salah! Akses Ditolak.', 'error');
-            return;
-        }
+        openSettingsAuth();
+        return;
     }
 
     currentPath = pageId;
@@ -149,7 +146,7 @@ function prevPage(section) {
 function updatePaginationUI(section) {
     const s = paginationState[section];
     const info = document.getElementById(`${section}-info`);
-    const pageNum = document.getElementById(`${section}-page-num`);
+    const paginationNumbers = document.getElementById(`${section}-pagination-numbers`);
     const prevBtn = document.getElementById(`${section}-prev-btn`);
     const nextBtn = document.getElementById(`${section}-next-btn`);
 
@@ -159,9 +156,34 @@ function updatePaginationUI(section) {
         info.innerText = `Showing ${start} to ${end} of ${s.total} entries`;
     }
 
-    if (pageNum) pageNum.innerText = s.page + 1;
+    if (paginationNumbers) {
+        const totalPages = Math.ceil(s.total / s.size) || 1;
+        let html = '';
+
+        // Render 5 pages around current page
+        let startPage = Math.max(0, s.page - 2);
+        let endPage = Math.min(totalPages - 1, startPage + 4);
+
+        if (endPage - startPage < 4) {
+            startPage = Math.max(0, endPage - 4);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<div class="page-link ${i === s.page ? 'active' : ''}" onclick="goToPage('${section}', ${i})">${i + 1}</div>`;
+        }
+        paginationNumbers.innerHTML = html;
+    }
+
     if (prevBtn) prevBtn.disabled = s.page === 0;
     if (nextBtn) nextBtn.disabled = (s.page + 1) * s.size >= s.total;
+}
+
+function goToPage(section, page) {
+    paginationState[section].page = page;
+    if (section === 'overview') refreshOverview();
+    if (section === 'devices') refreshDevices();
+    if (section === 'employees') refreshEmployees();
+    if (section === 'logs') refreshLogs();
 }
 
 // Pages Logic
@@ -623,6 +645,59 @@ function showToast(message, type = 'info') {
 
     toast.classList.add('active');
     setTimeout(() => toast.classList.remove('active'), 3000);
+}
+
+// Settings Protection Modal
+function openSettingsAuth() {
+    toggleModal(true);
+    document.getElementById('modal-title').innerText = 'Akses Terproteksi';
+    document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <i class="fas fa-lock" style="font-size: 3rem; color: var(--warning); margin-bottom: 1rem;"></i>
+            <p style="color: var(--text-muted);">Halaman ini memerlukan password otorisasi untuk mengakses pengaturan sistem.</p>
+        </div>
+        <div class="form-group">
+            <label>Master Password</label>
+            <input type="password" id="settings-pass" placeholder="Enter password..." autofocus>
+        </div>
+        <button class="btn-primary" onclick="verifySettingsPass()">Buka Pengaturan</button>
+    `;
+
+    // Handle Enter key
+    document.getElementById('settings-pass').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') verifySettingsPass();
+    });
+}
+
+function verifySettingsPass() {
+    const passInput = document.getElementById('settings-pass');
+    if (passInput.value === 'Gsi651!@') {
+        toggleModal(false);
+        // Force show page logic
+        const pageId = 'settings';
+        currentPath = pageId;
+
+        // Manual DOM updates similar to showPage
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('onclick')?.includes(`'${pageId}'`)) {
+                item.classList.add('active');
+            }
+        });
+        document.querySelectorAll('.page').forEach(page => {
+            page.style.display = 'none';
+        });
+        const activePage = document.getElementById('page-' + pageId);
+        if (activePage) activePage.style.display = 'block';
+        loadSettings();
+
+        showToast('Akses Diberikan', 'success');
+    } else {
+        showToast('Password Salah!', 'error');
+        passInput.style.borderColor = 'var(--error)';
+        passInput.value = '';
+        passInput.focus();
+    }
 }
 
 // Mobile Sidebar Toggle

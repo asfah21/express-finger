@@ -114,7 +114,7 @@
                                     <option value="50">50 per page</option>
                                 </select>
                                 <button onclick="prevPage('overview')" id="overview-prev-btn">Prev</button>
-                                <span class="page-num" id="overview-page-num">1</span>
+                                <div class="pagination-numbers" id="overview-pagination-numbers"></div>
                                 <button onclick="nextPage('overview')" id="overview-next-btn">Next</button>
                             </div>
                         </div>
@@ -193,7 +193,7 @@
                                     <option value="100">100 per page</option>
                                 </select>
                                 <button onclick="prevPage('employees')" id="employees-prev-btn">Prev</button>
-                                <span class="page-num" id="employees-page-num">1</span>
+                                <div class="pagination-numbers" id="employees-pagination-numbers"></div>
                                 <button onclick="nextPage('employees')" id="employees-next-btn">Next</button>
                             </div>
                         </div>
@@ -229,7 +229,7 @@
                                     <option value="100">100 per page</option>
                                 </select>
                                 <button onclick="prevPage('logs')" id="logs-prev-btn">Prev</button>
-                                <span class="page-num" id="logs-page-num">1</span>
+                                <div class="pagination-numbers" id="logs-pagination-numbers"></div>
                                 <button onclick="nextPage('logs')" id="logs-next-btn">Next</button>
                             </div>
                         </div>
@@ -270,8 +270,8 @@
     </div>
 
     <footer class="app-footer">
-        <div>&copy; 2026 <strong>GSI Fingerprint Manager (GFM)</strong>. All rights reserved.</div>
-        <div style="opacity: 0.6;">System Version 1.2.0</div>
+        <div>&copy; 2026 GFM -<strong>GSI Fingerprint Manager</strong></div>
+        <!-- <div style="opacity: 0.6;">System Version 1.2.0</div> -->
     </footer>
     </main>
     </div>

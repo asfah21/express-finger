@@ -525,13 +525,19 @@ input:focus {
 }
 
 .table-pagination select {
-    background: rgba(255, 255, 255, 0.05);
+    background-color: #1a1f2e;
+    color: #ffffff;
     border: 1px solid var(--glass-border);
-    color: var(--text);
     padding: 0.4rem 0.6rem;
     border-radius: 0.5rem;
     font-size: 0.8125rem;
     outline: none;
+    cursor: pointer;
+}
+
+.table-pagination select option {
+    background-color: #0a0f1d;
+    color: #ffffff;
 }
 
 .table-pagination button {
@@ -554,11 +560,36 @@ input:focus {
     cursor: not-allowed;
 }
 
-.page-num {
+.pagination-numbers {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.page-link {
+    min-width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8125rem;
     font-weight: 600;
-    font-size: 0.875rem;
-    min-width: 1.5rem;
-    text-align: center;
+    transition: all 0.2s;
+}
+
+.page-link:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.page-link.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
 }
 
 /* Profiles Section */
@@ -569,13 +600,14 @@ input:focus {
 }
 
 .app-footer {
-    padding: 2.5rem 0 1rem;
+    padding: 3rem 0 2rem;
     text-align: center;
-    color: var(--text-muted);
+    color: #94a3b8;
     font-size: 0.8125rem;
     border-top: 1px solid var(--glass-border);
     margin-top: 4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+}
+
+.app-footer strong {
+    color: var(--primary);
 }
