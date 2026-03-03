@@ -346,17 +346,33 @@ async function deleteEmployee(id) {
     }
 }
 
-function refreshLogsOnEnter(e) {
-    if (e.key === 'Enter') refreshLogs();
+// Attendance Logs Logic
+let logSearchTimer;
+function handleLogSearch(val) {
+    clearTimeout(logSearchTimer);
+    logSearchTimer = setTimeout(() => {
+        // Trigger if 3+ chars or cleared
+        if (val.length >= 3 || val.length === 0) {
+            paginationState.logs.page = 0;
+            refreshLogs();
+        }
+    }, 600);
+}
+
+function applyLogFilter() {
+    paginationState.logs.page = 0;
+    refreshLogs();
 }
 
 async function refreshLogs() {
     const s = paginationState.logs;
-    const date = document.getElementById('log-date').value;
+    const fromDate = document.getElementById('log-date-from').value;
+    const toDate = document.getElementById('log-date-to').value;
     const search = document.getElementById('log-search').value;
 
     let url = `/api/logs?limit=${s.size}&offset=${s.page * s.size}`;
-    if (date) url += `&from=${date}T00:00:00&to=${date}T23:59:59`;
+    if (fromDate) url += `&from=${fromDate}T00:00:00`;
+    if (toDate) url += `&to=${toDate}T23:59:59`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
     const res = await fetch(url);
@@ -367,9 +383,7 @@ async function refreshLogs() {
 
     body.innerHTML = (data.data?.logs || []).map(log => {
         const dt = new Date(log.timestamp);
-        // Format d/m/y
         const dateStr = `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
-        // Format 24h Time
         const timeStr = dt.toTimeString().split(' ')[0].substring(0, 5);
 
         return `
@@ -395,20 +409,21 @@ async function refreshLogs() {
 
 async function exportLogs() {
     try {
-        const date = document.getElementById('log-date').value;
+        const fromDate = document.getElementById('log-date-from').value;
+        const toDate = document.getElementById('log-date-to').value;
         const search = document.getElementById('log-search').value;
 
         showToast('Preparing export data...');
 
-        let url = `/api/logs?limit=10000`; // Fetch many for export
-        if (date) url += `&from=${date}T00:00:00&to=${date}T23:59:59`;
+        let url = `/api/logs?limit=50000`; // Fetch max for full export
+        if (fromDate) url += `&from=${fromDate}T00:00:00`;
+        if (toDate) url += `&to=${toDate}T23:59:59`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
 
         const res = await fetch(url);
         const data = await res.json();
         const logs = data.data?.logs || [];
 
-        // Map for Excel
         const exportData = logs.map(log => {
             const dt = new Date(log.timestamp);
             return {
