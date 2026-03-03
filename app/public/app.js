@@ -77,6 +77,14 @@ async function logout() {
 }
 
 function showPage(pageId) {
+    if (pageId === 'settings') {
+        const pass = prompt('Masukkan Password Akses Pengaturan:');
+        if (pass !== 'Gsi651!@') {
+            showToast('Password Salah! Akses Ditolak.', 'error');
+            return;
+        }
+    }
+
     currentPath = pageId;
 
     // Update nav items

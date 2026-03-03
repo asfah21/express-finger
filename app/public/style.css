@@ -462,6 +462,10 @@ input:focus {
     }
 }
 
+.modal-overlay.active .modal {
+    transform: translateY(0);
+}
+
 /* Loading Toast */
 .toast {
     position: fixed;
@@ -562,4 +566,16 @@ input:focus {
     margin-top: 2rem;
     padding-top: 2rem;
     border-top: 1px solid var(--glass-border);
+}
+
+.app-footer {
+    padding: 2.5rem 0 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    border-top: 1px solid var(--glass-border);
+    margin-top: 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
 }

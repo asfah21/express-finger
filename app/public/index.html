@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Express Finger Dashboard</title>
+    <title>GFM - GSI Fingerprint Manager</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
@@ -31,7 +31,7 @@
             <nav class="sidebar">
                 <div class="sidebar-logo">
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
-                    <span>EXPRESS FINGER</span>
+                    <span>GFM <small style="font-size: 0.6rem; opacity: 0.7;">v1.2</small></span>
                 </div>
                 <div class="nav-item active" onclick="showPage('overview')">
                     <i class="fas fa-chart-line"></i>
@@ -68,17 +68,21 @@
                         </button>
                     </div>
                     <div class="stats-grid">
-                        <div class="stat-card">
+                        <div class="stat-card" style="border-left: 4px solid #63d390;">
                             <div class="stat-label">Connected Devices</div>
                             <div class="stat-value" id="stat-devices">-</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" style="border-left: 4px solid #60a5fa;">
                             <div class="stat-label">Total Employees</div>
                             <div class="stat-value" id="stat-employees">-</div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" style="border-left: 4px solid #f87171;">
                             <div class="stat-label">Logs Today</div>
                             <div class="stat-value" id="stat-logs">-</div>
+                        </div>
+                        <div class="stat-card" style="border-left: 4px solid #fbbf24;">
+                            <div class="stat-label">Active Sync</div>
+                            <div class="stat-value" id="stat-active-sync">Auto</div>
                         </div>
                     </div>
 
@@ -262,32 +266,39 @@
                         </div>
                     </div>
                 </div>
-            </main>
         </div>
+    </div>
 
-        <!-- Login View -->
-        <div id="login-view" class="auth-container">
-            <div class="auth-card">
-                <div class="auth-header">
-                    <h1>Express Finger</h1>
-                    <p>Enter your credentials to access dashboard</p>
+    <footer class="app-footer">
+        <div>&copy; 2026 <strong>GSI Fingerprint Manager (GFM)</strong>. All rights reserved.</div>
+        <div style="opacity: 0.6;">System Version 1.2.0</div>
+    </footer>
+    </main>
+    </div>
+
+    <!-- Login View -->
+    <div id="login-view" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>GFM</h1>
+                <p>GSI Fingerprint Manager Login</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="login-username" placeholder="admin" required>
                 </div>
-                <form onsubmit="handleLogin(event)">
-                    <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" id="login-username" placeholder="admin" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <input type="password" id="login-password" placeholder="••••••••" required>
-                    </div>
-                    <button type="submit" class="btn-primary" id="login-btn">Sign In</button>
-                </form>
-                <div id="login-error"
-                    style="color: var(--error); font-size: 0.875rem; margin-top: 1rem; text-align: center; display: none;">
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required>
                 </div>
+                <button type="submit" class="btn-primary" id="login-btn">Sign In</button>
+            </form>
+            <div id="login-error"
+                style="color: var(--error); font-size: 0.875rem; margin-top: 1rem; text-align: center; display: none;">
             </div>
         </div>
+    </div>
     </div>
 
     <!-- Modals -->
