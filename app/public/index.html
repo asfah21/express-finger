@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div id="app">
         <!-- Dashboard view (initially hidden) -->
@@ -64,7 +66,7 @@
                             <div class="stat-value" id="stat-logs">-</div>
                         </div>
                     </div>
-                    
+
                     <div class="header" style="margin-top: 2rem;">
                         <h3>Recent Activity</h3>
                     </div>
@@ -79,16 +81,32 @@
                                 </tr>
                             </thead>
                             <tbody id="recent-logs-body">
-                                <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+                                <tr>
+                                    <td colspan="4" style="text-align: center;">Loading...</td>
+                                </tr>
                             </tbody>
                         </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="overview-info">Showing 0 of 0 logs</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('overview', this.value)">
+                                    <option value="10">10 per page</option>
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                </select>
+                                <button onclick="prevPage('overview')" id="overview-prev-btn">Prev</button>
+                                <span class="page-num" id="overview-page-num">1</span>
+                                <button onclick="nextPage('overview')" id="overview-next-btn">Next</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div id="page-devices" class="page" style="display: none;">
                     <div class="header">
                         <h2>Device Management</h2>
-                        <button class="btn-primary" style="width: auto; padding: 0.6rem 1.2rem;" onclick="openAddDevice()">+ Add Device</button>
+                        <button class="btn-primary" style="width: auto; padding: 0.6rem 1.2rem;"
+                            onclick="openAddDevice()">+ Add Device</button>
                     </div>
                     <div class="table-container">
                         <table>
@@ -112,8 +130,11 @@
                     <div class="header">
                         <h2>Employee Directory</h2>
                         <div style="display: flex; gap: 1rem;">
-                            <button class="btn-primary" style="width: auto; padding: 0.6rem 1.2rem;" onclick="openAddEmployee()">+ Add Employee</button>
-                            <button class="btn-primary" style="width: auto; padding: 0.6rem 1.2rem; background: var(--secondary);" onclick="pullAllEmployees()">
+                            <button class="btn-primary" style="width: auto; padding: 0.6rem 1.2rem;"
+                                onclick="openAddEmployee()">+ Add Employee</button>
+                            <button class="btn-primary"
+                                style="width: auto; padding: 0.6rem 1.2rem; background: var(--secondary);"
+                                onclick="pullAllEmployees()">
                                 <i class="fas fa-download"></i> Pull All
                             </button>
                         </div>
@@ -132,6 +153,19 @@
                             </thead>
                             <tbody id="employees-body"></tbody>
                         </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="employees-info">Showing 0 of 0 employees</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('employees', this.value)">
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                    <option value="100">100 per page</option>
+                                </select>
+                                <button onclick="prevPage('employees')" id="employees-prev-btn">Prev</button>
+                                <span class="page-num" id="employees-page-num">1</span>
+                                <button onclick="nextPage('employees')" id="employees-next-btn">Next</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -155,6 +189,19 @@
                             </thead>
                             <tbody id="logs-body"></tbody>
                         </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="logs-info">Showing 0 of 0 logs</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('logs', this.value)">
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                    <option value="100">100 per page</option>
+                                </select>
+                                <button onclick="prevPage('logs')" id="logs-prev-btn">Prev</button>
+                                <span class="page-num" id="logs-page-num">1</span>
+                                <button onclick="nextPage('logs')" id="logs-next-btn">Next</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -172,6 +219,20 @@
                             <input type="number" id="setting-cleanup-days" value="30">
                         </div>
                         <button class="btn-primary" onclick="saveSettings()">Save Configuration</button>
+
+                        <div class="profile-section">
+                            <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-user-shield"></i> Admin Account</h3>
+                            <div class="form-group">
+                                <label>New Username</label>
+                                <input type="text" id="profile-username" placeholder="Leave empty to keep current">
+                            </div>
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <input type="password" id="profile-password" placeholder="••••••••">
+                            </div>
+                            <button class="btn-primary" style="background: var(--secondary);"
+                                onclick="updateAccount()">Update Admin Profile</button>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -195,7 +256,9 @@
                     </div>
                     <button type="submit" class="btn-primary" id="login-btn">Sign In</button>
                 </form>
-                <div id="login-error" style="color: var(--error); font-size: 0.875rem; margin-top: 1rem; text-align: center; display: none;"></div>
+                <div id="login-error"
+                    style="color: var(--error); font-size: 0.875rem; margin-top: 1rem; text-align: center; display: none;">
+                </div>
             </div>
         </div>
     </div>
@@ -206,7 +269,8 @@
             <h3 id="modal-title" style="margin-bottom: 1.5rem;">Title</h3>
             <div id="modal-content"></div>
             <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
-                <button class="btn-primary" style="background: rgba(255,255,255,0.1); color: white;" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" style="background: rgba(255,255,255,0.1); color: white;"
+                    onclick="closeModal()">Cancel</button>
                 <button class="btn-primary" id="modal-save-btn">Save Change</button>
             </div>
         </div>
@@ -220,4 +284,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

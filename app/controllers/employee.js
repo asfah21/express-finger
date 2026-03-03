@@ -3,8 +3,22 @@ import { pool } from '../utils/database.js'
 export const employeeController = {
     async listEmployees(req, res) {
         try {
-            const { rows } = await pool.query('SELECT * FROM employee ORDER BY id ASC')
-            res.json({ status: 'success', data: { list: rows, total: rows.length } })
+            const { limit = 25, offset = 0 } = req.query
+            const lim = parseInt(limit)
+            const off = parseInt(offset)
+
+            const { rows } = await pool.query('SELECT * FROM employee ORDER BY id ASC LIMIT $1 OFFSET $2', [lim, off])
+            const { rows: countRes } = await pool.query('SELECT COUNT(*)::int as total FROM employee')
+
+            res.json({
+                status: 'success',
+                data: {
+                    list: rows,
+                    total: countRes[0].total,
+                    limit: lim,
+                    offset: off
+                }
+            })
         } catch (error) {
             res.status(500).json({ status: 'error', message: error.message })
         }

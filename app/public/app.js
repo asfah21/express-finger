@@ -2,6 +2,12 @@
 let currentUser = null;
 let currentPath = 'overview';
 
+const paginationState = {
+    overview: { page: 0, size: 10, total: 0 },
+    employees: { page: 0, size: 25, total: 0 },
+    logs: { page: 0, size: 25, total: 0 }
+};
+
 // Initial check
 async function checkAuth() {
     try {
@@ -76,7 +82,8 @@ function showPage(pageId) {
     // Update nav items
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
-        if (item.onclick?.toString().includes(`'${pageId}'`)) {
+        // Simple heuristic to find the nav item
+        if (item.getAttribute('onclick')?.includes(`'${pageId}'`)) {
             item.classList.add('active');
         }
     });
@@ -96,28 +103,82 @@ function showPage(pageId) {
     if (pageId === 'settings') loadSettings();
 }
 
+// Pagination Helpers
+function updatePageSize(section, size) {
+    paginationState[section].size = parseInt(size);
+    paginationState[section].page = 0; // Reset to first page
+    if (section === 'overview') refreshOverview();
+    if (section === 'employees') refreshEmployees();
+    if (section === 'logs') refreshLogs();
+}
+
+function nextPage(section) {
+    const s = paginationState[section];
+    if ((s.page + 1) * s.size < s.total) {
+        s.page++;
+        if (section === 'overview') refreshOverview();
+        if (section === 'employees') refreshEmployees();
+        if (section === 'logs') refreshLogs();
+    }
+}
+
+function prevPage(section) {
+    const s = paginationState[section];
+    if (s.page > 0) {
+        s.page--;
+        if (section === 'overview') refreshOverview();
+        if (section === 'employees') refreshEmployees();
+        if (section === 'logs') refreshLogs();
+    }
+}
+
+function updatePaginationUI(section) {
+    const s = paginationState[section];
+    const info = document.getElementById(`${section}-info`);
+    const pageNum = document.getElementById(`${section}-page-num`);
+    const prevBtn = document.getElementById(`${section}-prev-btn`);
+    const nextBtn = document.getElementById(`${section}-next-btn`);
+
+    if (info) {
+        const start = s.total === 0 ? 0 : (s.page * s.size) + 1;
+        const end = Math.min((s.page + 1) * s.size, s.total);
+        info.innerText = `Showing ${start} to ${end} of ${s.total} entries`;
+    }
+
+    if (pageNum) pageNum.innerText = s.page + 1;
+    if (prevBtn) prevBtn.disabled = s.page === 0;
+    if (nextBtn) nextBtn.disabled = (s.page + 1) * s.size >= s.total;
+}
+
 // Pages Logic
 async function refreshOverview() {
     try {
+        const s = paginationState.overview;
         const [devicesRes, empRes, logsRes] = await Promise.all([
             fetch('/api/devices'),
-            fetch('/api/employees'),
-            fetch('/api/logs?limit=10')
+            fetch('/api/employees?limit=1'), // Just to get total
+            fetch(`/api/logs?limit=${s.size}&offset=${s.page * s.size}`)
         ]);
 
-        const devices = await devicesRes.json();
-        const employees = await empRes.json();
-        const logs = await logsRes.json();
+        const devicesData = await devicesRes.json();
+        const employeesData = await empRes.json();
+        const logsData = await logsRes.json();
 
-        document.getElementById('stat-devices').innerText = devices.data?.length || 0;
-        document.getElementById('stat-employees').innerText = employees.data?.total || 0;
+        document.getElementById('stat-devices').innerText = devicesData.data?.length || 0;
+        document.getElementById('stat-employees').innerText = employeesData.data?.total || 0;
 
-        // Count today's logs
+        // Logs stats (today)
         const today = new Date().toISOString().split('T')[0];
-        const todayLogs = (logs.data?.logs || []).filter(l => l.timestamp.startsWith(today));
-        document.getElementById('stat-logs').innerText = todayLogs.length;
+        // Note: logsData might only have a page. Better to have a separate total-today endpoint, 
+        // but for now let's just use what we have or show "-"
+        document.getElementById('stat-logs').innerText = "...";
+        fetch(`/api/logs?from=${today}`).then(r => r.json()).then(d => {
+            document.getElementById('stat-logs').innerText = d.data?.total || 0;
+        });
 
-        renderRecentLogs(logs.data?.logs || []);
+        s.total = logsData.data?.total || 0;
+        renderRecentLogs(logsData.data?.logs || []);
+        updatePaginationUI('overview');
     } catch (err) {
         console.error('Failed to refresh overview', err);
     }
@@ -156,8 +217,11 @@ async function refreshDevices() {
 }
 
 async function refreshEmployees() {
-    const res = await fetch('/api/employees');
+    const s = paginationState.employees;
+    const res = await fetch(`/api/employees?limit=${s.size}&offset=${s.page * s.size}`);
     const data = await res.json();
+
+    s.total = data.data?.total || 0;
     const body = document.getElementById('employees-body');
     body.innerHTML = (data.data?.list || []).map(emp => `
         <tr>
@@ -171,13 +235,18 @@ async function refreshEmployees() {
                 <button class="icon-btn" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
-    `).join('');
+    `).join('') || '<tr><td colspan="6" style="text-align: center;">No employees found</td></tr>';
+
+    updatePaginationUI('employees');
 }
 
 async function refreshLogs() {
+    const s = paginationState.logs;
     const date = document.getElementById('log-date').value;
-    const res = await fetch(`/api/logs?limit=50${date ? '&date=' + date : ''}`);
+    const res = await fetch(`/api/logs?limit=${s.size}&offset=${s.page * s.size}${date ? '&date=' + date : ''}`);
     const data = await res.json();
+
+    s.total = data.data?.total || 0;
     const body = document.getElementById('logs-body');
     body.innerHTML = (data.data?.logs || []).map(log => `
         <tr>
@@ -186,7 +255,57 @@ async function refreshLogs() {
             <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.type == 0 ? 'CHECK-IN' : 'CHECK-OUT'}</span></td>
             <td>${log.device_sn || '-'}</td>
         </tr>
-    `).join('');
+    `).join('') || '<tr><td colspan="4" style="text-align: center;">No logs found</td></tr>';
+
+    updatePaginationUI('logs');
+}
+
+// Settings Logic
+async function loadSettings() {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    if (data.status === 'success') {
+        document.getElementById('setting-api-key').value = data.data.api_key || '';
+        // Other settings...
+    }
+}
+
+async function saveSettings() {
+    const apiKey = document.getElementById('setting-api-key').value;
+    const cleanupDays = document.getElementById('setting-cleanup-days').value;
+
+    showToast('Saving settings...');
+    // Impl logic...
+}
+
+async function updateAccount() {
+    const username = document.getElementById('profile-username').value;
+    const password = document.getElementById('profile-password').value;
+
+    if (!username && !password) {
+        return showToast('Please fill at least one field', 'warning');
+    }
+
+    try {
+        const res = await fetch('/auth/account', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+            showToast('Account updated successfully', 'success');
+            document.getElementById('profile-username').value = '';
+            document.getElementById('profile-password').value = '';
+            // Refresh info if needed
+            checkAuth();
+        } else {
+            const data = await res.json();
+            showToast(data.message || 'Update failed', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
 }
 
 // Actions
@@ -227,7 +346,7 @@ async function deleteDevice(id) {
 
 async function pullAllEmployees() {
     showToast('Pulling employees from all devices...');
-    const res = await fetch('/api/sync/all', { method: 'POST' }); // Usually sync all includes employees in this app logic
+    const res = await fetch('/api/sync/all', { method: 'POST' });
     if (res.ok) {
         showToast('Employees synchronized');
         refreshEmployees();
