@@ -9,7 +9,7 @@ import { getSettingsData } from './settings.js'
 export const apiController = {
   async getLogs(req, res) {
     try {
-      const { from, to, limit = 100, offset = 0, user_id, type, device_sn } = req.query
+      const { from, to, limit = 100, offset = 0, user_id, type, device_sn, search } = req.query
       const lim = Math.min(Number(limit) || 100, config.MAX_LIMIT)
       const off = Math.max(Number(offset) || 0, 0)
       const where = []
@@ -19,8 +19,20 @@ export const apiController = {
       if (from) { where.push(`al."timestamp" >= $${i++}`); params.push(new Date(String(from))) }
       if (to) { where.push(`al."timestamp" <= $${i++}`); params.push(new Date(String(to))) }
       if (user_id) { where.push(`al.user_id = $${i++}`); params.push(String(user_id)) }
-      if (type !== undefined) { where.push(`al.type = $${i++}`); params.push(Number(type)) }
+      if (type !== undefined && type !== '') { where.push(`al.type = $${i++}`); params.push(Number(type)) }
       if (device_sn) { where.push(`al.device_sn = $${i++}`); params.push(String(device_sn)) }
+
+      if (search) {
+        where.push(`(
+          al.user_id::text ILIKE $${i} OR 
+          e.nama ILIKE $${i} OR 
+          e.nik ILIKE $${i} OR 
+          e.jabatan ILIKE $${i} OR 
+          e.department ILIKE $${i}
+        )`);
+        params.push(`%${search}%`);
+        i++;
+      }
 
       const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 

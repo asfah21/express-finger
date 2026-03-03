@@ -346,24 +346,93 @@ async function deleteEmployee(id) {
     }
 }
 
+function refreshLogsOnEnter(e) {
+    if (e.key === 'Enter') refreshLogs();
+}
+
 async function refreshLogs() {
     const s = paginationState.logs;
     const date = document.getElementById('log-date').value;
-    const res = await fetch(`/api/logs?limit=${s.size}&offset=${s.page * s.size}${date ? '&date=' + date : ''}`);
+    const search = document.getElementById('log-search').value;
+
+    let url = `/api/logs?limit=${s.size}&offset=${s.page * s.size}`;
+    if (date) url += `&from=${date}T00:00:00&to=${date}T23:59:59`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const res = await fetch(url);
     const data = await res.json();
 
     s.total = data.data?.total || 0;
     const body = document.getElementById('logs-body');
-    body.innerHTML = (data.data?.logs || []).map(log => `
-        <tr>
-            <td>${new Date(log.timestamp).toLocaleString()}</td>
-            <td>${log.user_id}</td>
-            <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.type == 0 ? 'CHECK-IN' : 'CHECK-OUT'}</span></td>
-            <td>${log.device_sn || '-'}</td>
-        </tr>
-    `).join('') || '<tr><td colspan="4" style="text-align: center;">No logs found</td></tr>';
+
+    body.innerHTML = (data.data?.logs || []).map(log => {
+        const dt = new Date(log.timestamp);
+        // Format d/m/y
+        const dateStr = `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
+        // Format 24h Time
+        const timeStr = dt.toTimeString().split(' ')[0].substring(0, 5);
+
+        return `
+            <tr>
+                <td>${dateStr}</td>
+                <td><strong style="color: var(--primary);">${timeStr}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
+                </td>
+                <td>${log.nik || '-'}</td>
+                <td style="font-size: 0.8125rem;">
+                    <div>${log.department || '-'}</div>
+                    <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
+                </td>
+                <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" style="text-align: center;">No logs found</td></tr>';
 
     updatePaginationUI('logs');
+}
+
+async function exportLogs() {
+    try {
+        const date = document.getElementById('log-date').value;
+        const search = document.getElementById('log-search').value;
+
+        showToast('Preparing export data...');
+
+        let url = `/api/logs?limit=10000`; // Fetch many for export
+        if (date) url += `&from=${date}T00:00:00&to=${date}T23:59:59`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        const logs = data.data?.logs || [];
+
+        // Map for Excel
+        const exportData = logs.map(log => {
+            const dt = new Date(log.timestamp);
+            return {
+                Date: `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`,
+                Time: dt.toTimeString().split(' ')[0].substring(0, 5),
+                'User ID': log.user_id,
+                Name: log.nama,
+                NIK: log.nik,
+                Department: log.department,
+                Jabatan: log.jabatan,
+                Type: log.absensi,
+                Device: log.device_name
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Logs");
+
+        XLSX.writeFile(workbook, `attendance_logs_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showToast('Export successful', 'success');
+    } catch (err) {
+        showToast('Export failed', 'error');
+    }
 }
 
 // Settings Logic
