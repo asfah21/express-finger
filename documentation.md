@@ -1,229 +1,129 @@
-# Express Finger (GSI ADMS Listener)
+# Express Finger (GSI ADMS Listener & Dashboard)
 
-Express Finger adalah aplikasi Node.js berkinerja tinggi yang dirancang sebagai server pendengar (listener server) untuk perangkat absensi Solution Fingerprint menggunakan protokol ADMS (Automatic Data Master Server). Aplikasi ini menerima data absensi yang dikirim (push) oleh perangkat, menyimpannya dalam database PostgreSQL, dan menyediakan API untuk mengakses log dan statistik.
+Express Finger adalah aplikasi Node.js berkinerja tinggi yang dirancang sebagai server pendengar (listener server) untuk perangkat absensi Solution Fingerprint menggunakan protokol ADMS (Automatic Data Master Server). Selain sebagai listener, aplikasi ini kini dilengkapi dengan **Web Dashboard** modern untuk manajemen perangkat, karyawan, dan monitoring log secara real-time.
 
-## Fitur
+## Fitur Unggulan
 
--   **Dukungan Protokol ADMS**: Kompatibel sepenuhnya dengan protokol push perangkat Solution Fingerprint.
+-   **Web Dashboard Modern**: Antarmuka grafis (GUI) berbasis web dengan desain glassmorphism yang premium untuk mempermudah operasional.
+-   **Dukungan Protokol ADMS**: Kompatibel sepenuhnya dengan protokol push perangkat Solution Fingerprint/ZKTeco.
 -   **Auto-Tracking IP (Dynamic IP)**: Server otomatis mengupdate IP mesin setiap kali mesin melakukan kontak (PUSH), sehingga fitur PULL tetap berjalan meskipun IP mesin berubah-ubah.
--   **Persistensi Data**: Menyimpan log absensi terpusat dan data karyawan secara efisien di PostgreSQL.
--   **Backup Data Mentah**: Menyimpan data request mentah ke sistem file untuk cadangan dan audit.
--   **RESTful API**: Menyediakan endpoint untuk mengambil log, data karyawan, statistik harian, dan pengaturan mesin/status.
--   **Worker Service (Hybrid)**: Fitur penarikan data (PULL) otomatis untuk sinkronisasi data yang gagal terkirim via PUSH. Worker secara pintar mendeteksi IP Publik (tanpa port-forwarding) dan akan melewatinya secara otomatis untuk menghindari Timeout berlebihan.
--   **Keamanan**: Endpoint pengelolaan dilindungi menggunakan mekanisme API Key.
--   **Siap Docker**: Dilengkapi dengan konfigurasi Docker dan Docker Compose untuk kemudahan deployment.
--   **Logging**: Pencatatan request HTTP yang komprehensif.
+-   **Manajemen Karyawan**: Fitur upload/tambah karyawan dan sinkronisasi data dari mesin ke database.
+-   **Hybrid Sync Logic**: Kombinasi PUSH (real-time) dan PULL (scheduled) untuk memastikan integritas data 100%.
+-   **Sistem Auth Keamanan**: Login dashboard menggunakan JWT (JSON Web Token) dan proteksi API menggunakan API Key.
+-   **Siap Docker**: Deployment instan menggunakan Docker Compose.
+
+## Screenshot Dashboard
+*(Dashboard dapat diakses melalui browser setelah aplikasi dijalankan)*
 
 ## Prasyarat
 
-Sebelum menjalankan proyek ini, pastikan Anda telah menginstal:
-
--   [Node.js](https://nodejs.org/) (v14 atau lebih baru disarankan)
+-   [Node.js](https://nodejs.org/) (v16 atau lebih baru)
 -   [PostgreSQL](https://www.postgresql.org/)
--   [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/) (untuk deployment menggunakan container)
+-   [Docker](https://www.docker.com/) (Opsional)
 
 ## Instalasi & Pengaturan
 
-### 1. Clone Repository
+### 1. Menjalankan Secara Lokal
 
-```bash
-git clone <repository-url>
-cd express-finger
-```
+1. Clone repository dan masuk ke direktori:
+   ```bash
+   cd express-finger/app
+   npm install
+   ```
 
-### 2. Konfigurasi Environment
+2. Konfigurasi Database di file `.env`:
+   ```env
+   PORT=8080
+   PGHOST=localhost
+   PGUSER=postgres
+   PGPASSWORD=password
+   PGDATABASE=express_finger
+   API_KEY=your-secret-key
+   JWT_SECRET=another-secret-key
+   ```
 
-Aplikasi ini dapat dikonfigurasi melalui variabel environment. Anda dapat mengaturnya dalam file `.env` atau langsung di environment sistem Anda.
+3. Jalankan aplikasi:
+   ```bash
+   npm start
+   ```
 
-### 3. Menjalankan Secara Lokal
-
-Instal dependensi:
-
-```bash
-cd app
-npm install
-```
-
-Jalankan server:
-
-```bash
-npm start
-```
-
-### 4. Menjalankan dengan Docker Compose
-
-Ini adalah cara yang disarankan untuk menjalankan aplikasi di production.
+### 2. Menggunakan Docker (Rekomendasi)
 
 ```bash
 docker-compose up -d --build
 ```
 
-Perintah ini akan menjalankan layanan `zkteco-listener` pada jaringan host.
+---
 
-## Keamanan & Integritas Data
+## Panduan Web Dashboard (GUI)
 
-Aplikasi ini didesain agar aman dijalankan pada environment yang sudah memiliki data/tabel sebelumnya:
+Setelah aplikasi berjalan, buka browser dan akses:
+**`http://localhost:8080`**
 
-1.  **Skema Aman**: Inisialisasi database menggunakan perintah `IF NOT EXISTS`. Jika tabel `attendance_logs` sudah ada, aplikasi tidak akan menimpa atau menghapusnya.
-2.  **Tanpa Duplikasi**: Menggunakan mekanisme `ON CONFLICT DO NOTHING` sehingga data lama Anda tetap aman dan tidak akan terjadi penggandaan log jika mesin mengirim ulang data yang sama.
-3.  **Konektivitas**: Menggunakan `network_mode: "host"` di Docker, sehingga aplikasi langsung menggunakan layanan PostgreSQL yang sudah berjalan di server host Anda.
+### Kredensial Default
+-   **Username**: `admin`
+-   **Password**: `admin123`
+*(Sangat disarankan untuk mengubah password di database setelah login pertama kali)*
+
+### Modul Dashboard:
+1.  **Overview**: Statistik cepat jumlah perangkat, karyawan, dan total log hari ini.
+2.  **Devices**: Tambah, edit, hapus, dan lakukan sinkronisasi manual ke mesin spesifik.
+3.  **Employees**: Kelola data karyawan. Anda bisa menginput manual atau melakukan "Pull All" untuk menyedot data karyawan yang terdaftar di mesin fingerprint.
+4.  **Attendance Logs**: Filter dan pantau log absensi yang masuk dengan antarmuka yang bersih.
+5.  **Settings**: Konfigurasi pemetaan tipe absensi dan alias nama perangkat.
+
+---
 
 ## Dokumentasi API
 
-### Endpoint Komunikasi Perangkat
-Endpoint ini digunakan oleh perangkat Solution Fingerprint/ZKTeco.
+Aplikasi menyediakan REST API yang bisa digunakan untuk integrasi dengan sistem lain (seperti Odoo, ERP, dll).
 
-#### 1. Menerima Data Absensi
--   **URL**: `/iclock/cdata`
--   **Method**: `POST`
--   **Deskripsi**: Menerima data push dari perangkat (log absensi, log operasi, dll).
+### Format Respons Standard
+Semua respons API kini menggunakan format objek yang konsisten:
+```json
+{
+  "status": "success",
+  "message": "Optional message",
+  "data": { ... }
+}
+```
 
-#### 2. Detak Jantung Perangkat (Device Heartbeat)
--   **URL**: `/iclock/getrequest`
--   **Method**: `GET`
--   **Deskripsi**: Digunakan oleh perangkat untuk mengecek konektivitas server dan perintah yang tertunda.
+### Autentikasi API
+Untuk akses programatik (non-browser), sertakan header:
+`x-api-key: <API_KEY_ANDA>`
 
----
+### Endpoint Utama:
 
-### API Manajemen
-Semua endpoint di bawah ini memerlukan header `x-api-key` dengan API Key yang benar.
+#### 1. Log Absensi
+-   **URL**: `GET /api/logs`
+-   **Parameters**: `user_id`, `from` (YYYY-MM-DD), `to`, `limit`, `offset`.
+-   **Deskripsi**: Mengambil log absensi yang sudah terproses.
 
-#### 1. Ambil Log Absensi
--   **URL**: `/api/logs`
--   **Method**: `GET`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Query Parameters**:
-    -   `user_id`: Filter berdasarkan ID User (contoh: `?user_id=16`)
-    -   `from`: Filter tanggal mulai (format: `YYYY-MM-DD` atau ISO string)
-    -   `to`: Filter tanggal akhir
-    -   `type`: Filter tipe absensi (0: Masuk, 1: Pulang, dll)
-    -   `device_sn`: Filter berdasarkan Serial Number perangkat
-    -   `limit`: Batas jumlah data (default 100)
-    -   `offset`: Offset untuk pagination
--   **Deskripsi**: Mengambil log absensi yang telah diproses dari database. Log yang dihasilkan juga digabungkan (LEFT JOIN) dengan data Employee. Respons mencakup kolom `absensi` (dari pemetaan Type) dan `device_name` (nama alias perangkat).
--   **Contoh Penggunaan**:
-    -   **URL dengan Filter User ID**: `http://188.245.70.138:8080/api/logs?user_id=16`
-    -   **Perintah cURL**:
-        ```bash
-        curl -H "x-api-key: <YOUR_API_KEY>" \
-             "http://188.245.70.138:8080/api/logs?user_id=16"
-        ```
+#### 2. Manajemen Karyawan
+-   **URL**: `GET|POST|PUT|DELETE /api/employees`
+-   **Deskripsi**: Sinkronisasi data karyawan antara database dan sistem eksternal.
 
-#### 2. Karyawan (Directory Employee)
--   **URL**: `/api/employees` (dan `/api/employees/:id`)
--   **Method**: `GET`, `POST`, `PUT`, `DELETE`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Payload (POST/PUT)**:
-    ```json
-    {
-      "user_id": "16",
-      "nik": "123456",
-      "nama": "Azvan",
-      "jabatan": "Developer",
-      "department": "IT"
-    }
-    ```
--   **Deskripsi**: Mengelola daftar karyawan. Data ini digunakan untuk memberikan info nama/jabatan pada logs absensi.
-
-#### 3. Pengaturan Mesin & Tipe Absen (Settings)
--   **URL**: `/api/settings`
--   **Method**: `GET`, `PUT`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Payload (PUT)**:
-    ```json
-    {
-      "types": { "0": "Masuk", "1": "Pulang" },
-      "devices": { "SN123": "Lobby Utama" }
-    }
-    ```
--   **Deskripsi**: Mengelola pemetaan teks untuk tipe absensi dan alias nama perangkat.
-
-#### 4. Ambil Statistik Harian
--   **URL**: `/api/stats/daily?date=YYYY-MM-DD`
--   **Method**: `GET`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Ringkasan absensi harian per karyawan (jam masuk pertama, jam pulang terakhir, total scan).
-
-#### 5. Daftar File Mentah
--   **URL**: `/api/raw`
--   **Method**: `GET`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Deskripsi**: Mendapatkan daftar file request mentah (ADMS push) yang tersimpan di sistem.
-
-#### 6. Unduh File Mentah
--   **URL**: `/api/raw/:name`
--   **Method**: `GET`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
-
-#### 7. Manajemen Perangkat (Device Registry)
--   **URL**: `/api/devices` (dan `/api/devices/:id`)
--   **Method**: `GET`, `POST`, `PUT`, `DELETE`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Payload (POST/PUT)**:
-    ```json
-    {
-      "sn": "CKEB233960333",
-      "name": "Mesin Depan",
-      "ip": "10.242.15.136",
-      "port": 4370,
-      "is_active": true
-    }
-    ```
-
-#### 8. Sinkronisasi Log (PULL Sync)
--   **URL**: `/api/sync` (untuk satu mesin) atau `/api/sync/all` (untuk semua mesin)
--   **Method**: `POST` atau `GET`
--   **Headers**: `x-api-key: <API_KEY_ANDA>`
--   **Query Parameters**:
-    -   `sn`: Serial Number mesin (jika sudah terdaftar di database).
-    -   `ip`: IP Address mesin (jika ingin tembak langsung tanpa daftar).
-    -   `stream`: Jika diisi `true`, untuk monitoring real-time (hanya untuk `/sync/all`).
--   **Contoh Sinkronisasi Satu Mesin (by SN)**:
-    ```bash
-    curl -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync?sn=CKEB233960333"
-    ```
--   **Contoh Sinkronisasi Satu Mesin (by IP)**:
-    ```bash
-    curl -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync?ip=10.242.15.136"
-    ```
--   **Contoh Monitoring Progres (Semua Mesin)**:
-    ```bash
-    curl -N -H "x-api-key: <YOUR_API_KEY>" "http://URL/api/sync/all?stream=true"
-    ```
+#### 3. Sinkronisasi (PULL)
+-   **URL**: `POST /api/sync/all`
+-   **Deskripsi**: Memerintahkan server untuk menarik data dari semua mesin yang online.
+-   **Tips**: Gunakan `?stream=true` untuk melihat log progres secara real-time di terminal/console.
 
 ---
 
-## Mekanisme Worker (Background Sync)
-
-Aplikasi memiliki Worker otomatis yang berjalan di latar belakang:
--   **Tugas**: Melakukan PULL sync ke semua perangkat yang aktif secara berkala.
--   **Interval**: Diatur via `SYNC_INTERVAL_MS` di `.env` (default 5 menit).
--   **Smart Logic**: Worker akan melewati (skip) perangkat dengan Public IP untuk menghindari hang, **KECUALI** perangkat tersebut didaftarkan dalam `app/config/priority_devices.js`.
-
----
-
-## Troubleshooting
-
-### 1. Data Tidak Masuk padahal Fingerprint Berhasil
--   **Cek Koneksi**: Pastikan mesin bisa "ping" ke server (untuk ADMS/Push).
--   **Port TCP 4370**: Jika menggunakan PULL, pastikan Port 4370 di sisi mesin terbuka (Forwarding jika pakai Public IP).
--   **API Key**: Pastikan middleware tidak memblokir request karena key salah.
--   **Logs**: Cek file mentah di `/api/raw` untuk melihat apakah mesin sebenarnya mengirim data tapi gagal diproses.
-
-### 2. Error ETIMEDOUT saat PULL
--   Ini berarti server tidak bisa menjangkau Port 4370 mesin. Jika mesin di lokasi berbeda, gunakan VPN atau ZeroTier, lalu daftarkan IP VPN tersebut di `priority_devices.js`.
-
----
-
-## Struktur Proyek
-
+## Struktur Folder
 ```
 express-finger/
 ├── app/
-│   ├── config/         # Konfigurasi & Priority List
-│   ├── controllers/    # Logika API (Employee, Sync, Device)
-│   ├── utils/          # Parser ADMS, Database Batch (Chunking)
-│   └── server.js       # Entry Point
-├── data/               # Penyimpanan logs mentah
+│   ├── public/         # File Frontend Dashboard (HTML/CSS/JS)
+│   ├── controllers/    # Logika Backend & API
+│   ├── routes/         # Definisi Rute HTTP
+│   ├── middleware/     # Auth & Security
+│   └── utils/          # Database & ZKLib Integration
+├── data/               # Penyimpanan logs mentah (ADMS)
 └── docker-compose.yml
 ```
+
+## Troubleshooting
+-   **Gagal Login**: Pastikan koneksi database PostgreSQL stabil dan tabel `users` telah terbuat otomatis.
+-   **Mesin Offline di Dashboard**: Pastikan Port 4370 di mesin bisa diakses oleh server atau menggunakan VPN/ZeroTier jika mesin berada di jaringan berbeda.
+-   **Waktu Tidak Sesuai**: Cek pengaturan Timezone pada server dan mesin fingerprint.

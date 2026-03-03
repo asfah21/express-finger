@@ -90,9 +90,42 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
         }
 
         await zk.disconnect();
-        return { success: true, count: attendanceData.length };
+        return { success: true, count: attendanceData.length, sn: sn || `PULL-${ip}` };
     } catch (error) {
         console.error(`❌ Error pulling from ${ip}:`, error.message);
+        try { await zk.disconnect(); } catch (e) { }
+        throw error;
+    }
+}
+
+/**
+ * Fetch users from device and sync to employee table
+ */
+export async function pullDeviceUsers(ip, port = 4370) {
+    const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
+    try {
+        await zk.createSocket();
+        const users = await zk.getUsers();
+        const userData = users?.data || [];
+
+        console.log(`👤 Received ${userData.length} users from device ${ip}`);
+
+        if (userData.length > 0) {
+            for (const u of userData) {
+                // Upsert to employee table
+                await pool.query(`
+                    INSERT INTO employee (user_id, nama, created_at)
+                    VALUES ($1, $2, now())
+                    ON CONFLICT (user_id) DO UPDATE 
+                    SET nama = EXCLUDED.nama, updated_at = now()
+                `, [String(u.userId), u.name]);
+            }
+        }
+
+        await zk.disconnect();
+        return { success: true, count: userData.length };
+    } catch (error) {
+        console.error(`❌ Error pulling users from ${ip}:`, error.message);
         try { await zk.disconnect(); } catch (e) { }
         throw error;
     }

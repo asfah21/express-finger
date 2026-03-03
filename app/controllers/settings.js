@@ -34,9 +34,9 @@ export const settingsController = {
     async getSettings(req, res) {
         try {
             const settings = await getSettingsData()
-            res.json(settings)
+            res.json({ status: 'success', data: settings })
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     },
 
@@ -45,9 +45,9 @@ export const settingsController = {
             const newSettings = req.body
             // Tulis ulang file settings
             await writeFile(settingsPath, JSON.stringify(newSettings, null, 2))
-            res.json({ message: 'Settings updated successfully', settings: newSettings })
+            res.json({ status: 'success', message: 'Settings updated successfully', data: newSettings })
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     }
 }

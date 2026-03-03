@@ -4,9 +4,9 @@ export const employeeController = {
     async listEmployees(req, res) {
         try {
             const { rows } = await pool.query('SELECT * FROM employee ORDER BY id ASC')
-            res.json(rows)
+            res.json({ status: 'success', data: { list: rows, total: rows.length } })
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     },
 
@@ -14,16 +14,16 @@ export const employeeController = {
         const { id } = req.params
         try {
             const { rows } = await pool.query('SELECT * FROM employee WHERE id = $1', [id])
-            if (rows.length === 0) return res.status(404).json({ error: 'Employee not found' })
-            res.json(rows[0])
+            if (rows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            res.json({ status: 'success', data: rows[0] })
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     },
 
     async addEmployee(req, res) {
         const { user_id, nik, nama, jabatan, department } = req.body
-        if (!user_id) return res.status(400).json({ error: 'user_id is required' })
+        if (!user_id) return res.status(400).json({ status: 'error', message: 'user_id is required' })
 
         try {
             const { rows } = await pool.query(
@@ -31,12 +31,12 @@ export const employeeController = {
                  VALUES ($1, $2, $3, $4, $5) RETURNING *`,
                 [String(user_id), nik, nama, jabatan, department]
             )
-            res.status(201).json(rows[0])
+            res.status(201).json({ status: 'success', data: rows[0] })
         } catch (error) {
-            if (error.code === '23505') { // Unique violation
-                return res.status(409).json({ error: 'user_id already exists' })
+            if (error.code === '23505') {
+                return res.status(409).json({ status: 'error', message: 'user_id already exists' })
             }
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     },
 
@@ -54,13 +54,13 @@ export const employeeController = {
                  WHERE id = $6 RETURNING *`,
                 [user_id ? String(user_id) : null, nik, nama, jabatan, department, id]
             )
-            if (rows.length === 0) return res.status(404).json({ error: 'Employee not found' })
-            res.json(rows[0])
+            if (rows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            res.json({ status: 'success', data: rows[0] })
         } catch (error) {
             if (error.code === '23505') {
-                return res.status(409).json({ error: 'user_id already exists' })
+                return res.status(409).json({ status: 'error', message: 'user_id already exists' })
             }
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     },
 
@@ -68,10 +68,10 @@ export const employeeController = {
         const { id } = req.params
         try {
             const { rowCount } = await pool.query('DELETE FROM employee WHERE id = $1', [id])
-            if (rowCount === 0) return res.status(404).json({ error: 'Employee not found' })
-            res.json({ message: 'Employee deleted' })
+            if (rowCount === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            res.json({ status: 'success', message: 'Employee deleted' })
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     }
 }

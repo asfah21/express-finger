@@ -9,7 +9,7 @@ export const syncController = {
         const { ip, sn, port = 4370 } = req.body || req.query
 
         if (!ip && !sn) {
-            return res.status(400).json({ error: 'IP or SN is required' })
+            return res.status(400).json({ status: 'error', message: 'IP or SN is required' })
         }
 
         try {
@@ -20,7 +20,7 @@ export const syncController = {
             if (!ip && sn) {
                 const { rows } = await pool.query('SELECT ip, port FROM devices WHERE sn = $1', [sn])
                 if (rows.length === 0) {
-                    return res.status(404).json({ error: `Device with SN ${sn} not found in registry` })
+                    return res.status(404).json({ status: 'error', message: `Device with SN ${sn} not found in registry` })
                 }
                 targetIp = rows[0].ip
                 targetPort = rows[0].port || 4370
@@ -33,11 +33,12 @@ export const syncController = {
             await pool.query('UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2', [result.sn, targetIp])
 
             res.json({
+                status: 'success',
                 message: 'Sync completed successfully',
-                ...result
+                data: result
             })
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            res.status(500).json({ status: 'error', message: error.message })
         }
     },
 
@@ -51,7 +52,7 @@ export const syncController = {
             const { rows: devices } = await pool.query('SELECT ip, port, sn FROM devices WHERE is_active = true')
 
             if (devices.length === 0) {
-                return res.json({ message: 'No active devices to sync', results: [] })
+                return res.json({ status: 'success', message: 'No active devices to sync', data: { results: [] } })
             }
 
             if (isStream) {
@@ -96,8 +97,9 @@ export const syncController = {
                 res.end()
             } else {
                 res.json({
+                    status: 'success',
                     message: 'Sync process finished',
-                    results
+                    data: { results }
                 })
             }
         } catch (error) {
@@ -105,7 +107,7 @@ export const syncController = {
                 res.write(`\n❌ Critical Error: ${error.message}\n`)
                 res.end()
             } else {
-                res.status(500).json({ error: error.message })
+                res.status(500).json({ status: 'error', message: error.message })
             }
         }
     }

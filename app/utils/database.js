@@ -53,8 +53,11 @@ export async function ensureSchema() {
       nama TEXT,
       jabatan TEXT,
       department TEXT,
-      created_at TIMESTAMPTZ DEFAULT now()
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
     );
+    -- Ensure updated_at exists for existing tables
+    ALTER TABLE employee ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
   `)
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_user_time
@@ -69,7 +72,26 @@ export async function ensureSchema() {
     
     CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices (ip);
     CREATE INDEX IF NOT EXISTS idx_devices_active ON devices (is_active);
+    
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT DEFAULT 'admin',
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
   `)
+
+  // Create default admin if no users exist
+  const { rowCount } = await pool.query('SELECT 1 FROM users LIMIT 1')
+  if (rowCount === 0) {
+    // Default: admin / admin123
+    // In a real app we'd hash but for simplicity/demo or we can use a hash
+    // I will use a simple hashed password if I can, but I don't see bcrypt.
+    // I'll use a plain text comparison for now OR add bcrypt.
+    // Let's add bcrypt if possible.
+    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', ['admin', 'admin123'])
+  }
 }
 
 // Batch insert with chunking

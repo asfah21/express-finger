@@ -82,9 +82,9 @@ export const apiController = {
       }))
 
       const total = Number(countRes.rows[0]?.total || 0)
-      res.json({ total, limit: lim, offset: off, has_more: off + rows.length < total, rows })
+      res.json({ status: 'success', data: { total, limit: lim, offset: off, has_more: off + rows.length < total, logs: rows } })
     } catch (e) {
-      res.status(500).json({ error: e.message })
+      res.status(500).json({ status: 'error', message: e.message })
     }
   },
 
@@ -110,9 +110,9 @@ export const apiController = {
         values: [from, to],
       })
       res.setHeader('Cache-Control', 'public, max-age=15')
-      res.json({ date: dateStr, rows })
+      res.json({ status: 'success', data: { date: dateStr, rows } })
     } catch (e) {
-      res.status(500).json({ error: e.message })
+      res.status(500).json({ status: 'error', message: e.message })
     }
   },
 
@@ -123,9 +123,9 @@ export const apiController = {
         const st = await stat(path.join(config.RAW_DIR, f))
         return { file: f, size: st.size, mtime: st.mtime }
       }))
-      res.json({ count: data.length, files: data })
+      res.json({ status: 'success', data: { count: data.length, files: data } })
     } catch (e) {
-      res.status(500).json({ error: e.message })
+      res.status(500).json({ status: 'error', message: e.message })
     }
   },
 
@@ -136,7 +136,7 @@ export const apiController = {
     res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
     if (typeof res.flushHeaders === 'function') res.flushHeaders()
     createReadStream(fpath, { highWaterMark: 1 << 16 })
-      .on('error', () => res.status(404).json({ error: 'Not found' }))
+      .on('error', () => res.status(404).json({ status: 'error', message: 'Not found' }))
       .pipe(res)
   }
 }
