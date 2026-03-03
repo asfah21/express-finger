@@ -23,13 +23,7 @@ export const apiController = {
       if (device_sn) { where.push(`al.device_sn = $${i++}`); params.push(String(device_sn)) }
 
       if (search) {
-        where.push(`(
-          al.user_id::text ILIKE $${i} OR 
-          e.nama ILIKE $${i} OR 
-          e.nik ILIKE $${i} OR 
-          e.jabatan ILIKE $${i} OR 
-          e.department ILIKE $${i}
-        )`);
+        where.push(`e.nama ILIKE $${i}`);
         params.push(`%${search}%`);
         i++;
       }
@@ -46,11 +40,13 @@ export const apiController = {
             e.jabatan,
             e.department,
             al.type, 
-            al.device_sn, 
+            al.device_sn,
+            d.name as device_name,
             al."timestamp", 
             al.created_at
           FROM attendance_logs al
           LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+          LEFT JOIN devices d ON al.device_sn = d.sn
           ${whereSql}
           ORDER BY al."timestamp" DESC
           LIMIT $${i++} OFFSET $${i++}
@@ -58,7 +54,12 @@ export const apiController = {
         values: [...params, lim, off],
       }
       const countQuery = {
-        text: `SELECT COUNT(*)::bigint AS total FROM attendance_logs al ${whereSql}`,
+        text: `
+          SELECT COUNT(*)::bigint AS total 
+          FROM attendance_logs al 
+          LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+          ${whereSql}
+        `,
         values: params,
       }
 
@@ -76,7 +77,6 @@ export const apiController = {
         4: 'Lembur Masuk',
         5: 'Lembur Keluar'
       }
-      const deviceMap = paramSettings?.devices || {}
 
       const rows = dataRes.rows.map(row => ({
         id: row.id,
@@ -87,7 +87,7 @@ export const apiController = {
         department: row.department || null,
         type: row.type,
         absensi: typeMap[row.type] || String(row.type),
-        device_name: deviceMap[row.device_sn] || row.device_sn,
+        device_name: row.device_name || row.device_sn,
         device_sn: row.device_sn,
         timestamp: row.timestamp,
         created_at: row.created_at

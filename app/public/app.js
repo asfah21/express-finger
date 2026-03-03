@@ -407,15 +407,65 @@ async function refreshLogs() {
     updatePaginationUI('logs');
 }
 
-async function exportLogs() {
-    try {
-        const fromDate = document.getElementById('log-date-from').value;
-        const toDate = document.getElementById('log-date-to').value;
-        const search = document.getElementById('log-search').value;
+function showExportMenu() {
+    toggleModal(true);
+    document.getElementById('modal-title').innerText = 'Export Attendance Logs';
+    document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-file-excel" style="font-size: 3.5rem; color: var(--secondary); margin-bottom: 1rem;"></i>
+            <p style="color: var(--text-muted);">Select the time range for your Excel export.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button class="btn-primary" style="background: var(--primary);" onclick="performExport('all')">
+                <i class="fas fa-globe"></i> Export Data (Based on Current Filters)
+            </button>
+            <button class="btn-primary" style="background: #4a5568;" onclick="performExport('today')">
+                <i class="fas fa-calendar-day"></i> Export Today Only
+            </button>
+            <button class="btn-primary" style="background: #2d3748;" onclick="performExport('7days')">
+                <i class="fas fa-calendar-week"></i> Export Last 7 Days
+            </button>
+            <button class="btn-primary" style="background: #1a202c;" onclick="performExport('all_absolute')">
+                <i class="fas fa-file-invoice"></i> Export All (Ignored Filters)
+            </button>
+        </div>
+    `;
 
+    // Hide default save button
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.style.display = 'none';
+}
+
+async function performExport(range) {
+    try {
+        let fromDate = '';
+        let toDate = '';
+        let search = document.getElementById('log-search').value;
+
+        const today = new Date().toISOString().split('T')[0];
+
+        if (range === 'today') {
+            fromDate = today;
+            toDate = today;
+        } else if (range === '7days') {
+            const last7 = new Date();
+            last7.setDate(last7.getDate() - 7);
+            fromDate = last7.toISOString().split('T')[0];
+            toDate = today;
+        } else if (range === 'all_absolute') {
+            fromDate = '';
+            toDate = '';
+            search = '';
+        } else {
+            // Use current UI filters (range === 'all')
+            fromDate = document.getElementById('log-date-from').value;
+            toDate = document.getElementById('log-date-to').value;
+        }
+
+        toggleModal(false);
         showToast('Preparing export data...');
 
-        let url = `/api/logs?limit=50000`; // Fetch max for full export
+        let url = `/api/logs?limit=50000`;
         if (fromDate) url += `&from=${fromDate}T00:00:00`;
         if (toDate) url += `&to=${toDate}T23:59:59`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -434,7 +484,7 @@ async function exportLogs() {
                 NIK: log.nik,
                 Department: log.department,
                 Jabatan: log.jabatan,
-                Type: log.absensi,
+                Status: log.absensi,
                 Device: log.device_name
             };
         });
@@ -443,7 +493,8 @@ async function exportLogs() {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Logs");
 
-        XLSX.writeFile(workbook, `attendance_logs_${new Date().toISOString().split('T')[0]}.xlsx`);
+        const filename = `attendance_${range}_${today}.xlsx`;
+        XLSX.writeFile(workbook, filename);
         showToast('Export successful', 'success');
     } catch (err) {
         showToast('Export failed', 'error');

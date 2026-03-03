@@ -14,9 +14,7 @@ const defaultSettings = {
         "4": "Lembur Masuk",
         "5": "Lembur Keluar"
     },
-    devices: {
-        "CKEB233960333": "Office 1"
-    }
+    devices: {}
 }
 
 export async function getSettingsData() {
