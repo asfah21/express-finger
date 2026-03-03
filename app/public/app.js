@@ -545,7 +545,9 @@ function openAddDevice() {
             <input type="text" id="dev-sn" placeholder="Leave empty for auto-detect">
         </div>
     `;
+    document.getElementById('modal-save-btn').innerText = 'Save Device';
     document.getElementById('modal-save-btn').onclick = saveNewDevice;
+    document.getElementById('modal-save-btn').style.display = 'block';
     toggleModal(true);
 }
 
@@ -597,7 +599,10 @@ function openAddEmployee() {
             <input type="text" id="emp-dept" placeholder="IT">
         </div>
     `;
-    document.getElementById('modal-save-btn').onclick = saveNewEmployee;
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Save Employee';
+    saveBtn.onclick = saveNewEmployee;
+    saveBtn.style.display = 'block';
     toggleModal(true);
 }
 
@@ -650,23 +655,30 @@ function showToast(message, type = 'info') {
 // Settings Protection Modal
 function openSettingsAuth() {
     toggleModal(true);
-    document.getElementById('modal-title').innerText = 'Akses Terproteksi';
+    document.getElementById('modal-title').innerText = 'Authorization Required';
     document.getElementById('modal-content').innerHTML = `
         <div style="text-align: center; margin-bottom: 1.5rem;">
-            <i class="fas fa-lock" style="font-size: 3rem; color: var(--warning); margin-bottom: 1rem;"></i>
-            <p style="color: var(--text-muted);">Halaman ini memerlukan password otorisasi untuk mengakses pengaturan sistem.</p>
+            <i class="fas fa-lock" style="font-size: 3.5rem; color: var(--warning); margin-bottom: 2rem;"></i>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Please enter the master password to access system settings.</p>
         </div>
         <div class="form-group">
             <label>Master Password</label>
-            <input type="password" id="settings-pass" placeholder="Enter password..." autofocus>
+            <input type="password" id="settings-pass" placeholder="Enter password..." autofocus autocomplete="off">
         </div>
-        <button class="btn-primary" onclick="verifySettingsPass()">Buka Pengaturan</button>
     `;
 
-    // Handle Enter key
+    // Configure Footer
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Unlock Settings';
+    saveBtn.style.display = 'block';
+    saveBtn.onclick = verifySettingsPass;
+
+    // Handle Enter key on input
     document.getElementById('settings-pass').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') verifySettingsPass();
     });
+
+    setTimeout(() => document.getElementById('settings-pass')?.focus(), 150);
 }
 
 function verifySettingsPass() {
@@ -691,9 +703,9 @@ function verifySettingsPass() {
         if (activePage) activePage.style.display = 'block';
         loadSettings();
 
-        showToast('Akses Diberikan', 'success');
+        showToast('Access Granted', 'success');
     } else {
-        showToast('Password Salah!', 'error');
+        showToast('Invalid Password!', 'error');
         passInput.style.borderColor = 'var(--error)';
         passInput.value = '';
         passInput.focus();
