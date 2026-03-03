@@ -226,14 +226,20 @@ async function refreshOverview() {
 
 function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
-    body.innerHTML = logs.map(log => `
-        <tr>
-            <td>${new Date(log.timestamp).toLocaleString()}</td>
-            <td>${log.user_id}</td>
-            <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.type == 0 ? 'CHECK-IN' : 'CHECK-OUT'}</span></td>
-            <td>${log.device_sn || '-'}</td>
-        </tr>
-    `).join('') || '<tr><td colspan="4" style="text-align: center;">No logs found</td></tr>';
+    body.innerHTML = logs.map(log => {
+        const dt = new Date(log.timestamp);
+        const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
+        const timeStr = dt.toISOString().split('T')[1].substring(0, 8); // hh:mm:ss
+
+        return `
+            <tr>
+                <td>${dateStr} <small style="opacity:0.6">${timeStr}</small></td>
+                <td>${log.nama || log.user_id}</td>
+                <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+                <td>${log.device_name || log.device_sn || '-'}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="4" style="text-align: center;">No logs found</td></tr>';
 }
 
 async function refreshDevices() {
@@ -383,13 +389,18 @@ async function refreshLogs() {
 
     body.innerHTML = (data.data?.logs || []).map(log => {
         const dt = new Date(log.timestamp);
-        const dateStr = `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
-        const timeStr = dt.toTimeString().split(' ')[0].substring(0, 5);
+        // Use UTC methods to show exactly as stored (Raw Machine Time)
+        const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
+        const timeStr = dt.toISOString().split('T')[1].substring(0, 5); // 24h hh:mm
+        const secondsStr = dt.toISOString().split('T')[1].substring(6, 8); // ss
 
         return `
             <tr>
                 <td>${dateStr}</td>
-                <td><strong style="color: var(--primary);">${timeStr}</strong></td>
+                <td>
+                    <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
+                    <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
+                </td>
                 <td>
                     <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
@@ -476,9 +487,10 @@ async function performExport(range) {
 
         const exportData = logs.map(log => {
             const dt = new Date(log.timestamp);
+            const timeFull = dt.toISOString().split('T')[1].substring(0, 8); // hh:mm:ss
             return {
-                Date: `${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`,
-                Time: dt.toTimeString().split(' ')[0].substring(0, 5),
+                Date: `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`,
+                Time: timeFull,
                 'User ID': log.user_id,
                 Name: log.nama,
                 NIK: log.nik,
