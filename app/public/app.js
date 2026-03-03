@@ -160,12 +160,16 @@ function updatePaginationUI(section) {
         const totalPages = Math.ceil(s.total / s.size) || 1;
         let html = '';
 
-        // Render 5 pages around current page
-        let startPage = Math.max(0, s.page - 2);
-        let endPage = Math.min(totalPages - 1, startPage + 4);
+        const isMobile = window.innerWidth < 640;
+        const maxLinks = isMobile ? 3 : 5;
+        const offset = Math.floor(maxLinks / 2);
 
-        if (endPage - startPage < 4) {
-            startPage = Math.max(0, endPage - 4);
+        // Render pages around current page
+        let startPage = Math.max(0, s.page - offset);
+        let endPage = Math.min(totalPages - 1, startPage + (maxLinks - 1));
+
+        if (endPage - startPage < (maxLinks - 1)) {
+            startPage = Math.max(0, endPage - (maxLinks - 1));
         }
 
         for (let i = startPage; i <= endPage; i++) {
@@ -721,3 +725,14 @@ function toggleSidebar() {
 // Initialize
 checkAuth();
 setInterval(checkAuth, 300000); // Check auth every 5 mins
+
+// Handle window resize for pagination
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        if (currentPath === 'overview') updatePaginationUI('overview');
+        if (currentPath === 'employees') updatePaginationUI('employees');
+        if (currentPath === 'logs') updatePaginationUI('logs');
+    }, 250);
+});
