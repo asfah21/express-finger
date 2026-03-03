@@ -256,6 +256,7 @@ async function refreshDevices() {
             <td>${dev.last_sync ? new Date(dev.last_sync).toLocaleString() : 'Never'}</td>
             <td>
                 <button class="icon-btn" onclick="syncDevice('${dev.sn}')" title="Sync Now"><i class="fas fa-sync"></i></button>
+                <button class="icon-btn" onclick="openEditDevice(${dev.id}, '${dev.name || ''}')" title="Edit Name"><i class="fas fa-edit"></i></button>
                 <button class="icon-btn" onclick="deleteDevice(${dev.id})" title="Delete"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
@@ -696,10 +697,50 @@ function openAddDevice() {
             <input type="text" id="dev-sn" placeholder="Leave empty for auto-detect">
         </div>
     `;
-    document.getElementById('modal-save-btn').innerText = 'Save Device';
     document.getElementById('modal-save-btn').onclick = saveNewDevice;
-    document.getElementById('modal-save-btn').style.display = 'block';
     toggleModal(true);
+}
+
+function openEditDevice(id, currentName) {
+    document.getElementById('modal-title').innerText = 'Edit Device Name';
+    document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <i class="fas fa-edit" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+            <p style="color: var(--text-muted);">Please enter a new name for this device.</p>
+        </div>
+        <div class="form-group">
+            <label>Device Name</label>
+            <input type="text" id="edit-dev-name" value="${currentName}" placeholder="e.g. Office 1">
+        </div>
+    `;
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Update Name';
+    saveBtn.style.display = 'block';
+    saveBtn.onclick = () => saveEditDevice(id);
+    toggleModal(true);
+}
+
+async function saveEditDevice(id) {
+    const name = document.getElementById('edit-dev-name').value;
+    if (!name) return showToast('Name is required', 'warning');
+
+    try {
+        const res = await fetch(`/api/devices/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        if (res.ok) {
+            showToast('Device name updated', 'success');
+            toggleModal(false);
+            refreshDevices();
+        } else {
+            showToast('Failed to update device', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
 }
 
 async function saveNewDevice() {
