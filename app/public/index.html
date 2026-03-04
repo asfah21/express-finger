@@ -361,6 +361,58 @@
                                 next login.
                             </p> -->
                         </div>
+
+                        <!-- Attendance Remarks Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-comment-dots" style="color: var(--primary);"></i> Attendance Remarks
+                            </h3>
+                            <div class="form-group">
+                                <label>Late Remark (use {diff} for minutes)</label>
+                                <input type="text" id="remark-late" placeholder="Terlambat {diff} menit">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Early Arrival</label>
+                                    <input type="text" id="remark-early-arrival" placeholder="Anomali (Terlalu Awal)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Early Departure</label>
+                                    <input type="text" id="remark-early-departure" placeholder="Pulang Mendahului">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Potential Overtime (Checkout > 60min)</label>
+                                <input type="text" id="remark-overtime" placeholder="Perlu Konfirmasi (Lembur?)">
+                            </div>
+                            <div class="form-group">
+                                <label>Duplicate / Anomaly</label>
+                                <input type="text" id="remark-duplicate" placeholder="Duplikat Absensi / Anomali">
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveRemarksSettings()">
+                                <i class="fas fa-save"></i> Save Remarks
+                            </button>
+                        </div>
+
+                        <!-- Shift Definitions Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-clock" style="color: var(--secondary);"></i> Shift Definitions
+                            </h3>
+                            <div class="form-group">
+                                <label>Shifts Config (JSON format)</label>
+                                <textarea id="setting-shift-types"
+                                    style="width: 100%; height: 280px; font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.2); color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.75rem;"></textarea>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    Define shift codes and their start/end times. Support single shift (start/end) and
+                                    multi-shift (shifts: [[start, end], ...]).
+                                </p>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem; background: var(--secondary);"
+                                onclick="saveShiftSettings()">
+                                <i class="fas fa-save"></i> Save Shift Config
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <footer class="app-footer">

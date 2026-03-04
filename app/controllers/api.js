@@ -72,6 +72,15 @@ export const apiController = {
 
       const paramSettings = await getSettingsData()
       const tolerance = Number(paramSettings?.late_tolerance_mins || 5);
+      const shiftTypes = paramSettings?.shift_types || {};
+      const remarks = paramSettings?.remarks_config || {
+        "late": "Terlambat {diff} menit",
+        "early_arrival": "Anomali (Terlalu Awal)",
+        "overtime_check": "Perlu Konfirmasi (Lembur?)",
+        "early_departure": "Pulang Mendahului / Anomali",
+        "duplicate": "Duplikat Absensi / Anomali"
+      };
+
       const typeMap = paramSettings?.types || {
         0: 'Masuk',
         1: 'Pulang',
@@ -88,54 +97,69 @@ export const apiController = {
         const totalMinutes = hours * 60 + minutes;
 
         let ket = '';
-        const empType = row.emp_type; // S75, S77, N77, N99
+        const empType = row.emp_type;
+        const shiftCfg = shiftTypes[empType];
 
-        if (row.type === 0 && empType) { // Check-in
+        if (row.type === 0 && shiftCfg) { // Check-in
           let shiftStart = -1;
-          if (empType === 'S75' || empType === 'S77') {
-            shiftStart = 7 * 60; // 07:00
-          } else if (empType === 'N77') {
-            const d1 = Math.abs(totalMinutes - (7 * 60));
-            const d2 = Math.abs(totalMinutes - (19 * 60));
-            shiftStart = d1 < d2 ? 7 * 60 : 19 * 60;
-          } else if (empType === 'N99') {
-            const d1 = Math.abs(totalMinutes - (9 * 60));
-            const d2 = Math.abs(totalMinutes - (21 * 60));
-            shiftStart = d1 < d2 ? 9 * 60 : 21 * 60;
+          if (shiftCfg.start) {
+            // Single shift
+            const [h, m] = shiftCfg.start.split(':').map(Number);
+            shiftStart = h * 60 + m;
+          } else if (shiftCfg.shifts) {
+            // Multi shift (Closest one)
+            let minDiff = Infinity;
+            for (const s of shiftCfg.shifts) {
+              const [h, m] = s[0].split(':').map(Number);
+              const startVal = h * 60 + m;
+              const d = Math.abs(totalMinutes - startVal);
+              if (d < minDiff) {
+                minDiff = d;
+                shiftStart = startVal;
+              }
+            }
           }
 
           if (shiftStart !== -1) {
             const diff = totalMinutes - shiftStart;
             if (diff > tolerance) {
               if (diff > 90) {
-                ket = 'Duplikat Absensi / Anomali';
+                ket = remarks.duplicate || 'Duplikat Absensi / Anomali';
               } else {
-                ket = `Terlambat ${diff} menit`;
+                ket = (remarks.late || 'Terlambat {diff} menit').replace('{diff}', diff);
               }
             } else if (diff < -60) {
-              ket = 'Anomali (Terlalu Awal)';
+              ket = remarks.early_arrival || 'Anomali (Terlalu Awal)';
             }
           }
-        } else if (row.type === 1 && empType) { // Check-out
+        } else if (row.type === 1 && shiftCfg) { // Check-out
           let shiftEnd = -1;
-          if (empType === 'S75') shiftEnd = 17 * 60;
-          else if (empType === 'S77') shiftEnd = 19 * 60;
-          else if (empType === 'N77') {
-            const d1 = Math.abs(totalMinutes - (19 * 60));
-            const d2 = Math.abs(totalMinutes - (7 * 60));
-            shiftEnd = d1 < d2 ? 19 * 60 : 7 * 60;
-          } else if (empType === 'N99') {
-            const d1 = Math.abs(totalMinutes - (21 * 60));
-            const d2 = Math.abs(totalMinutes - (9 * 60));
-            shiftEnd = d1 < d2 ? 21 * 60 : 9 * 60;
+          if (shiftCfg.end) {
+            const [h, m] = shiftCfg.end.split(':').map(Number);
+            shiftEnd = h * 60 + m;
+          } else if (shiftCfg.shifts) {
+            // Pick shift end based on the closest start shift used above (roughly)
+            let minDiff = Infinity;
+            for (const s of shiftCfg.shifts) {
+              const [hStart, mStart] = s[0].split(':').map(Number);
+              const [hEnd, mEnd] = s[1].split(':').map(Number);
+              const endVal = hEnd * 60 + mEnd;
+
+              // Simple check: which end is closest?
+              const d = Math.abs(totalMinutes - endVal);
+              if (d < minDiff) {
+                minDiff = d;
+                shiftEnd = endVal;
+              }
+            }
           }
 
           if (shiftEnd !== -1) {
             const diff = totalMinutes - shiftEnd;
             if (diff > 60) {
-              ket = 'Perlu Konfirmasi (Lembur?)';
+              ket = remarks.overtime_check || 'Perlu Konfirmasi (Lembur?)';
             } else if (diff < -60) {
-              ket = 'Pulang Mendahului / Anomali';
+              ket = remarks.early_departure || 'Pulang Mendahului / Anomali';
             }
           }
         }

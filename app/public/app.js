@@ -586,9 +586,21 @@ async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
     if (data.status === 'success') {
-        document.getElementById('setting-api-key').value = data.data.api_key || '';
-        document.getElementById('setting-cleanup-days').value = data.data.cleanup_age_days || 30;
-        document.getElementById('setting-late-tolerance').value = data.data.late_tolerance_mins || 5;
+        const s = data.data;
+        document.getElementById('setting-api-key').value = s.api_key || '';
+        document.getElementById('setting-cleanup-days').value = s.cleanup_age_days || 30;
+        document.getElementById('setting-late-tolerance').value = s.late_tolerance_mins || 5;
+
+        // Remarks config
+        const r = s.remarks_config || {};
+        document.getElementById('remark-late').value = r.late || '';
+        document.getElementById('remark-early-arrival').value = r.early_arrival || '';
+        document.getElementById('remark-early-departure').value = r.early_departure || '';
+        document.getElementById('remark-overtime').value = r.overtime_check || '';
+        document.getElementById('remark-duplicate').value = r.duplicate || '';
+
+        // Shifts config
+        document.getElementById('setting-shift-types').value = JSON.stringify(s.shift_types || {}, null, 4);
     }
 }
 
@@ -625,6 +637,29 @@ async function saveAttendanceSettings() {
     await updateSettings({
         late_tolerance_mins: parseInt(lateTolerance)
     }, 'Attendance rules updated');
+}
+
+async function saveRemarksSettings() {
+    const payload = {
+        remarks_config: {
+            late: document.getElementById('remark-late').value,
+            early_arrival: document.getElementById('remark-early-arrival').value,
+            early_departure: document.getElementById('remark-early-departure').value,
+            overtime_check: document.getElementById('remark-overtime').value,
+            duplicate: document.getElementById('remark-duplicate').value
+        }
+    };
+    await updateSettings(payload, 'Attendance remarks updated');
+}
+
+async function saveShiftSettings() {
+    try {
+        const jsonStr = document.getElementById('setting-shift-types').value;
+        const shiftTypes = JSON.parse(jsonStr);
+        await updateSettings({ shift_types: shiftTypes }, 'Shift configurations updated');
+    } catch (err) {
+        showToast('Invalid JSON format for Shift Config', 'error');
+    }
 }
 
 async function updateAccount() {
