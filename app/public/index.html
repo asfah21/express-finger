@@ -80,10 +80,41 @@
                             <div class="stat-label">Logs Today</div>
                             <div class="stat-value" id="stat-logs">-</div>
                         </div>
-                        <div class="stat-card" style="border-left: 4px solid #fbbf24;">
+                        <!-- <div class="stat-card" style="border-left: 4px solid #fbbf24;">
                             <div class="stat-label">Active Sync</div>
                             <div class="stat-value" id="stat-active-sync">Auto</div>
-                        </div>
+                        </div> -->
+                    </div>
+
+                    <div class="header" style="margin-top: 2rem;">
+                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-clock" style="color: var(--error);"></i>
+                            Late Today
+                            <span id="late-today-count"
+                                style="font-size: 0.8rem; font-weight: 600; background: rgba(248,113,113,0.15); color: var(--error); padding: 0.15rem 0.6rem; border-radius: 9999px;">0</span>
+                            <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Staff
+                                Only</span>
+                        </h3>
+                    </div>
+                    <div class="table-container" style="margin-bottom: 2rem; border-left: 3px solid var(--error);">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>NAME</th>
+                                    <th>DEPT</th>
+                                    <th>POSITION</th>
+                                    <th>TIME</th>
+                                    <th>REMARK</th>
+                                </tr>
+                            </thead>
+                            <tbody id="late-today-body">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                     <div class="header" style="margin-top: 2rem;">
@@ -191,7 +222,7 @@
                                     <th>User ID</th>
                                     <th>NIK</th>
                                     <th>Name</th>
-                                    <th>Jabatan</th>
+                                    <th>Position</th>
                                     <th>Department</th>
                                     <th>Divisi</th>
                                     <th>Type</th>
@@ -268,7 +299,7 @@
                                 <tr>
                                     <th>NIK</th>
                                     <th>Name</th>
-                                    <th>Dept & Job</th>
+                                    <th>Dept - Position</th>
                                     <th>Type</th>
                                     <th>Date</th>
                                     <th>Time</th>

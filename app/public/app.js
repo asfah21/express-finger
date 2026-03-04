@@ -228,6 +228,9 @@ async function refreshOverview() {
         s.total = logsData.data?.total || 0;
         renderRecentLogs(logsData.data?.logs || []);
         updatePaginationUI('overview');
+
+        // Fetch late staff for today
+        refreshLateToday(today);
     } catch (err) {
         console.error('Failed to refresh overview', err);
     }
@@ -249,6 +252,56 @@ function renderRecentLogs(logs) {
             </tr>
         `;
     }).join('') || '<tr><td colspan="4" style="text-align: center;">No logs found</td></tr>';
+}
+
+async function refreshLateToday(today) {
+    try {
+        // Fetch all check-in (type=0) logs for today
+        const res = await fetch(`/api/logs?from=${today}T00:00:00&to=${today}T23:59:59&type=0&limit=5000`);
+        const data = await res.json();
+        const logs = data.data?.logs || [];
+
+        // Filter: only S75/S77 staff who have "Terlambat" in ket
+        const staffLate = logs.filter(log =>
+            (log.emp_type === 'S75' || log.emp_type === 'S77') &&
+            log.ket && log.ket.toLowerCase().includes('terlambat')
+        );
+
+        // Deduplicate by user_id (keep earliest check-in per person)
+        const seen = new Map();
+        for (const log of staffLate) {
+            if (!seen.has(log.user_id)) {
+                seen.set(log.user_id, log);
+            }
+        }
+        const unique = Array.from(seen.values()).slice(0, 10);
+
+        // Update count badge
+        const countEl = document.getElementById('late-today-count');
+        if (countEl) countEl.innerText = seen.size;
+
+        const body = document.getElementById('late-today-body');
+        body.innerHTML = unique.map((log, idx) => {
+            const dt = new Date(log.timestamp);
+            const timeStr = dt.toISOString().split('T')[1].substring(0, 5);
+            return `
+                <tr>
+                    <td style="color: var(--text-muted);">${idx + 1}</td>
+                    <td>
+                        <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">NIK: ${log.nik || '-'}</div>
+                    </td>
+                    <td>${log.department || '-'}</td>
+                    <td>${log.jabatan || '-'}</td>
+                    <td><strong style="color: var(--error); font-size: 1.05rem;">${timeStr}</strong></td>
+                    <td><span style="color: var(--error); font-weight: 500;">${log.ket}</span></td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;"><i class="fas fa-check-circle" style="color: var(--success); margin-right: 0.5rem;"></i>No late staff today — great job!</td></tr>';
+    } catch (err) {
+        console.error('Failed to fetch late today', err);
+        document.getElementById('late-today-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Failed to load data</td></tr>';
+    }
 }
 
 async function refreshDevices() {
@@ -1075,13 +1128,19 @@ async function saveNewEmployee() {
 function toggleModal(show) {
     const overlay = document.getElementById('modal-overlay');
     const saveBtn = document.getElementById('modal-save-btn');
+    const titleEl = document.getElementById('modal-title');
 
     if (show) {
         overlay.classList.add('active');
-        // Reset button style to default
+        // Reset button style & class to default (removes btn-danger etc.)
         if (saveBtn) {
-            saveBtn.style.background = ''; // Resets to CSS default
+            saveBtn.className = 'btn-primary';
+            saveBtn.style.background = '';
             saveBtn.style.display = 'block';
+        }
+        // Restore title visibility (showConfirm hides it)
+        if (titleEl) {
+            titleEl.style.display = '';
         }
     } else {
         overlay.classList.remove('active');
