@@ -449,11 +449,11 @@ async function refreshLogs() {
 
         return `
             <tr>
+                <td>${log.nik || '-'}</td>
                 <td>
                     <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
                 </td>
-                <td>${log.nik || '-'}</td>
                 <td style="font-size: 0.8125rem;">
                     <div>${log.department || '-'}</div>
                     <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
@@ -555,9 +555,9 @@ async function performExport(range) {
             const dt = new Date(log.timestamp);
             const timeFull = dt.toISOString().split('T')[1].substring(0, 8); // hh:mm:ss
             return {
+                NIK: log.nik,
                 Name: log.nama,
                 'User ID': log.user_id,
-                NIK: log.nik,
                 Department: log.department,
                 Divisi: log.divisi,
                 Jabatan: log.jabatan,
