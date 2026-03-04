@@ -309,44 +309,53 @@ async function editEmployee(id) {
     const res = await fetch('/api/employees/' + id);
     const { data: emp } = await res.json();
 
-    document.getElementById('modal-title').innerText = 'Edit Employee';
+    document.getElementById('modal-title').innerText = 'Edit Employee Info';
     document.getElementById('modal-content').innerHTML = `
-        <div class="form-group">
-            <label>User ID (Fingerprint ID)</label>
-            <input type="text" id="emp-uid" value="${emp.user_id}">
+        <div class="form-row">
+            <div class="form-group">
+                <label>User ID (Fingerprint ID)</label>
+                <input type="text" id="emp-uid" value="${emp.user_id}">
+            </div>
+            <div class="form-group">
+                <label>Shift Type</label>
+                <select id="emp-type">
+                    <option value="" ${!emp.type ? 'selected' : ''}>None</option>
+                    <option value="S75" ${emp.type === 'S75' ? 'selected' : ''}>S75 (Staff 07-17)</option>
+                    <option value="S77" ${emp.type === 'S77' ? 'selected' : ''}>S77 (Staff 07-19)</option>
+                    <option value="N77" ${emp.type === 'N77' ? 'selected' : ''}>N77 (Non-Staff 7 ke 7)</option>
+                    <option value="N99" ${emp.type === 'N99' ? 'selected' : ''}>N99 (Non-Staff 9 ke 9)</option>
+                </select>
+            </div>
         </div>
         <div class="form-group">
             <label>Full Name</label>
             <input type="text" id="emp-name" value="${emp.nama || ''}">
         </div>
-        <div class="form-group">
-            <label>NIK</label>
-            <input type="text" id="emp-nik" value="${emp.nik || ''}">
+        <div class="form-row">
+            <div class="form-group">
+                <label>NIK</label>
+                <input type="text" id="emp-nik" value="${emp.nik || ''}">
+            </div>
+            <div class="form-group">
+                <label>Jabatan</label>
+                <input type="text" id="emp-jabatan" value="${emp.jabatan || ''}">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Jabatan</label>
-            <input type="text" id="emp-jabatan" value="${emp.jabatan || ''}">
-        </div>
-        <div class="form-group">
-            <label>Department</label>
-            <input type="text" id="emp-dept" value="${emp.department || ''}">
-        </div>
-        <div class="form-group">
-            <label>Divisi</label>
-            <input type="text" id="emp-divisi" value="${emp.divisi || ''}" placeholder="GA, IT, etc.">
-        </div>
-        <div class="form-group">
-            <label>Shift Type</label>
-            <select id="emp-type">
-                <option value="" ${emp.type === '' ? 'selected' : ''}>None</option>
-                <option value="S75" ${emp.type === 'S75' ? 'selected' : ''}>S75 (Staff 07:00-17:00)</option>
-                <option value="S77" ${emp.type === 'S77' ? 'selected' : ''}>S77 (Staff 07:00-19:00)</option>
-                <option value="N77" ${emp.type === 'N77' ? 'selected' : ''}>N77 (Non-Staff 7 ke 7, 2 Shift)</option>
-                <option value="N99" ${emp.type === 'N99' ? 'selected' : ''}>N99 (Non-Staff 9 ke 9, 2 Shift)</option>
-            </select>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Department</label>
+                <input type="text" id="emp-dept" value="${emp.department || ''}">
+            </div>
+            <div class="form-group">
+                <label>Divisi</label>
+                <input type="text" id="emp-divisi" value="${emp.divisi || ''}" placeholder="GA, IT, etc.">
+            </div>
         </div>
     `;
-    document.getElementById('modal-save-btn').onclick = () => saveEditEmployee(id);
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Save Changes';
+    saveBtn.style.display = 'block';
+    saveBtn.onclick = () => saveEditEmployee(id);
     toggleModal(true);
 }
 
@@ -680,8 +689,14 @@ async function exportEmployees() {
         const data = await res.json();
         const employees = data.data?.list || [];
 
+        // Hapus kolom yang tidak diperlukan
+        const cleanedEmployees = employees.map(emp => {
+            const { id, created_at, updated_at, ...rest } = emp;
+            return rest;
+        });
+
         // Buat sheet dari data JSON
-        const worksheet = XLSX.utils.json_to_sheet(employees);
+        const worksheet = XLSX.utils.json_to_sheet(cleanedEmployees);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
 
@@ -693,9 +708,41 @@ async function exportEmployees() {
     }
 }
 
+function showImportModal() {
+    toggleModal(true);
+    document.getElementById('modal-title').innerText = 'Import Employees';
+    document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-file-excel" style="font-size: 3.5rem; color: var(--success); margin-bottom: 1rem;"></i>
+            <p style="color: var(--text-muted);">Please upload an Excel file (.xlsx) with the following columns:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
+                <span class="badge" style="background: rgba(255,255,255,0.05);">user_id</span>
+                <span class="badge" style="background: rgba(255,255,255,0.05);">nama</span>
+                <span class="badge" style="background: rgba(255,255,255,0.05);">nik</span>
+                <span class="badge" style="background: rgba(255,255,255,0.05);">jabatan</span>
+                <span class="badge" style="background: rgba(255,255,255,0.05);">department</span>
+                <span class="badge" style="background: rgba(255,255,255,0.05);">divisi</span>
+                <span class="badge" style="background: rgba(255,255,255,0.05);">type (S75, S77, N77, N99)</span>
+            </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+             <button class="btn-primary" onclick="document.getElementById('import-file').click()" style="background: var(--primary);">
+                <i class="fas fa-upload"></i> Choose Excel File
+             </button>
+             <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">Maximum 5000 rows per import.</p>
+        </div>
+    `;
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.style.display = 'none';
+}
+
 function handleImport(event) {
     const file = event.target.files[0];
     if (!file) return;
+
+    toggleModal(false); // Close the guideline modal 
+    showToast('Reading file...');
+
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
@@ -747,7 +794,10 @@ function openAddDevice() {
             <input type="text" id="dev-sn" placeholder="Leave empty for auto-detect">
         </div>
     `;
-    document.getElementById('modal-save-btn').onclick = saveNewDevice;
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Add Device';
+    saveBtn.style.display = 'block';
+    saveBtn.onclick = saveNewDevice;
     toggleModal(true);
 }
 
@@ -820,45 +870,51 @@ async function saveNewDevice() {
 function openAddEmployee() {
     document.getElementById('modal-title').innerText = 'Add New Employee';
     document.getElementById('modal-content').innerHTML = `
-        <div class="form-group">
-            <label>User ID (Fingerprint ID)</label>
-            <input type="text" id="emp-uid" placeholder="101">
+        <div class="form-row">
+            <div class="form-group">
+                <label>User ID (Fingerprint ID)</label>
+                <input type="text" id="emp-uid" placeholder="e.g. 101">
+            </div>
+            <div class="form-group">
+                <label>Shift Type</label>
+                <select id="emp-type">
+                    <option value="" selected>None</option>
+                    <option value="S75">S75 (Staff 07-17)</option>
+                    <option value="S77">S77 (Staff 07-19)</option>
+                    <option value="N77">N77 (Non-Staff 7 ke 7)</option>
+                    <option value="N99">N99 (Non-Staff 9 ke 9)</option>
+                </select>
+            </div>
         </div>
         <div class="form-group">
             <label>Full Name</label>
             <input type="text" id="emp-name" placeholder="John Doe">
         </div>
-        <div class="form-group">
-            <label>NIK</label>
-            <input type="text" id="emp-nik" placeholder="123456">
+        <div class="form-row">
+            <div class="form-group">
+                <label>NIK</label>
+                <input type="text" id="emp-nik" placeholder="123456">
+            </div>
+            <div class="form-group">
+                <label>Jabatan</label>
+                <input type="text" id="emp-jabatan" placeholder="Staff IT">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Jabatan</label>
-            <input type="text" id="emp-jabatan" placeholder="Staff IT">
-        </div>
-        <div class="form-group">
-            <label>Department</label>
-            <input type="text" id="emp-dept" placeholder="IT">
-        </div>
-        <div class="form-group">
-            <label>Divisi</label>
-            <input type="text" id="emp-divisi" placeholder="GA, IT, etc.">
-        </div>
-        <div class="form-group">
-            <label>Shift Type</label>
-            <select id="emp-type">
-                <option value="">None</option>
-                <option value="S75">S75 (Staff 07:00-17:00)</option>
-                <option value="S77">S77 (Staff 07:00-19:00)</option>
-                <option value="N77">N77 (Non-Staff 7 ke 7, 2 Shift)</option>
-                <option value="N99">N99 (Non-Staff 9 ke 9, 2 Shift)</option>
-            </select>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Department</label>
+                <input type="text" id="emp-dept" placeholder="GSI">
+            </div>
+            <div class="form-group">
+                <label>Divisi</label>
+                <input type="text" id="emp-divisi" placeholder="GA, IT, etc.">
+            </div>
         </div>
     `;
     const saveBtn = document.getElementById('modal-save-btn');
     saveBtn.innerText = 'Save Employee';
-    saveBtn.onclick = saveNewEmployee;
     saveBtn.style.display = 'block';
+    saveBtn.onclick = saveNewEmployee;
     toggleModal(true);
 }
 

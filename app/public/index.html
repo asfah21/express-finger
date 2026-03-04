@@ -177,7 +177,7 @@
                             </button>
                             <button class="btn-primary"
                                 style="width: auto; height: 42px; padding: 0 1rem; background: #2d3748;"
-                                onclick="document.getElementById('import-file').click()">
+                                onclick="showImportModal()">
                                 <i class="fas fa-file-import"></i> Import
                             </button>
                             <input type="file" id="import-file" style="display: none;" accept=".xlsx, .xls"
@@ -297,23 +297,37 @@
                     <div class="header">
                         <h2>System Settings</h2>
                     </div>
-                    <div class="stat-card" style="max-width: 600px;">
-                        <div class="form-group">
-                            <label>API Key</label>
-                            <input type="text" id="setting-api-key" placeholder="Enter API Key">
-                        </div>
-                        <div class="form-group">
-                            <label>Log Cleanup (Days)</label>
-                            <input type="number" id="setting-cleanup-days" value="30">
-                        </div>
-                        <div class="form-group">
-                            <label>Late Tolerance (Minutes)</label>
-                            <input type="number" id="setting-late-tolerance" value="5">
-                        </div>
-                        <button class="btn-primary" onclick="saveSettings()">Save Configuration</button>
 
-                        <div class="profile-section">
-                            <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-user-shield"></i> Admin Account</h3>
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+                        <!-- System Config Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 600px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-sliders-h" style="color: var(--primary);"></i> System Preferences
+                            </h3>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="text" id="setting-api-key" placeholder="Enter API Key">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Log Cleanup (Days)</label>
+                                    <input type="number" id="setting-cleanup-days" value="30">
+                                </div>
+                                <div class="form-group">
+                                    <label>Late Tolerance (Min)</label>
+                                    <input type="number" id="setting-late-tolerance" value="5">
+                                </div>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveSettings()">
+                                <i class="fas fa-save"></i> Save Configuration
+                            </button>
+                        </div>
+
+                        <!-- Admin Profile Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-user-shield" style="color: var(--secondary);"></i> Admin Account
+                            </h3>
                             <div class="form-group">
                                 <label>New Username</label>
                                 <input type="text" id="profile-username" placeholder="Leave empty to keep current">
@@ -322,8 +336,15 @@
                                 <label>New Password</label>
                                 <input type="password" id="profile-password" placeholder="••••••••">
                             </div>
-                            <button class="btn-primary" style="background: var(--secondary);"
-                                onclick="updateAccount()">Update Admin Profile</button>
+                            <button class="btn-primary" style="background: var(--secondary); margin-top: 1rem;"
+                                onclick="updateAccount()">
+                                <i class="fas fa-user-edit"></i> Update Profile
+                            </button>
+                            <p
+                                style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem; line-height: 1.4;">
+                                <i class="fas fa-info-circle"></i> Changes to admin credentials will take effect upon
+                                next login.
+                            </p>
                         </div>
                     </div>
                 </div>
