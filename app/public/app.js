@@ -750,7 +750,7 @@ function showImportModal() {
     document.getElementById('modal-content').innerHTML = `
         <div style="text-align: center; margin-bottom: 2rem;">
             <i class="fas fa-file-excel" style="font-size: 3.5rem; color: var(--success); margin-bottom: 1rem;"></i>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Silakan download template di bawah ini, isi data karyawan Anda, lalu gunakan tombol upload untuk mengimpor.</p>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Please download the template below, fill in your employee data, and then use the upload button to import.</p>
             
             <button class="btn-primary" onclick="downloadImportTemplate()" style="background: rgba(119, 160, 68, 0.15); color: var(--secondary); border: 1px solid var(--secondary); box-shadow: none; width: auto; margin-bottom: 0.5rem;">
                 <i class="fas fa-download"></i> Download Template (.xlsx)
@@ -759,9 +759,9 @@ function showImportModal() {
         
         <div style="display: flex; flex-direction: column; gap: 1rem; border-top: 1px solid var(--glass-border); pt: 1.5rem; margin-top: 0.5rem; padding-top: 1.5rem;">
              <button class="btn-primary" onclick="document.getElementById('import-file').click()" style="background: var(--primary);">
-                <i class="fas fa-upload"></i> Pilih File & Mulai Import
+                <i class="fas fa-upload"></i> Choose File & Start Import
              </button>
-             <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">Maksimal 5000 baris per import.</p>
+             <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">Maximum 5000 rows per import.</p>
         </div>
     `;
     const saveBtn = document.getElementById('modal-save-btn');
