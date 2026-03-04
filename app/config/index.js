@@ -11,7 +11,7 @@ export const config = {
   API_KEY: process.env.API_KEY,
   RAW_DIR: process.env.RAW_DIR || path.join(path.resolve(), '../data/raw'),
   PULL_DIR: process.env.PULL_DIR || path.join(path.resolve(), '../data/pull'),
-  MAX_LIMIT: Number(process.env.MAX_LIMIT || 1000),
+  MAX_LIMIT: Number(process.env.MAX_LIMIT || 50000),
   CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000,
   CLEANUP_AGE_DAYS: 7,
   WORKER_ENABLED: process.env.WORKER_ENABLED !== 'false', // Default true

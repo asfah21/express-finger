@@ -592,31 +592,39 @@ async function loadSettings() {
     }
 }
 
-async function saveSettings() {
-    const apiKey = document.getElementById('setting-api-key').value;
-    const cleanupDays = document.getElementById('setting-cleanup-days').value;
-    const lateTolerance = document.getElementById('setting-late-tolerance').value;
-
-    showToast('Saving settings...');
+async function updateSettings(payload, successMsg) {
+    showToast('Saving changes...');
     try {
         const res = await fetch('/api/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                api_key: apiKey,
-                cleanup_age_days: parseInt(cleanupDays),
-                late_tolerance_mins: parseInt(lateTolerance)
-            })
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            showToast('Settings saved successfully', 'success');
+            showToast(successMsg, 'success');
         } else {
             showToast('Failed to save settings', 'error');
         }
     } catch (err) {
         showToast('Network error', 'error');
     }
+}
+
+async function saveSystemSettings() {
+    const apiKey = document.getElementById('setting-api-key').value;
+    const cleanupDays = document.getElementById('setting-cleanup-days').value;
+    await updateSettings({
+        api_key: apiKey,
+        cleanup_age_days: parseInt(cleanupDays)
+    }, 'System preferences updated');
+}
+
+async function saveAttendanceSettings() {
+    const lateTolerance = document.getElementById('setting-late-tolerance').value;
+    await updateSettings({
+        late_tolerance_mins: parseInt(lateTolerance)
+    }, 'Attendance rules updated');
 }
 
 async function updateAccount() {

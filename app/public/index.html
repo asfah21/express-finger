@@ -300,7 +300,7 @@
 
                     <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
                         <!-- System Config Card -->
-                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 600px;">
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 450px;">
                             <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
                                 <i class="fas fa-sliders-h" style="color: var(--primary);"></i> System Preferences
                             </h3>
@@ -308,18 +308,33 @@
                                 <label>API Key</label>
                                 <input type="text" id="setting-api-key" placeholder="Enter API Key">
                             </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Log Cleanup (Days)</label>
-                                    <input type="number" id="setting-cleanup-days" value="30">
-                                </div>
-                                <div class="form-group">
-                                    <label>Late Tolerance (Min)</label>
-                                    <input type="number" id="setting-late-tolerance" value="5">
-                                </div>
+                            <div class="form-group">
+                                <label>Log Cleanup (Days)</label>
+                                <input type="number" id="setting-cleanup-days" value="30">
                             </div>
-                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveSettings()">
-                                <i class="fas fa-save"></i> Save Configuration
+                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveSystemSettings()">
+                                <i class="fas fa-save"></i> Save Config
+                            </button>
+                        </div>
+
+                        <!-- Attendance Rules Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 400px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-calendar-check" style="color: var(--warning);"></i> Attendance Rules
+                            </h3>
+                            <div class="form-group">
+                                <label>Late Tolerance (Minutes)</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="number" id="setting-late-tolerance" value="5" style="flex: 1;">
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">min</span>
+                                </div>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    Lateness within this limit will be considered "On Time".
+                                </p>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem; background: var(--warning);"
+                                onclick="saveAttendanceSettings()">
+                                <i class="fas fa-save"></i> Save Rules
                             </button>
                         </div>
 
