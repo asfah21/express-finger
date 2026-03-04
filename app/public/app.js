@@ -449,11 +449,6 @@ async function refreshLogs() {
 
         return `
             <tr>
-                <td>${dateStr}</td>
-                <td>
-                    <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
-                    <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
-                </td>
                 <td>
                     <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
@@ -464,6 +459,11 @@ async function refreshLogs() {
                     <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
                 </td>
                 <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+                <td>${dateStr}</td>
+                <td>
+                    <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
+                    <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
+                </td>
                 <td>
                     <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
                 </td>
@@ -555,15 +555,15 @@ async function performExport(range) {
             const dt = new Date(log.timestamp);
             const timeFull = dt.toISOString().split('T')[1].substring(0, 8); // hh:mm:ss
             return {
-                Date: `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`,
-                Time: timeFull,
-                'User ID': log.user_id,
                 Name: log.nama,
+                'User ID': log.user_id,
                 NIK: log.nik,
                 Department: log.department,
                 Divisi: log.divisi,
                 Jabatan: log.jabatan,
                 Status: log.absensi,
+                Date: `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`,
+                Time: timeFull,
                 Device: log.device_name,
                 Remarks: log.ket
             };
