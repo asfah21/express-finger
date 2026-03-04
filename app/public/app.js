@@ -561,9 +561,11 @@ async function performExport(range) {
                 Name: log.nama,
                 NIK: log.nik,
                 Department: log.department,
+                Divisi: log.divisi,
                 Jabatan: log.jabatan,
                 Status: log.absensi,
-                Device: log.device_name
+                Device: log.device_name,
+                Remarks: log.ket
             };
         });
 
