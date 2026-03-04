@@ -134,7 +134,7 @@ body {
     flex-direction: column;
     position: fixed;
     height: 100vh;
-    z-index: 500;
+    z-index: 900;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
