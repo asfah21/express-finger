@@ -450,8 +450,8 @@ function showExportMenu() {
             <button class="btn-primary" style="background: #4a5568;" onclick="performExport('today')">
                 <i class="fas fa-calendar-day"></i> Export Today Only
             </button>
-            <button class="btn-primary" style="background: #2d3748;" onclick="performExport('7days')">
-                <i class="fas fa-calendar-week"></i> Export Last 7 Days
+            <button class="btn-primary" style="background: #2d3748;" onclick="performExport('3days')">
+                <i class="fas fa-calendar-week"></i> Export Last 3 Days
             </button>
             <button class="btn-primary" style="background: #1a202c;" onclick="performExport('all_absolute')">
                 <i class="fas fa-file-invoice"></i> Export All (Ignored Filters)
@@ -475,11 +475,14 @@ async function performExport(range) {
         if (range === 'today') {
             fromDate = today;
             toDate = today;
-        } else if (range === '7days') {
-            const last7 = new Date();
-            last7.setDate(last7.getDate() - 7);
-            fromDate = last7.toISOString().split('T')[0];
-            toDate = today;
+        } else if (range === '3days') {
+            const now = new Date();
+            const last3 = new Date();
+            last3.setDate(last3.getDate() - 3);
+
+            fromDate = last3.toISOString(); // From 3 days ago
+            toDate = now.toISOString();     // Until now (seconds included)
+            search = ''; // No filters
         } else if (range === 'all_absolute') {
             fromDate = '';
             toDate = '';
@@ -494,8 +497,15 @@ async function performExport(range) {
         showToast('Preparing export data...');
 
         let url = `/api/logs?limit=50000`;
-        if (fromDate) url += `&from=${fromDate}T00:00:00`;
-        if (toDate) url += `&to=${toDate}T23:59:59`;
+
+        // Handle ISO from/to for 3days range
+        if (range === '3days') {
+            url += `&from=${fromDate}&to=${toDate}`;
+        } else {
+            if (fromDate) url += `&from=${fromDate}T00:00:00`;
+            if (toDate) url += `&to=${toDate}T23:59:59`;
+        }
+
         if (search) url += `&search=${encodeURIComponent(search)}`;
 
         const res = await fetch(url);
