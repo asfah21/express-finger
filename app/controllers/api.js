@@ -192,7 +192,8 @@ export const apiController = {
 
   async getDailyStats(req, res) {
     try {
-      const dateStr = String(req.query.date || new Date().toISOString().slice(0, 10))
+      const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
+      const dateStr = String(req.query.date || todayWita)
       const from = new Date(`${dateStr}T00:00:00+08:00`)
       const to = new Date(`${dateStr}T23:59:59+08:00`)
       const { rows } = await pool.query({

@@ -8,6 +8,25 @@ const paginationState = {
     logs: { page: 0, size: 25, total: 0 }
 };
 
+/**
+ * Get YYYY-MM-DD in WITA (UTC+8) timezone
+ */
+function getWitaDateString() {
+    try {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Makassar',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+    } catch (e) {
+        // Fallback to UTC+8 manual calculation if Intl fails
+        const now = new Date();
+        const wita = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        return wita.toISOString().split('T')[0];
+    }
+}
+
 // Initial check
 async function checkAuth() {
     try {
@@ -217,11 +236,11 @@ async function refreshOverview() {
         document.getElementById('stat-employees').innerText = employeesData.data?.total || 0;
 
         // Logs stats (today)
-        const today = new Date().toISOString().split('T')[0];
+        const today = getWitaDateString();
         // Note: logsData might only have a page. Better to have a separate total-today endpoint, 
         // but for now let's just use what we have or show "-"
         document.getElementById('stat-logs').innerText = "...";
-        fetch(`/api/logs?from=${today}`).then(r => r.json()).then(d => {
+        fetch(`/api/logs?from=${today}T00:00:00%2B08:00`).then(r => r.json()).then(d => {
             document.getElementById('stat-logs').innerText = d.data?.total || 0;
         });
 
@@ -231,6 +250,12 @@ async function refreshOverview() {
 
         // Fetch late staff for today
         refreshLateToday(today);
+
+        // Update last update time
+        const lastUpdateEl = document.getElementById('overview-last-update');
+        if (lastUpdateEl) {
+            lastUpdateEl.innerText = 'Auto-refreshed: ' + new Date().toLocaleTimeString();
+        }
     } catch (err) {
         console.error('Failed to refresh overview', err);
     }
@@ -256,8 +281,8 @@ function renderRecentLogs(logs) {
 
 async function refreshLateToday(today) {
     try {
-        // Fetch all check-in (type=0) logs for today
-        const res = await fetch(`/api/logs?from=${today}T00:00:00&to=${today}T23:59:59&type=0&limit=5000`);
+        // Fetch all check-in (type=0) logs for today with explicit +08:00 TZ
+        const res = await fetch(`/api/logs?from=${today}T00:00:00%2B08:00&to=${today}T23:59:59%2B08:00&type=0&limit=5000`);
         const data = await res.json();
         const logs = data.data?.logs || [];
 
@@ -491,8 +516,8 @@ async function refreshLogs() {
     const search = document.getElementById('log-search').value;
 
     let url = `/api/logs?limit=${s.size}&offset=${s.page * s.size}`;
-    if (fromDate) url += `&from=${fromDate}T00:00:00`;
-    if (toDate) url += `&to=${toDate}T23:59:59`;
+    if (fromDate) url += `&from=${fromDate}T00:00:00%2B08:00`;
+    if (toDate) url += `&to=${toDate}T23:59:59%2B08:00`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
     const res = await fetch(url);
@@ -570,7 +595,7 @@ async function performExport(range) {
         let toDate = '';
         let search = document.getElementById('log-search').value;
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = getWitaDateString();
 
         if (range === 'today') {
             fromDate = today;
@@ -602,8 +627,8 @@ async function performExport(range) {
         if (range === '3days') {
             url += `&from=${fromDate}&to=${toDate}`;
         } else {
-            if (fromDate) url += `&from=${fromDate}T00:00:00`;
-            if (toDate) url += `&to=${toDate}T23:59:59`;
+            if (fromDate) url += `&from=${fromDate}T00:00:00%2B08:00`;
+            if (toDate) url += `&to=${toDate}T23:59:59%2B08:00`;
         }
 
         if (search) url += `&search=${encodeURIComponent(search)}`;
@@ -826,7 +851,7 @@ async function exportEmployees() {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
 
         // Export file
-        XLSX.writeFile(workbook, `employees_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(workbook, `employees_export_${getWitaDateString()}.xlsx`);
         showToast('Export successful');
     } catch (err) {
         showToast('Export failed', 'error');
@@ -1231,6 +1256,13 @@ function toggleSidebar() {
 // Initialize
 checkAuth();
 setInterval(checkAuth, 300000); // Check auth every 5 mins
+
+// Auto refresh overview data every 60 seconds (smart update)
+setInterval(() => {
+    if (currentUser && currentPath === 'overview') {
+        refreshOverview();
+    }
+}, 60000);
 
 // Handle window resize for pagination
 let resizeTimer;

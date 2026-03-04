@@ -62,7 +62,11 @@
             <main class="main-content">
                 <div id="page-overview" class="page">
                     <div class="header">
-                        <h2>System Overview</h2>
+                        <div style="display: flex; align-items: baseline; gap: 0.75rem;">
+                            <h2 style="margin-bottom: 0;">System Overview</h2>
+                            <small id="overview-last-update"
+                                style="color: var(--text-muted); font-size: 0.7rem; font-weight: 400; opacity: 0.8;"></small>
+                        </div>
                         <button class="btn-primary" style="width: auto; padding: 0.5rem 1rem;" onclick="syncAll()">
                             <i class="fas fa-sync-alt"></i> Sync All Devices
                         </button>
