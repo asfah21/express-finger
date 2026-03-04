@@ -32,7 +32,15 @@ function showLogin() {
 function showDashboard() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('dashboard').style.display = 'flex';
-    refreshOverview();
+
+    // Restore page from URL hash or default to overview
+    const hash = window.location.hash.replace('#', '');
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'settings'];
+    if (hash && validPages.includes(hash)) {
+        showPage(hash);
+    } else {
+        showPage('overview');
+    }
 }
 
 async function handleLogin(e) {
@@ -77,12 +85,13 @@ async function logout() {
 }
 
 function showPage(pageId) {
-    if (pageId === 'settings') {
+    if (pageId === 'settings' && currentPath !== 'settings') {
         openSettingsAuth();
         return;
     }
 
     currentPath = pageId;
+    window.location.hash = pageId; // Save state to URL hash
 
     // Update nav items
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -1068,4 +1077,12 @@ window.addEventListener('resize', () => {
         if (currentPath === 'employees') updatePaginationUI('employees');
         if (currentPath === 'logs') updatePaginationUI('logs');
     }, 250);
+});
+// Handle browser back/forward buttons
+window.addEventListener('hashchange', () => {
+    const hash = window.location.hash.replace('#', '');
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'settings'];
+    if (hash && validPages.includes(hash) && hash !== currentPath) {
+        showPage(hash);
+    }
 });
