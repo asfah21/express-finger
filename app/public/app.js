@@ -708,28 +708,51 @@ async function exportEmployees() {
     }
 }
 
+function downloadImportTemplate() {
+    const data = [
+        {
+            user_id: 101,
+            nama: "John Doe",
+            nik: "12345678",
+            jabatan: "Staff IT",
+            department: "GSI",
+            divisi: "IT",
+            type: "S75"
+        },
+        {
+            user_id: 102,
+            nama: "Jane Smith",
+            nik: "87654321",
+            jabatan: "Operator",
+            department: "GSI",
+            divisi: "Production",
+            type: "N77"
+        }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Import_Template");
+    XLSX.writeFile(workbook, "template_import_karyawan.xlsx");
+}
+
 function showImportModal() {
     toggleModal(true);
     document.getElementById('modal-title').innerText = 'Import Employees';
     document.getElementById('modal-content').innerHTML = `
         <div style="text-align: center; margin-bottom: 2rem;">
             <i class="fas fa-file-excel" style="font-size: 3.5rem; color: var(--success); margin-bottom: 1rem;"></i>
-            <p style="color: var(--text-muted);">Please upload an Excel file (.xlsx) with the following columns:</p>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
-                <span class="badge" style="background: rgba(255,255,255,0.05);">user_id</span>
-                <span class="badge" style="background: rgba(255,255,255,0.05);">nama</span>
-                <span class="badge" style="background: rgba(255,255,255,0.05);">nik</span>
-                <span class="badge" style="background: rgba(255,255,255,0.05);">jabatan</span>
-                <span class="badge" style="background: rgba(255,255,255,0.05);">department</span>
-                <span class="badge" style="background: rgba(255,255,255,0.05);">divisi</span>
-                <span class="badge" style="background: rgba(255,255,255,0.05);">type (S75, S77, N77, N99)</span>
-            </div>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Silakan download template di bawah ini, isi data karyawan Anda, lalu gunakan tombol upload untuk mengimpor.</p>
+            
+            <button class="btn-primary" onclick="downloadImportTemplate()" style="background: rgba(119, 160, 68, 0.15); color: var(--secondary); border: 1px solid var(--secondary); box-shadow: none; width: auto; margin-bottom: 0.5rem;">
+                <i class="fas fa-download"></i> Download Template (.xlsx)
+            </button>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
+        
+        <div style="display: flex; flex-direction: column; gap: 1rem; border-top: 1px solid var(--glass-border); pt: 1.5rem; margin-top: 0.5rem; padding-top: 1.5rem;">
              <button class="btn-primary" onclick="document.getElementById('import-file').click()" style="background: var(--primary);">
-                <i class="fas fa-upload"></i> Choose Excel File
+                <i class="fas fa-upload"></i> Pilih File & Mulai Import
              </button>
-             <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">Maximum 5000 rows per import.</p>
+             <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">Maksimal 5000 baris per import.</p>
         </div>
     `;
     const saveBtn = document.getElementById('modal-save-btn');

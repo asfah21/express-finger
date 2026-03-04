@@ -120,8 +120,13 @@ export const employeeController = {
                     `INSERT INTO employee (user_id, nik, nama, jabatan, department, divisi, type) 
                      VALUES ($1, $2, $3, $4, $5, $6, $7) 
                      ON CONFLICT (user_id) DO UPDATE 
-                     SET nik = EXCLUDED.nik, nama = EXCLUDED.nama, jabatan = EXCLUDED.jabatan, 
-                         department = EXCLUDED.department, divisi = EXCLUDED.divisi, type = EXCLUDED.type
+                     SET nik = COALESCE(NULLIF(EXCLUDED.nik, ''), employee.nik),
+                         nama = COALESCE(NULLIF(EXCLUDED.nama, ''), employee.nama),
+                         jabatan = COALESCE(NULLIF(EXCLUDED.jabatan, ''), employee.jabatan),
+                         department = COALESCE(NULLIF(EXCLUDED.department, ''), employee.department),
+                         divisi = COALESCE(NULLIF(EXCLUDED.divisi, ''), employee.divisi),
+                         type = COALESCE(NULLIF(EXCLUDED.type, ''), employee.type),
+                         updated_at = CURRENT_TIMESTAMP
                      RETURNING *`,
                     [String(user_id), nik, nama, jabatan, department, divisi, type]
                 )
