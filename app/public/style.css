@@ -534,6 +534,29 @@ select option {
     transform: translateY(0);
 }
 
+.modal i.fas {
+    filter: drop-shadow(0 0 15px rgba(0,0,0,0.2));
+}
+
+.pulse-animation {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--error), #dc2626) !important;
+    box-shadow: 0 10px 15px -3px rgba(220, 38, 38, 0.3) !important;
+}
+
+.btn-danger:hover {
+    box-shadow: 0 20px 25px -5px rgba(220, 38, 38, 0.4) !important;
+}
+
 /* Loading Toast */
 .toast {
     position: fixed;

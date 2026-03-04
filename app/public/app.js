@@ -395,14 +395,22 @@ async function saveEditEmployee(id) {
 }
 
 async function deleteEmployee(id) {
-    if (!confirm('Are you sure you want to delete this employee?')) return;
-    const res = await fetch('/api/employees/' + id, { method: 'DELETE' });
-    if (res.ok) {
-        showToast('Employee deleted');
-        refreshEmployees();
-    } else {
-        showToast('Delete failed', 'error');
-    }
+    showConfirm({
+        title: 'Delete Employee',
+        message: 'Are you sure you want to delete this employee? This action cannot be undone.',
+        icon: 'fa-user-minus',
+        confirmText: 'Delete Employee',
+        confirmColor: 'var(--error)',
+        onConfirm: async () => {
+            const res = await fetch('/api/employees/' + id, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('Employee deleted', 'success');
+                refreshEmployees();
+            } else {
+                showToast('Delete failed', 'error');
+            }
+        }
+    });
 }
 
 // Attendance Logs Logic
@@ -720,12 +728,22 @@ async function syncDevice(sn) {
 }
 
 async function deleteDevice(id) {
-    if (!confirm('Are you sure you want to delete this device?')) return;
-    const res = await fetch('/api/devices/' + id, { method: 'DELETE' });
-    if (res.ok) {
-        showToast('Device deleted');
-        refreshDevices();
-    }
+    showConfirm({
+        title: 'Delete Device',
+        message: 'Are you sure you want to delete this device? Connection to this hardware will be removed.',
+        icon: 'fa-microchip',
+        confirmText: 'Delete Device',
+        confirmColor: 'var(--error)',
+        onConfirm: async () => {
+            const res = await fetch('/api/devices/' + id, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('Device deleted', 'success');
+                refreshDevices();
+            } else {
+                showToast('Delete failed', 'error');
+            }
+        }
+    });
 }
 
 async function pullAllEmployees() {
@@ -995,6 +1013,38 @@ function openAddEmployee() {
     toggleModal(true);
 }
 
+// Confirm Modal Helper
+function showConfirm({ title, message, icon, confirmText, confirmColor, onConfirm }) {
+    toggleModal(true);
+    const titleEl = document.getElementById('modal-title');
+    titleEl.style.display = 'none'; // Hide default top title
+
+    document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: center; margin-bottom: 1rem; padding: 1rem 0;">
+            <i class="fas ${icon || 'fa-exclamation-triangle'} pulse-animation" style="font-size: 4.5rem; color: ${confirmColor || 'var(--warning)'}; margin-bottom: 2rem; display: block;"></i>
+            <h2 style="margin-bottom: 1rem; color: var(--text); font-size: 1.75rem; font-weight: 700;">${title}</h2>
+            <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.6; max-width: 420px; margin: 0 auto;">${message}</p>
+        </div>
+    `;
+
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = confirmText || 'Confirm';
+    saveBtn.style.display = 'block';
+
+    // Clear previous classes and add appropriate ones
+    saveBtn.className = 'btn-primary';
+    if (confirmColor === 'var(--error)' || confirmColor === '#f87171') {
+        saveBtn.classList.add('btn-danger');
+    } else {
+        saveBtn.style.background = confirmColor || 'var(--primary)';
+    }
+
+    saveBtn.onclick = () => {
+        toggleModal(false);
+        if (onConfirm) onConfirm();
+    };
+}
+
 async function saveNewEmployee() {
     const data = {
         user_id: document.getElementById('emp-uid').value,
@@ -1024,8 +1074,18 @@ async function saveNewEmployee() {
 // UI Helpers
 function toggleModal(show) {
     const overlay = document.getElementById('modal-overlay');
-    if (show) overlay.classList.add('active');
-    else overlay.classList.remove('active');
+    const saveBtn = document.getElementById('modal-save-btn');
+
+    if (show) {
+        overlay.classList.add('active');
+        // Reset button style to default
+        if (saveBtn) {
+            saveBtn.style.background = ''; // Resets to CSS default
+            saveBtn.style.display = 'block';
+        }
+    } else {
+        overlay.classList.remove('active');
+    }
 }
 
 function closeModal(e) {
