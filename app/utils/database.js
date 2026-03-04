@@ -53,11 +53,16 @@ export async function ensureSchema() {
       nama TEXT,
       jabatan TEXT,
       department TEXT,
+      divisi TEXT,
+      type TEXT,
       created_at TIMESTAMPTZ DEFAULT now(),
       updated_at TIMESTAMPTZ DEFAULT now()
     );
     -- Ensure updated_at exists for existing tables
     ALTER TABLE employee ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+    -- Add divisi and type columns to existing employee table
+    ALTER TABLE employee ADD COLUMN IF NOT EXISTS divisi TEXT;
+    ALTER TABLE employee ADD COLUMN IF NOT EXISTS type TEXT;
   `)
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_user_time

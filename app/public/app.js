@@ -282,12 +282,14 @@ async function refreshEmployees() {
             <td>${emp.nama || 'Unnamed'}</td>
             <td>${emp.jabatan || '-'}</td>
             <td>${emp.department || '-'}</td>
+            <td><span class="badge" style="background: rgba(255,255,255,0.1);">${emp.divisi || '-'}</span></td>
+            <td><span class="badge" style="background: var(--primary);">${emp.type || '-'}</span></td>
             <td>
                 <button class="icon-btn" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
                 <button class="icon-btn" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="6" style="text-align: center;">No employees found</td></tr>';
+    `).join('') || '<tr><td colspan="8" style="text-align: center;">No employees found</td></tr>';
 
     updatePaginationUI('employees');
 }
@@ -329,6 +331,20 @@ async function editEmployee(id) {
             <label>Department</label>
             <input type="text" id="emp-dept" value="${emp.department || ''}">
         </div>
+        <div class="form-group">
+            <label>Divisi</label>
+            <input type="text" id="emp-divisi" value="${emp.divisi || ''}" placeholder="GA, IT, etc.">
+        </div>
+        <div class="form-group">
+            <label>Shift Type</label>
+            <select id="emp-type">
+                <option value="" ${emp.type === '' ? 'selected' : ''}>None</option>
+                <option value="S75" ${emp.type === 'S75' ? 'selected' : ''}>S75 (Staff 07:00-17:00)</option>
+                <option value="S77" ${emp.type === 'S77' ? 'selected' : ''}>S77 (Staff 07:00-19:00)</option>
+                <option value="N77" ${emp.type === 'N77' ? 'selected' : ''}>N77 (Non-Staff 7 ke 7, 2 Shift)</option>
+                <option value="N99" ${emp.type === 'N99' ? 'selected' : ''}>N99 (Non-Staff 9 ke 9, 2 Shift)</option>
+            </select>
+        </div>
     `;
     document.getElementById('modal-save-btn').onclick = () => saveEditEmployee(id);
     toggleModal(true);
@@ -340,7 +356,9 @@ async function saveEditEmployee(id) {
         nama: document.getElementById('emp-name').value,
         nik: document.getElementById('emp-nik').value,
         jabatan: document.getElementById('emp-jabatan').value,
-        department: document.getElementById('emp-dept').value
+        department: document.getElementById('emp-dept').value,
+        divisi: document.getElementById('emp-divisi').value,
+        type: document.getElementById('emp-type').value
     };
 
     const res = await fetch('/api/employees/' + id, {
@@ -428,9 +446,12 @@ async function refreshLogs() {
                     <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
                 </td>
                 <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+                <td>
+                    <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
+                </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="6" style="text-align: center;">No logs found</td></tr>';
+    }).join('') || '<tr><td colspan="7" style="text-align: center;">No logs found</td></tr>';
 
     updatePaginationUI('logs');
 }
@@ -547,12 +568,14 @@ async function loadSettings() {
     if (data.status === 'success') {
         document.getElementById('setting-api-key').value = data.data.api_key || '';
         document.getElementById('setting-cleanup-days').value = data.data.cleanup_age_days || 30;
+        document.getElementById('setting-late-tolerance').value = data.data.late_tolerance_mins || 5;
     }
 }
 
 async function saveSettings() {
     const apiKey = document.getElementById('setting-api-key').value;
     const cleanupDays = document.getElementById('setting-cleanup-days').value;
+    const lateTolerance = document.getElementById('setting-late-tolerance').value;
 
     showToast('Saving settings...');
     try {
@@ -561,7 +584,8 @@ async function saveSettings() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 api_key: apiKey,
-                cleanup_age_days: parseInt(cleanupDays)
+                cleanup_age_days: parseInt(cleanupDays),
+                late_tolerance_mins: parseInt(lateTolerance)
             })
         });
 
@@ -816,6 +840,20 @@ function openAddEmployee() {
             <label>Department</label>
             <input type="text" id="emp-dept" placeholder="IT">
         </div>
+        <div class="form-group">
+            <label>Divisi</label>
+            <input type="text" id="emp-divisi" placeholder="GA, IT, etc.">
+        </div>
+        <div class="form-group">
+            <label>Shift Type</label>
+            <select id="emp-type">
+                <option value="">None</option>
+                <option value="S75">S75 (Staff 07:00-17:00)</option>
+                <option value="S77">S77 (Staff 07:00-19:00)</option>
+                <option value="N77">N77 (Non-Staff 7 ke 7, 2 Shift)</option>
+                <option value="N99">N99 (Non-Staff 9 ke 9, 2 Shift)</option>
+            </select>
+        </div>
     `;
     const saveBtn = document.getElementById('modal-save-btn');
     saveBtn.innerText = 'Save Employee';
@@ -830,7 +868,9 @@ async function saveNewEmployee() {
         nama: document.getElementById('emp-name').value,
         nik: document.getElementById('emp-nik').value,
         jabatan: document.getElementById('emp-jabatan').value,
-        department: document.getElementById('emp-dept').value
+        department: document.getElementById('emp-dept').value,
+        divisi: document.getElementById('emp-divisi').value,
+        type: document.getElementById('emp-type').value
     };
 
     const res = await fetch('/api/employees', {

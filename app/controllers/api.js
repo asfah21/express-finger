@@ -39,6 +39,8 @@ export const apiController = {
             e.nama,
             e.jabatan,
             e.department,
+            e.divisi,
+            e.type as emp_type,
             al.type, 
             al.device_sn,
             d.name as device_name,
@@ -69,6 +71,7 @@ export const apiController = {
       ])
 
       const paramSettings = await getSettingsData()
+      const tolerance = Number(paramSettings?.late_tolerance_mins || 5);
       const typeMap = paramSettings?.types || {
         0: 'Masuk',
         1: 'Pulang',
@@ -78,20 +81,81 @@ export const apiController = {
         5: 'Lembur Keluar'
       }
 
-      const rows = dataRes.rows.map(row => ({
-        id: row.id,
-        user_id: row.user_id,
-        nik: row.nik || null,
-        nama: row.nama || null,
-        jabatan: row.jabatan || null,
-        department: row.department || null,
-        type: row.type,
-        absensi: typeMap[row.type] || String(row.type),
-        device_name: row.device_name || row.device_sn,
-        device_sn: row.device_sn,
-        timestamp: row.timestamp,
-        created_at: row.created_at
-      }))
+      const rows = dataRes.rows.map(row => {
+        const dt = new Date(row.timestamp);
+        const hours = dt.getUTCHours();
+        const minutes = dt.getUTCMinutes();
+        const totalMinutes = hours * 60 + minutes;
+
+        let ket = '';
+        const empType = row.emp_type; // S75, S77, N77, N99
+
+        if (row.type === 0 && empType) { // Check-in
+          let shiftStart = -1;
+          if (empType === 'S75' || empType === 'S77') {
+            shiftStart = 7 * 60; // 07:00
+          } else if (empType === 'N77') {
+            // Pick closest to 07:00 or 19:00
+            const d1 = Math.abs(totalMinutes - (7 * 60));
+            const d2 = Math.abs(totalMinutes - (19 * 60));
+            shiftStart = d1 < d2 ? 7 * 60 : 19 * 60;
+          } else if (empType === 'N99') {
+            // Pick closest to 09:00 or 21:00
+            const d1 = Math.abs(totalMinutes - (9 * 60));
+            const d2 = Math.abs(totalMinutes - (21 * 60));
+            shiftStart = d1 < d2 ? 9 * 60 : 21 * 60;
+          }
+
+          if (shiftStart !== -1) {
+            const diff = totalMinutes - shiftStart;
+            if (diff > tolerance) {
+              ket = `Terlambat ${diff} menit`;
+            } else if (diff < -60) {
+              ket = 'Anomali (Terlalu Awal)';
+            }
+          }
+        } else if (row.type === 1 && empType) { // Check-out
+          let shiftEnd = -1;
+          if (empType === 'S75') shiftEnd = 17 * 60;
+          else if (empType === 'S77') shiftEnd = 19 * 60;
+          else if (empType === 'N77') {
+            // 19:00 or 07:00
+            const d1 = Math.abs(totalMinutes - (19 * 60));
+            const d2 = Math.abs(totalMinutes - (7 * 60));
+            shiftEnd = d1 < d2 ? 19 * 60 : 7 * 60;
+          } else if (empType === 'N99') {
+            // 21:00 or 09:00
+            const d1 = Math.abs(totalMinutes - (21 * 60));
+            const d2 = Math.abs(totalMinutes - (9 * 60));
+            shiftEnd = d1 < d2 ? 21 * 60 : 9 * 60;
+          }
+
+          if (shiftEnd !== -1) {
+            const diff = totalMinutes - shiftEnd;
+            if (diff > 60) {
+              ket = 'Perlu Konfirmasi (Lembur?)';
+            }
+          }
+        }
+
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          nik: row.nik || null,
+          nama: row.nama || null,
+          jabatan: row.jabatan || null,
+          department: row.department || null,
+          divisi: row.divisi || null,
+          emp_type: row.emp_type || null,
+          type: row.type,
+          absensi: typeMap[row.type] || String(row.type),
+          device_name: row.device_name || row.device_sn,
+          device_sn: row.device_sn,
+          timestamp: row.timestamp,
+          created_at: row.created_at,
+          ket: ket
+        }
+      })
 
       const total = Number(countRes.rows[0]?.total || 0)
       res.json({ status: 'success', data: { total, limit: lim, offset: off, has_more: off + rows.length < total, logs: rows } })

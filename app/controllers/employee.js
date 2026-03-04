@@ -51,14 +51,14 @@ export const employeeController = {
     },
 
     async addEmployee(req, res) {
-        const { user_id, nik, nama, jabatan, department } = req.body
+        const { user_id, nik, nama, jabatan, department, divisi, type } = req.body
         if (!user_id) return res.status(400).json({ status: 'error', message: 'user_id is required' })
 
         try {
             const { rows } = await pool.query(
-                `INSERT INTO employee (user_id, nik, nama, jabatan, department) 
-                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-                [String(user_id), nik, nama, jabatan, department]
+                `INSERT INTO employee (user_id, nik, nama, jabatan, department, divisi, type) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [String(user_id), nik, nama, jabatan, department, divisi, type]
             )
             res.status(201).json({ status: 'success', data: rows[0] })
         } catch (error) {
@@ -71,7 +71,7 @@ export const employeeController = {
 
     async updateEmployee(req, res) {
         const { id } = req.params
-        const { user_id, nik, nama, jabatan, department } = req.body
+        const { user_id, nik, nama, jabatan, department, divisi, type } = req.body
         try {
             const { rows } = await pool.query(
                 `UPDATE employee 
@@ -79,9 +79,11 @@ export const employeeController = {
                      nik = COALESCE($2, nik), 
                      nama = COALESCE($3, nama), 
                      jabatan = COALESCE($4, jabatan), 
-                     department = COALESCE($5, department)
-                 WHERE id = $6 RETURNING *`,
-                [user_id ? String(user_id) : null, nik, nama, jabatan, department, id]
+                     department = COALESCE($5, department),
+                     divisi = COALESCE($6, divisi),
+                     type = COALESCE($7, type)
+                 WHERE id = $8 RETURNING *`,
+                [user_id ? String(user_id) : null, nik, nama, jabatan, department, divisi, type, id]
             )
             if (rows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
             res.json({ status: 'success', data: rows[0] })
@@ -111,16 +113,17 @@ export const employeeController = {
         try {
             const results = []
             for (const emp of employees) {
-                const { user_id, nik, nama, jabatan, department } = emp
+                const { user_id, nik, nama, jabatan, department, divisi, type } = emp
                 if (!user_id) continue
 
                 const { rows } = await pool.query(
-                    `INSERT INTO employee (user_id, nik, nama, jabatan, department) 
-                     VALUES ($1, $2, $3, $4, $5) 
+                    `INSERT INTO employee (user_id, nik, nama, jabatan, department, divisi, type) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7) 
                      ON CONFLICT (user_id) DO UPDATE 
-                     SET nik = EXCLUDED.nik, nama = EXCLUDED.nama, jabatan = EXCLUDED.jabatan, department = EXCLUDED.department
+                     SET nik = EXCLUDED.nik, nama = EXCLUDED.nama, jabatan = EXCLUDED.jabatan, 
+                         department = EXCLUDED.department, divisi = EXCLUDED.divisi, type = EXCLUDED.type
                      RETURNING *`,
-                    [String(user_id), nik, nama, jabatan, department]
+                    [String(user_id), nik, nama, jabatan, department, divisi, type]
                 )
                 results.push(rows[0])
             }
