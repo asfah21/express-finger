@@ -95,12 +95,10 @@ export const apiController = {
           if (empType === 'S75' || empType === 'S77') {
             shiftStart = 7 * 60; // 07:00
           } else if (empType === 'N77') {
-            // Pick closest to 07:00 or 19:00
             const d1 = Math.abs(totalMinutes - (7 * 60));
             const d2 = Math.abs(totalMinutes - (19 * 60));
             shiftStart = d1 < d2 ? 7 * 60 : 19 * 60;
           } else if (empType === 'N99') {
-            // Pick closest to 09:00 or 21:00
             const d1 = Math.abs(totalMinutes - (9 * 60));
             const d2 = Math.abs(totalMinutes - (21 * 60));
             shiftStart = d1 < d2 ? 9 * 60 : 21 * 60;
@@ -109,7 +107,11 @@ export const apiController = {
           if (shiftStart !== -1) {
             const diff = totalMinutes - shiftStart;
             if (diff > tolerance) {
-              ket = `Terlambat ${diff} menit`;
+              if (diff > 90) {
+                ket = 'Duplikat Absensi / Anomali';
+              } else {
+                ket = `Terlambat ${diff} menit`;
+              }
             } else if (diff < -60) {
               ket = 'Anomali (Terlalu Awal)';
             }
@@ -119,12 +121,10 @@ export const apiController = {
           if (empType === 'S75') shiftEnd = 17 * 60;
           else if (empType === 'S77') shiftEnd = 19 * 60;
           else if (empType === 'N77') {
-            // 19:00 or 07:00
             const d1 = Math.abs(totalMinutes - (19 * 60));
             const d2 = Math.abs(totalMinutes - (7 * 60));
             shiftEnd = d1 < d2 ? 19 * 60 : 7 * 60;
           } else if (empType === 'N99') {
-            // 21:00 or 09:00
             const d1 = Math.abs(totalMinutes - (21 * 60));
             const d2 = Math.abs(totalMinutes - (9 * 60));
             shiftEnd = d1 < d2 ? 21 * 60 : 9 * 60;
@@ -134,6 +134,8 @@ export const apiController = {
             const diff = totalMinutes - shiftEnd;
             if (diff > 60) {
               ket = 'Perlu Konfirmasi (Lembur?)';
+            } else if (diff < -60) {
+              ket = 'Pulang Mendahului / Anomali';
             }
           }
         }
