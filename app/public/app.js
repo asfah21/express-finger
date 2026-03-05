@@ -89,8 +89,9 @@ function showDashboard() {
     document.getElementById('dashboard').style.display = 'flex';
 
     // Update nav profile name
-    if (currentUser && currentUser.username) {
-        document.getElementById('nav-username').innerText = currentUser.username;
+    const navUserEl = document.getElementById('nav-username');
+    if (navUserEl && currentUser && currentUser.username) {
+        navUserEl.innerText = currentUser.username;
     }
 
     // Restore page from URL hash or default to overview

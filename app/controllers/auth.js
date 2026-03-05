@@ -25,10 +25,14 @@ export const login = async (req, res) => {
         )
 
         // Set cookie - sameSite 'lax' agar cookie tetap ada saat refresh
+        const isProd = process.env.NODE_ENV === 'production';
+        const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+
         res.cookie('token', token, {
             httpOnly: true,
-            secure: false, // false agar bekerja di HTTP (local/internal network)
-            sameSite: 'lax',
+            secure: isSecure, // true jika HTTPS
+            sameSite: isSecure ? 'none' : 'lax', // none jika HTTPS/cross, lax jika HTTP
+            path: '/',
             maxAge: 3 * 24 * 60 * 60 * 1000 // 3 hari
         })
 
@@ -49,7 +53,7 @@ export const login = async (req, res) => {
 }
 
 export const logout = (req, res) => {
-    res.clearCookie('token')
+    res.clearCookie('token', { path: '/' })
     res.json({ status: 'success', message: 'Logged out' })
 }
 
@@ -97,10 +101,12 @@ export const updateAccount = async (req, res) => {
             { expiresIn: '3d' }
         )
 
+        const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
         res.cookie('token', token, {
             httpOnly: true,
-            secure: false,
-            sameSite: 'lax',
+            secure: isSecure,
+            sameSite: isSecure ? 'none' : 'lax',
+            path: '/',
             maxAge: 3 * 24 * 60 * 60 * 1000
         })
 
