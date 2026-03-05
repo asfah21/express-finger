@@ -338,6 +338,10 @@ body {
     color: var(--error) !important;
 }
 
+.mobile-only-item {
+    display: none !important;
+}
+
 
 
 @media (max-width: 1024px) {
@@ -348,6 +352,10 @@ body {
 
     .sidebar.active {
         left: 0;
+    }
+
+    .mobile-only-item {
+        display: flex !important;
     }
 
     .mobile-header {

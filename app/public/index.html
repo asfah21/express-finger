@@ -59,6 +59,11 @@
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </div>
+                <!-- Mobile only logout -->
+                <div class="nav-item logout mobile-only-item" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </div>
             </nav>
 
             <main class="main-content">
@@ -77,7 +82,7 @@
                             <i class="fas fa-sign-out-alt"></i>
                         </button>
 
-                        <div class="user-profile-menu">
+                        <!-- <div class="user-profile-menu">
                             <div class="user-avatar" title="Account Settings" onclick="showPage('settings')"
                                 style="cursor: pointer;">
                                 <i class="fas fa-user-circle"></i>
@@ -85,7 +90,7 @@
                             <div class="user-name" id="nav-username" style="display: none;">Admin</div>
 
 
-                        </div>
+                        </div> -->
                     </div>
                 </div>
 
@@ -457,8 +462,7 @@
                                 <textarea id="setting-shift-types"
                                     style="width: 100%; height: 280px; font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.2); color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.75rem;"></textarea>
                                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
-                                    Define shift codes and their start/end times. Support single shift (start/end) and
-                                    multi-shift (shifts: [[start, end], ...]).
+                                    Support single shift (start/end) & multi-shift (shifts: [[start, end], ...]).
                                 </p>
                             </div>
                             <button class="btn-primary" style="margin-top: 1rem; background: var(--secondary);"
