@@ -8,6 +8,23 @@ const paginationState = {
     logs: { page: 0, size: 25, total: 0 }
 };
 
+// Theme setup
+const savedTheme = localStorage.getItem('theme') || 'dark';
+if (savedTheme === 'light') {
+    document.documentElement.classList.add('theme-light');
+}
+
+function toggleTheme() {
+    const root = document.documentElement;
+    if (root.classList.contains('theme-light')) {
+        root.classList.remove('theme-light');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        root.classList.add('theme-light');
+        localStorage.setItem('theme', 'light');
+    }
+}
+
 /**
  * Get YYYY-MM-DD in WITA (UTC+8) timezone
  */
@@ -51,6 +68,11 @@ function showLogin() {
 function showDashboard() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('dashboard').style.display = 'flex';
+
+    // Update nav profile name
+    if (currentUser && currentUser.username) {
+        document.getElementById('nav-username').innerText = currentUser.username;
+    }
 
     // Restore page from URL hash or default to overview
     const hash = window.location.hash.replace('#', '');

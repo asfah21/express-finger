@@ -20,8 +20,14 @@
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
                     <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v1.2</small></span>
                 </div>
-                <div class="menu-toggle" onclick="toggleSidebar()">
-                    <i class="fas fa-bars"></i>
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <button class="icon-btn theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode"
+                        style="border: none;">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <div class="menu-toggle" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </div>
                 </div>
             </div>
 
@@ -60,6 +66,31 @@
             </nav>
 
             <main class="main-content">
+                <!-- Top Navbar / Header -->
+                <div class="top-header">
+                    <div class="top-header-left">
+                        <!-- Left area (breadcrumb/title if needed later) -->
+                    </div>
+                    <div class="top-header-right">
+                        <button class="icon-btn theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+                            <i class="fas fa-moon"></i>
+                        </button>
+
+                        <div class="user-profile-menu">
+                            <div class="user-avatar">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <div class="user-info">
+                                <div class="user-name" id="nav-username">Admin</div>
+                                <div class="user-role">Administrator</div>
+                            </div>
+                            <div class="logout-btn" onclick="logout()" title="Logout">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="page-overview" class="page">
                     <div class="header">
                         <div style="display: flex; align-items: baseline; gap: 0.75rem;">
