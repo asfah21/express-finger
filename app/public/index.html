@@ -59,17 +59,13 @@
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </div>
-                <div class="nav-item logout" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
-                </div>
             </nav>
 
             <main class="main-content">
                 <!-- Top Navbar / Header -->
                 <div class="top-header">
                     <div class="top-header-left">
-                        <!-- Left area (breadcrumb/title if needed later) -->
+                        <div class="header-title" id="page-title">System Overview</div>
                     </div>
                     <div class="top-header-right">
                         <button class="icon-btn theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
@@ -77,16 +73,16 @@
                         </button>
 
                         <div class="user-profile-menu">
-                            <div class="user-avatar">
+                            <div class="user-avatar" title="Account Settings" onclick="showPage('settings')"
+                                style="cursor: pointer;">
                                 <i class="fas fa-user-circle"></i>
                             </div>
-                            <div class="user-info">
-                                <div class="user-name" id="nav-username">Admin</div>
-                                <div class="user-role">Administrator</div>
-                            </div>
-                            <div class="logout-btn" onclick="logout()" title="Logout">
+                            <div class="user-name" id="nav-username" style="display: none;">Admin</div>
+
+                            <!-- Compact Logout Button -->
+                            <button class="icon-btn logout-btn-compact" onclick="logout()" title="Logout">
                                 <i class="fas fa-sign-out-alt"></i>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 </div>

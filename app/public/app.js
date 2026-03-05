@@ -134,6 +134,17 @@ function showPage(pageId) {
     currentPath = pageId;
     window.location.hash = pageId; // Save state to URL hash
 
+    // Update header title
+    const titles = {
+        'overview': 'System Overview',
+        'devices': 'Devices & Sync',
+        'employees': 'Employee Management',
+        'logs': 'Attendance Logs',
+        'settings': 'System Settings'
+    };
+    const titleEl = document.getElementById('page-title');
+    if (titleEl) titleEl.innerText = titles[pageId] || 'Dashboard';
+
     // Update nav items
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');

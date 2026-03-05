@@ -19,8 +19,8 @@
 }
 
 :root.theme-light {
-    --bg: #f8fafc;
-    --card-bg: rgba(255, 255, 255, 0.85);
+    --bg: #f1f5f9;
+    --card-bg: rgba(255, 255, 255, 0.95);
     --glass-border: rgba(0, 0, 0, 0.08);
     --text: #1e293b;
     --text-muted: #64748b;
@@ -234,20 +234,36 @@ body {
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
-    padding: 0 3rem 2rem;
+    padding: calc(var(--header-height) + 2rem) 3rem 2rem;
     max-width: calc(100vw - var(--sidebar-width));
     transition: all 0.3s ease;
 }
 
 /* Top Header */
 .top-header {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: calc(100vw - var(--sidebar-width));
     display: flex;
     justify-content: space-between;
     align-items: center;
     height: var(--header-height);
-    padding: 0 0;
-    margin-bottom: 2rem;
+    padding: 0 3rem;
+    background: var(--bg);
     border-bottom: 1px solid var(--glass-border);
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    background: rgba(10, 15, 29, 0.85);
+}
+
+:root.theme-light .top-header {
+    background: rgba(241, 245, 249, 0.85);
+}
+
+.header-title {
+    font-size: 1.25rem;
+    font-weight: 700;
 }
 
 .top-header-right {
@@ -260,11 +276,7 @@ body {
 .user-profile-menu {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem;
-    border-radius: 12px;
-    background: var(--glass-border);
-    border: 1px solid var(--glass-border);
+    gap: 0.5rem;
 }
 
 .user-avatar {
@@ -295,22 +307,22 @@ body {
     color: var(--text-muted);
 }
 
-.logout-btn {
-    cursor: pointer;
-    color: #fca5a5;
-    padding: 0.5rem;
-    border-radius: 6px;
-    transition: all 0.2s;
+.logout-btn-compact {
+    border: none !important;
+    background: transparent !important;
+    color: #fca5a5 !important;
 }
 
-.logout-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--error);
+.logout-btn-compact:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: var(--error) !important;
 }
 
-:root.theme-light .logout-btn {
-    color: var(--error);
+:root.theme-light .logout-btn-compact {
+    color: var(--error) !important;
 }
+
+
 
 @media (max-width: 1024px) {
     .sidebar {
