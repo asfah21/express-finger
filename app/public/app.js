@@ -366,13 +366,9 @@ function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
     body.innerHTML = logs.map(log => {
         const dt = new Date(log.timestamp);
-        // Correctly format time to WITA (Asia/Makassar)
-        const timeStr = dt.toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-            timeZone: 'Asia/Makassar'
-        });
+        // Use ISO string split to show raw time (ignoring extra TZ shifts)
+        // This ensures jam 15 tetap tampil jam 15, bukan jadi jam 23
+        const timeStr = dt.toISOString().split('T')[1].substring(0, 5);
 
         return `
             <tr>
