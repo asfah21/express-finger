@@ -14,14 +14,33 @@ if (savedTheme === 'light') {
     document.documentElement.classList.add('theme-light');
 }
 
+// Set initial theme icons
+document.addEventListener('DOMContentLoaded', () => {
+    const isLight = document.documentElement.classList.contains('theme-light');
+    const icons = document.querySelectorAll('.theme-toggle i');
+    icons.forEach(icon => {
+        icon.classList.remove('fa-moon', 'fa-sun');
+        icon.classList.add(isLight ? 'fa-moon' : 'fa-sun');
+    });
+});
+
 function toggleTheme() {
     const root = document.documentElement;
+    const icons = document.querySelectorAll('.theme-toggle i');
     if (root.classList.contains('theme-light')) {
         root.classList.remove('theme-light');
         localStorage.setItem('theme', 'dark');
+        icons.forEach(icon => {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        });
     } else {
         root.classList.add('theme-light');
         localStorage.setItem('theme', 'light');
+        icons.forEach(icon => {
+            icon.classList.remove('fa-sun');
+            icon.classList.add('fa-moon');
+        });
     }
 }
 
@@ -417,9 +436,16 @@ async function refreshDevices() {
             <td><span class="badge">${dev.sync_mode || 'HYBRID'}</span></td>
             <td>${dev.last_sync ? new Date(dev.last_sync).toLocaleString() : 'Never'}</td>
             <td>
-                <button class="icon-btn" onclick="syncDevice('${dev.sn}')" title="Sync Now"><i class="fas fa-sync"></i></button>
-                <button class="icon-btn" onclick="openEditDevice(${dev.id}, '${dev.name || ''}')" title="Edit Name"><i class="fas fa-edit"></i></button>
-                <button class="icon-btn" onclick="deleteDevice(${dev.id})" title="Delete"><i class="fas fa-trash"></i></button>
+                <div class="action-dropdown">
+                    <button class="icon-btn" onclick="toggleActions(event, this)" title="Actions">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="action-menu">
+                        <button class="action-item" onclick="syncDevice('${dev.sn}')"><i class="fas fa-sync"></i> Sync Device</button>
+                        <button class="action-item" onclick="openEditDevice(${dev.id}, '${dev.name || ''}')"><i class="fas fa-edit"></i> Edit Name</button>
+                        <button class="action-item delete" onclick="deleteDevice(${dev.id})"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                </div>
             </td>
         </tr>
     `).join('');
@@ -445,10 +471,17 @@ async function refreshEmployees() {
             <td>${emp.jabatan || '-'}</td>
             <td>${emp.department || '-'}</td>
             <td><span class="badge" style="background: rgba(255,255,255,0.1);">${emp.divisi || '-'}</span></td>
-            <td><span class="badge" style="background: var(--primary);">${emp.type || '-'}</span></td>
+            <td><span class="badge" style="background: var(--primary); color: #ffffff !important;">${emp.type || '-'}</span></td>
             <td>
-                <button class="icon-btn" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i></button>
-                <button class="icon-btn" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i></button>
+                <div class="action-dropdown">
+                    <button class="icon-btn" onclick="toggleActions(event, this)" title="Actions">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="action-menu">
+                        <button class="action-item" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i> Edit Info</button>
+                        <button class="action-item delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                </div>
             </td>
         </tr>
     `).join('') || '<tr><td colspan="8" style="text-align: center;">No employees found</td></tr>';
@@ -1331,6 +1364,25 @@ function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('active');
     document.querySelector('.sidebar-overlay').classList.toggle('active');
 }
+
+// Action Dropdown logic
+function toggleActions(e, btn) {
+    if (e) e.stopPropagation();
+    const menu = btn.nextElementSibling;
+    const isActive = menu.classList.contains('active');
+
+    // Close all other menus first
+    document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
+
+    if (!isActive) {
+        menu.classList.add('active');
+    }
+}
+
+// Close dropdowns when clicking outside
+window.addEventListener('click', () => {
+    document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
+});
 
 // Initialize
 checkAuth();

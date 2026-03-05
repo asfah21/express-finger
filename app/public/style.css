@@ -839,3 +839,74 @@ select option {
 .app-footer strong {
     color: var(--primary);
 }
+
+/* Action Dropdown */
+.action-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.action-menu {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.75rem;
+    min-width: 160px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: none;
+    overflow: hidden;
+}
+
+.action-menu.active {
+    display: block;
+    animation: dropdownShow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownShow {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.action-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-align: left;
+    width: 100%;
+    background: transparent;
+    border: none;
+}
+
+.action-item:hover {
+    background: var(--hover-bg);
+    color: var(--primary);
+}
+
+.action-item i {
+    width: 16px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.action-item.delete:hover {
+    color: var(--error);
+    background: rgba(248, 113, 113, 0.1);
+}
