@@ -21,14 +21,15 @@ export const login = async (req, res) => {
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role },
             SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '3d' }
         )
 
-        // Set cookie
+        // Set cookie - sameSite 'lax' agar cookie tetap ada saat refresh
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+            secure: false, // false agar bekerja di HTTP (local/internal network)
+            sameSite: 'lax',
+            maxAge: 3 * 24 * 60 * 60 * 1000 // 3 hari
         })
 
         res.json({
@@ -93,13 +94,14 @@ export const updateAccount = async (req, res) => {
         const token = jwt.sign(
             { id: userId, username: user.username, role: user.role },
             SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '3d' }
         )
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 24 * 60 * 60 * 1000
+            secure: false,
+            sameSite: 'lax',
+            maxAge: 3 * 24 * 60 * 60 * 1000
         })
 
         res.json({ status: 'success', message: 'Profile updated', data: { user } })

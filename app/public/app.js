@@ -44,7 +44,7 @@ function getWitaDateString() {
     }
 }
 
-// Initial check
+// Initial check - dijalankan hanya sekali saat load halaman
 async function checkAuth() {
     try {
         const response = await fetch('/auth/me');
@@ -57,6 +57,25 @@ async function checkAuth() {
         }
     } catch (err) {
         showLogin();
+    }
+}
+
+// Silent token validator - hanya redirect ke login jika token benar-benar expired/invalid
+// Tidak memanggil showDashboard() agar tidak mereset UI
+async function silentTokenCheck() {
+    // Hanya cek jika user sudah login
+    if (!currentUser) return;
+    try {
+        const response = await fetch('/auth/me');
+        if (!response.ok) {
+            // Token expired atau invalid, redirect ke login
+            currentUser = null;
+            showLogin();
+        }
+        // Jika OK, tidak lakukan apa-apa (biarkan UI tetap seperti adanya)
+    } catch (err) {
+        // Network error - jangan redirect, mungkin sementara
+        console.warn('Auth check failed (network?), will retry later.');
     }
 }
 
@@ -117,6 +136,20 @@ async function handleLogin(e) {
     } finally {
         btn.disabled = false;
         btn.innerText = 'Sign In';
+    }
+}
+
+function toggleLoginPassword() {
+    const input = document.getElementById('login-password');
+    const icon = document.getElementById('toggle-password-icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
     }
 }
 
@@ -261,6 +294,12 @@ async function refreshOverview() {
             fetch(`/api/logs?limit=${s.size}&offset=${s.page * s.size}`)
         ]);
 
+        // Cek response.ok sebelum parse untuk mencegah crash/freeze
+        if (!devicesRes.ok || !empRes.ok || !logsRes.ok) {
+            console.warn('One or more API responses failed, skipping overview update.');
+            return;
+        }
+
         const devicesData = await devicesRes.json();
         const employeesData = await empRes.json();
         const logsData = await logsRes.json();
@@ -270,12 +309,13 @@ async function refreshOverview() {
 
         // Logs stats (today)
         const today = getWitaDateString();
-        // Note: logsData might only have a page. Better to have a separate total-today endpoint, 
-        // but for now let's just use what we have or show "-"
-        document.getElementById('stat-logs').innerText = "...";
-        fetch(`/api/logs?from=${today}T00:00:00%2B08:00`).then(r => r.json()).then(d => {
-            document.getElementById('stat-logs').innerText = d.data?.total || 0;
-        });
+        document.getElementById('stat-logs').innerText = '...';
+        fetch(`/api/logs?from=${today}T00:00:00%2B08:00`).then(r => {
+            if (!r.ok) return null;
+            return r.json();
+        }).then(d => {
+            if (d) document.getElementById('stat-logs').innerText = d.data?.total || 0;
+        }).catch(() => { }); // Abaikan error pada fetch tambahan ini
 
         s.total = logsData.data?.total || 0;
         renderRecentLogs(logsData.data?.logs || []);
@@ -287,10 +327,11 @@ async function refreshOverview() {
         // Update last update time
         const lastUpdateEl = document.getElementById('overview-last-update');
         if (lastUpdateEl) {
-            lastUpdateEl.innerText = 'Auto-refreshed: ' + new Date().toLocaleTimeString();
+            lastUpdateEl.innerText = 'Terakhir diperbarui: ' + new Date().toLocaleTimeString('id-ID');
         }
     } catch (err) {
         console.error('Failed to refresh overview', err);
+        // Jangan tampilkan error ke UI, biarkan data lama tetap
     }
 }
 
@@ -1292,14 +1333,17 @@ function toggleSidebar() {
 
 // Initialize
 checkAuth();
-setInterval(checkAuth, 300000); // Check auth every 5 mins
 
-// Auto refresh overview data every 60 seconds (smart update)
+// Silent auth check setiap 10 menit - hanya redirect jika token expired
+// Tidak mereset UI / memaksa re-render dashboard
+setInterval(silentTokenCheck, 10 * 60 * 1000);
+
+// Auto refresh overview data setiap 2 menit (hanya saat di halaman overview)
 setInterval(() => {
     if (currentUser && currentPath === 'overview') {
         refreshOverview();
     }
-}, 60000);
+}, 120000);
 
 // Handle window resize for pagination
 let resizeTimer;
