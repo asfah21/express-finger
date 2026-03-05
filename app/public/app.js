@@ -328,7 +328,7 @@ async function refreshOverview() {
         // Update last update time
         const lastUpdateEl = document.getElementById('overview-last-update');
         if (lastUpdateEl) {
-            lastUpdateEl.innerText = 'Terakhir diperbarui: ' + new Date().toLocaleTimeString('id-ID');
+            lastUpdateEl.innerText = 'Last Updated: ' + new Date().toLocaleTimeString('id-ID');
         }
     } catch (err) {
         console.error('Failed to refresh overview', err);
