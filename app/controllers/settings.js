@@ -20,15 +20,17 @@ const defaultSettings = {
     shift_types: {
         "S75": { "label": "Staff 07-17", "start": "07:00", "end": "17:00" },
         "S77": { "label": "Staff 07-19", "start": "07:00", "end": "19:00" },
+        "N66": { "label": "Non-Staff 6-6 (2 Shift)", "shifts": [["06:00", "18:00"], ["18:00", "06:00"]] },
         "N77": { "label": "Non-Staff 7-7 (2 Shift)", "shifts": [["07:00", "19:00"], ["19:00", "07:00"]] },
+        "N88": { "label": "Non-Staff 8-8 (2 Shift)", "shifts": [["08:00", "20:00"], ["20:00", "08:00"]] },
         "N99": { "label": "Non-Staff 9-9 (2 Shift)", "shifts": [["09:00", "21:00"], ["21:00", "09:00"]] }
     },
     remarks_config: {
         "late": "Terlambat {diff} menit",
         "early_arrival": "Anomali (Terlalu Awal)",
-        "overtime_check": "Perlu Konfirmasi (Lembur?)",
-        "early_departure": "Pulang Mendahului / Anomali",
-        "duplicate": "Duplikat Absensi / Anomali"
+        "overtime_check": "Anomali (Lembur?)",
+        "early_departure": "Pulang Cepat",
+        "duplicate": "Duplikat Absensi"
     }
 }
 

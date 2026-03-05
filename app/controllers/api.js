@@ -76,9 +76,9 @@ export const apiController = {
       const remarks = paramSettings?.remarks_config || {
         "late": "Terlambat {diff} menit",
         "early_arrival": "Anomali (Terlalu Awal)",
-        "overtime_check": "Perlu Konfirmasi (Lembur?)",
-        "early_departure": "Pulang Mendahului / Anomali",
-        "duplicate": "Duplikat Absensi / Anomali"
+        "overtime_check": "Anomali (Lembur?)",
+        "early_departure": "Pulang Cepat",
+        "duplicate": "Duplikat Absensi"
       };
 
       const typeMap = paramSettings?.types || {
@@ -124,7 +124,7 @@ export const apiController = {
             const diff = totalMinutes - shiftStart;
             if (diff > tolerance) {
               if (diff > 90) {
-                ket = remarks.duplicate || 'Duplikat Absensi / Anomali';
+                ket = remarks.duplicate || 'Duplikat Absensi';
               } else {
                 ket = (remarks.late || 'Terlambat {diff} menit').replace('{diff}', diff);
               }
@@ -157,9 +157,9 @@ export const apiController = {
           if (shiftEnd !== -1) {
             const diff = totalMinutes - shiftEnd;
             if (diff > 60) {
-              ket = remarks.overtime_check || 'Perlu Konfirmasi (Lembur?)';
+              ket = remarks.overtime_check || 'Anomali (Lembur?)';
             } else if (diff < -60) {
-              ket = remarks.early_departure || 'Pulang Mendahului / Anomali';
+              ket = remarks.early_departure || 'Pulang Cepat';
             }
           }
         }

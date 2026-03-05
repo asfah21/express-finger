@@ -409,7 +409,9 @@ async function editEmployee(id) {
                     <option value="" ${!emp.type ? 'selected' : ''}>None</option>
                     <option value="S75" ${emp.type === 'S75' ? 'selected' : ''}>S75 (Staff 07-17)</option>
                     <option value="S77" ${emp.type === 'S77' ? 'selected' : ''}>S77 (Staff 07-19)</option>
+                    <option value="N66" ${emp.type === 'N66' ? 'selected' : ''}>N66 (Non-Staff 6 ke 6)</option>
                     <option value="N77" ${emp.type === 'N77' ? 'selected' : ''}>N77 (Non-Staff 7 ke 7)</option>
+                    <option value="N88" ${emp.type === 'N88' ? 'selected' : ''}>N88 (Non-Staff 8 ke 8)</option>
                     <option value="N99" ${emp.type === 'N99' ? 'selected' : ''}>N99 (Non-Staff 9 ke 9)</option>
                 </select>
             </div>
@@ -1054,7 +1056,9 @@ function openAddEmployee() {
                     <option value="" selected>None</option>
                     <option value="S75">S75 (Staff 07-17)</option>
                     <option value="S77">S77 (Staff 07-19)</option>
+                    <option value="N66">N66 (Non-Staff 6 ke 6)</option>
                     <option value="N77">N77 (Non-Staff 7 ke 7)</option>
+                    <option value="N88">N88 (Non-Staff 8 ke 8)</option>
                     <option value="N99">N99 (Non-Staff 9 ke 9)</option>
                 </select>
             </div>
