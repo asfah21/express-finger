@@ -135,6 +135,21 @@ body {
     box-shadow: 0 20px 25px -5px rgba(36, 97, 150, 0.4);
 }
 
+.btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid var(--glass-border);
+    background: var(--input-bg);
+    color: var(--text);
+}
+
+.btn-secondary:hover {
+    background: var(--hover-bg);
+}
+
 /* Sidebar */
 .sidebar {
     width: var(--sidebar-width);
@@ -194,6 +209,7 @@ body {
     width: 32px;
     height: 32px;
     background: var(--primary);
+    color: #ffffff;
     border-radius: 8px;
     display: flex;
     align-items: center;
