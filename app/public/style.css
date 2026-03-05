@@ -438,7 +438,8 @@ body {
     background: var(--card-bg);
     border: 1px solid var(--glass-border);
     border-radius: 1.25rem;
-    overflow: hidden;
+    overflow: visible;
+    /* Changed from hidden to show dropdowns */
     backdrop-filter: blur(8px);
 }
 
@@ -849,18 +850,25 @@ select option {
 .action-menu {
     position: absolute;
     right: 0;
-    top: 0;
-    background: var(--card-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    top: 100%;
+    background: #1a2236;
+    /* Solid background for Dark Mode */
     border: 1px solid var(--glass-border);
     border-radius: 0.75rem;
-    min-width: 160px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-    z-index: 1000;
+    min-width: 170px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    /* Max z-index */
     display: none;
     overflow: hidden;
 }
+
+:root.theme-light .action-menu {
+    background: #ffffff;
+    /* Solid white for Light Mode */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
 
 .action-menu.active {
     display: block;
