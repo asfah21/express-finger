@@ -4,6 +4,7 @@ let currentPath = 'overview';
 
 const paginationState = {
     overview: { page: 0, size: 10, total: 0 },
+    devices: { page: 0, size: 10, total: 0 },
     employees: { page: 0, size: 25, total: 0 },
     logs: { page: 0, size: 25, total: 0 }
 };
@@ -233,6 +234,7 @@ function updatePageSize(section, size) {
     paginationState[section].size = parseInt(size);
     paginationState[section].page = 0; // Reset to first page
     if (section === 'overview') refreshOverview();
+    if (section === 'devices') refreshDevices();
     if (section === 'employees') refreshEmployees();
     if (section === 'logs') refreshLogs();
 }
@@ -242,6 +244,7 @@ function nextPage(section) {
     if ((s.page + 1) * s.size < s.total) {
         s.page++;
         if (section === 'overview') refreshOverview();
+        if (section === 'devices') refreshDevices();
         if (section === 'employees') refreshEmployees();
         if (section === 'logs') refreshLogs();
     }
@@ -252,6 +255,7 @@ function prevPage(section) {
     if (s.page > 0) {
         s.page--;
         if (section === 'overview') refreshOverview();
+        if (section === 'devices') refreshDevices();
         if (section === 'employees') refreshEmployees();
         if (section === 'logs') refreshLogs();
     }
@@ -308,10 +312,11 @@ function goToPage(section, page) {
 async function refreshOverview() {
     try {
         const s = paginationState.overview;
+        const today = getWitaDateString();
         const [devicesRes, empRes, logsRes] = await Promise.all([
-            fetch('/api/devices'),
+            fetch('/api/devices?limit=1'), // Just to get total
             fetch('/api/employees?limit=1'), // Just to get total
-            fetch(`/api/logs?limit=${s.size}&offset=${s.page * s.size}`)
+            fetch(`/api/logs?from=${today}T00:00:00%2B08:00&to=${today}T23:59:59%2B08:00&limit=${s.size}&offset=${s.page * s.size}`)
         ]);
 
         // Cek response.ok sebelum parse untuk mencegah crash/freeze
@@ -324,11 +329,10 @@ async function refreshOverview() {
         const employeesData = await empRes.json();
         const logsData = await logsRes.json();
 
-        document.getElementById('stat-devices').innerText = devicesData.data?.length || 0;
+        document.getElementById('stat-devices').innerText = devicesData.data?.total || 0;
         document.getElementById('stat-employees').innerText = employeesData.data?.total || 0;
 
         // Logs stats (today)
-        const today = getWitaDateString();
         document.getElementById('stat-logs').innerText = '...';
         fetch(`/api/logs?from=${today}T00:00:00%2B08:00`).then(r => {
             if (!r.ok) return null;
@@ -359,18 +363,20 @@ function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
     body.innerHTML = logs.map(log => {
         const dt = new Date(log.timestamp);
-        const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
-        const timeStr = dt.toISOString().split('T')[1].substring(0, 8); // hh:mm:ss
+        const timeStr = dt.toISOString().split('T')[1].substring(0, 5); // hh:mm
 
         return `
             <tr>
-                <td>${dateStr} <small style="opacity:0.6">${timeStr}</small></td>
-                <td>${log.nama || log.user_id}</td>
+                <td><i class="fas fa-history" style="color: var(--text-muted); margin-right: 0.5rem; font-size: 0.8rem;"></i>${timeStr}</td>
+                <td>
+                    <div style="font-weight: 600;">${log.nama || log.user_id}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">ID: ${log.user_id}</div>
+                </td>
                 <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-                <td>${log.device_name || log.device_sn || '-'}</td>
+                <td><i class="fas fa-wifi" style="font-size: 0.75rem; color: var(--primary); margin-right: 0.35rem;"></i>${log.device_name || log.device_sn || '-'}</td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="4" style="text-align: center;">No logs found</td></tr>';
+    }).join('') || '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;"><i class="fas fa-info-circle" style="margin-right:0.5rem"></i>No activity recorded today.</td></tr>';
 }
 
 async function refreshLateToday(today) {
@@ -424,10 +430,13 @@ async function refreshLateToday(today) {
 }
 
 async function refreshDevices() {
-    const res = await fetch('/api/devices');
+    const s = paginationState.devices;
+    const res = await fetch(`/api/devices?limit=${s.size}&offset=${s.page * s.size}`);
     const data = await res.json();
+
+    s.total = data.data?.total || 0;
     const body = document.getElementById('devices-body');
-    body.innerHTML = (data.data || []).map(dev => `
+    body.innerHTML = (data.data?.list || []).map(dev => `
         <tr>
             <td><span class="badge ${dev.is_active ? 'badge-success' : 'badge-error'}">${dev.is_active ? 'Online' : 'Offline'}</span></td>
             <td>${dev.name || 'Unnamed'}</td>
@@ -448,7 +457,9 @@ async function refreshDevices() {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `).join('') || '<tr><td colspan="7" style="text-align: center;">No devices found</td></tr>';
+
+    updatePaginationUI('devices');
 }
 
 async function refreshEmployees() {
@@ -508,7 +519,7 @@ async function editEmployee(id) {
     document.getElementById('modal-content').innerHTML = `
         <div class="form-row">
             <div class="form-group">
-                <label>User ID (Fingerprint ID)</label>
+                <label>User ID</label>
                 <input type="text" id="emp-uid" value="${emp.user_id}">
             </div>
             <div class="form-group">
@@ -1155,7 +1166,7 @@ function openAddEmployee() {
     document.getElementById('modal-content').innerHTML = `
         <div class="form-row">
             <div class="form-group">
-                <label>User ID (Fingerprint ID)</label>
+                <label>User ID</label>
                 <input type="text" id="emp-uid" placeholder="e.g. 101">
             </div>
             <div class="form-group">

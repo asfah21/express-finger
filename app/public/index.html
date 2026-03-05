@@ -209,6 +209,19 @@
                             </thead>
                             <tbody id="devices-body"></tbody>
                         </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="devices-info">Showing 0 of 0 devices</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('devices', this.value)">
+                                    <option value="10">10 per page</option>
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                </select>
+                                <button onclick="prevPage('devices')" id="devices-prev-btn">Prev</button>
+                                <div class="pagination-numbers" id="devices-pagination-numbers"></div>
+                                <button onclick="nextPage('devices')" id="devices-next-btn">Next</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

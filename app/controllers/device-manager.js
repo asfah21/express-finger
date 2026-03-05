@@ -3,8 +3,13 @@ import { pool } from '../utils/database.js'
 export const deviceManagerController = {
     async listDevices(req, res) {
         try {
-            const { rows } = await pool.query('SELECT * FROM devices ORDER BY id ASC')
-            res.json({ status: 'success', data: rows })
+            const { limit = 10, offset = 0 } = req.query
+            const lim = parseInt(limit)
+            const off = parseInt(offset)
+
+            const { rows } = await pool.query('SELECT *, COUNT(*) OVER()::int as total FROM devices ORDER BY id ASC LIMIT $1 OFFSET $2', [lim, off])
+            const total = rows.length > 0 ? rows[0].total : 0
+            res.json({ status: 'success', data: { list: rows, total } })
         } catch (error) {
             res.status(500).json({ status: 'error', message: error.message })
         }
