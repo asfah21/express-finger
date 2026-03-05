@@ -216,7 +216,10 @@ function showPage(pageId) {
     if (activePage) activePage.style.display = 'block';
 
     // Fetch data for the page
-    if (pageId === 'overview') refreshOverview();
+    if (pageId === 'overview') {
+        paginationState.overview.page = 0; // Always reset to page 0 for overview
+        refreshOverview();
+    }
     if (pageId === 'devices') refreshDevices();
     if (pageId === 'employees') refreshEmployees();
     if (pageId === 'logs') refreshLogs();
@@ -363,11 +366,17 @@ function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
     body.innerHTML = logs.map(log => {
         const dt = new Date(log.timestamp);
-        const timeStr = dt.toISOString().split('T')[1].substring(0, 5); // hh:mm
+        // Correctly format time to WITA (Asia/Makassar)
+        const timeStr = dt.toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Makassar'
+        });
 
         return `
             <tr>
-                <td><i class="fas fa-history" style="color: var(--text-muted); margin-right: 0.5rem; font-size: 0.8rem;"></i>${timeStr}</td>
+                <td><i class="fas fa-history" style="color: var(--warning); margin-right: 0.5rem; font-size: 0.8rem;"></i>${timeStr}</td>
                 <td>
                     <div style="font-weight: 600;">${log.nama || log.user_id}</div>
                     <div style="font-size: 0.7rem; color: var(--text-muted);">ID: ${log.user_id}</div>
