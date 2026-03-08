@@ -45,7 +45,13 @@ export const apiController = {
             al.device_sn,
             d.name as device_name,
             al."timestamp", 
-            al.created_at
+            al.created_at,
+            EXISTS (
+              SELECT 1 FROM attendance_logs a2
+              WHERE a2.user_id = al.user_id AND a2.type = al.type
+              AND DATE(a2."timestamp" AT TIME ZONE 'Asia/Makassar') = DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar')
+              AND (a2."timestamp" < al."timestamp" OR (a2."timestamp" = al."timestamp" AND a2.id < al.id))
+            ) as is_duplicate
           FROM attendance_logs al
           LEFT JOIN employee e ON al.user_id::text = e.user_id::text
           LEFT JOIN devices d ON al.device_sn = d.sn
@@ -120,14 +126,12 @@ export const apiController = {
             }
           }
 
-          if (shiftStart !== -1) {
+          if (row.is_duplicate) {
+            ket = remarks.duplicate || 'Duplikat Absensi';
+          } else if (shiftStart !== -1) {
             const diff = totalMinutes - shiftStart;
             if (diff > tolerance) {
-              if (diff > 90) {
-                ket = remarks.duplicate || 'Duplikat Absensi';
-              } else {
-                ket = (remarks.late || 'Terlambat {diff} menit').replace('{diff}', diff);
-              }
+              ket = (remarks.late || 'Terlambat {diff} menit').replace('{diff}', diff);
             } else if (diff < -60) {
               ket = remarks.early_arrival || 'Anomali (Terlalu Awal)';
             }
@@ -154,7 +158,9 @@ export const apiController = {
             }
           }
 
-          if (shiftEnd !== -1) {
+          if (row.is_duplicate) {
+            ket = remarks.duplicate || 'Duplikat Absensi';
+          } else if (shiftEnd !== -1) {
             const diff = totalMinutes - shiftEnd;
             if (diff > 60) {
               ket = remarks.overtime_check || 'Anomali (Lembur?)';
