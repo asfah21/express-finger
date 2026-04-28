@@ -1,6 +1,11 @@
 import { readFile, writeFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { recordActivity } from './activity-log.js'
+
+function getClientIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const settingsPath = path.join(__dirname, '../config/user_settings.json')
@@ -62,6 +67,16 @@ export const settingsController = {
 
             // Tulis ulang file settings
             await writeFile(settingsPath, JSON.stringify(newSettings, null, 2))
+
+            const username = req.user?.username || 'api'
+            const ip = getClientIp(req)
+            const changedKeys = Object.keys(req.body).join(', ')
+            await recordActivity({
+                username, action: 'update_settings', category: 'settings',
+                detail: `Updated settings: ${changedKeys}`,
+                ip
+            })
+
             res.json({ status: 'success', message: 'Settings updated successfully', data: newSettings })
         } catch (error) {
             res.status(500).json({ status: 'error', message: error.message })

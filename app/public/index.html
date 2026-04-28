@@ -55,6 +55,10 @@
                     <i class="fas fa-list"></i>
                     <span>Attendance</span>
                 </div>
+                <div class="nav-item" onclick="showPage('activity')">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Activity Log</span>
+                </div>
                 <div class="nav-item" onclick="showPage('settings')">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
@@ -376,7 +380,162 @@
                     </div>
                 </div>
 
+                <div id="page-activity" class="page" style="display: none;">
+
+                    <!-- Filter section -->
+                    <div
+                        style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+
+                        <div style="flex: 2; min-width: 200px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">SEARCH</label>
+                            <div style="position: relative;">
+                                <i class="fas fa-search"
+                                    style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                                <input type="text" id="activity-search" placeholder="Search user, action, detail..."
+                                    style="padding-left: 2.8rem;" oninput="handleActivitySearch(this.value)">
+                            </div>
+                        </div>
+
+                        <div style="flex: 1; min-width: 130px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">CATEGORY</label>
+                            <select id="activity-category" onchange="applyActivityFilter()">
+                                <option value="">All Categories</option>
+                                <option value="auth">Auth (Login/Logout)</option>
+                                <option value="employee">Employee Data</option>
+                                <option value="device">Device</option>
+                                <option value="settings">Settings</option>
+                                <option value="export">Export</option>
+                                <option value="import">Import</option>
+                                <option value="sync">Sync</option>
+                            </select>
+                        </div>
+
+                        <div style="flex: 1; min-width: 130px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">FROM
+                                DATE</label>
+                            <input type="date" id="activity-date-from">
+                        </div>
+
+                        <div style="flex: 1; min-width: 130px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">TO
+                                DATE</label>
+                            <input type="date" id="activity-date-to">
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn-primary" style="width: auto; height: 42px; padding: 0 1.2rem;"
+                                onclick="applyActivityFilter()">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                            <button class="btn-primary"
+                                style="width: auto; height: 42px; padding: 0 1rem; background: #ef4444;"
+                                onclick="clearOldActivityLogs()">
+                                <i class="fas fa-trash-alt"></i> Clear Old
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>User</th>
+                                    <th>Category</th>
+                                    <th>Action</th>
+                                    <th>Detail</th>
+                                    <th>IP</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-body"></tbody>
+                        </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="activity-info">Showing 0 of 0 logs</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('activity', this.value)">
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                    <option value="100">100 per page</option>
+                                </select>
+                                <button onclick="prevPage('activity')" id="activity-prev-btn">Prev</button>
+                                <div class="pagination-numbers" id="activity-pagination-numbers"></div>
+                                <button onclick="nextPage('activity')" id="activity-next-btn">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="page-settings" class="page" style="display: none;">
+                    <!-- User Management Card (full width) -->
+                    <div class="stat-card" style="flex: 1 1 100%; margin-top: 1.5rem;">
+                        <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-users-cog" style="color: var(--primary);"></i> User Management
+                            <span
+                                style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:auto;">Manage
+                                dashboard login accounts</span>
+                        </h3>
+
+                        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;">
+                            <!-- Add User Form -->
+                            <div style="flex:1;min-width:280px;max-width:380px;">
+                                <p
+                                    style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
+                                    Add New User</p>
+                                <div class="form-group">
+                                    <label>Username</label>
+                                    <input type="text" id="new-user-username" placeholder="e.g. operator1"
+                                        autocomplete="off">
+                                </div>
+                                <div class="form-group">
+                                    <label>Password <span style="font-size:0.75rem;color:var(--text-muted);">(min. 6
+                                            characters)</span></label>
+                                    <div style="position:relative;">
+                                        <input type="password" id="new-user-password" placeholder="••••••••"
+                                            style="padding-right:3rem;" autocomplete="new-password">
+                                        <button type="button" onclick="toggleNewUserPassword()"
+                                            style="position:absolute;right:0.875rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;display:flex;align-items:center;">
+                                            <i class="fas fa-eye" id="new-user-pass-icon"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Role</label>
+                                    <select id="new-user-role">
+                                        <option value="admin">admin</option>
+                                        <option value="viewer">viewer</option>
+                                    </select>
+                                </div>
+                                <button class="btn-primary" style="margin-top:0.5rem;" onclick="addNewUser()">
+                                    <i class="fas fa-user-plus"></i> Add User
+                                </button>
+                            </div>
+
+                            <!-- User List -->
+                            <div style="flex:2;min-width:300px;">
+                                <div
+                                    style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                                    <p
+                                        style="font-size:0.8rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin:0;">
+                                        Existing Users</p>
+                                    <button class="icon-btn" onclick="loadUserList()" title="Refresh list"
+                                        style="font-size:0.85rem;">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                                <div id="user-list-container">
+                                    <div
+                                        style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.9rem;">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
                         <!-- System Config Card -->
@@ -493,6 +652,7 @@
                             </button>
                         </div>
                     </div>
+
                 </div>
                 <footer class="app-footer">
                     <div>&copy; 2026 AZRA - <strong>GSI Fingerprint Dashboard</strong></div>

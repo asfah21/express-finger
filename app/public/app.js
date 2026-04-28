@@ -6,7 +6,8 @@ const paginationState = {
     overview: { page: 0, size: 10, total: 0 },
     devices: { page: 0, size: 10, total: 0 },
     employees: { page: 0, size: 25, total: 0 },
-    logs: { page: 0, size: 25, total: 0 }
+    logs: { page: 0, size: 25, total: 0 },
+    activity: { page: 0, size: 25, total: 0 }
 };
 
 // Theme setup
@@ -116,7 +117,7 @@ function showDashboard() {
 
     // Restore page from URL hash or default to overview
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'activity', 'settings'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
@@ -194,6 +195,7 @@ function showPage(pageId) {
         'devices': 'Devices & Sync',
         'employees': 'Employee Management',
         'logs': 'Attendance Logs',
+        'activity': 'Activity Log',
         'settings': 'System Settings'
     };
     const titleEl = document.getElementById('page-title');
@@ -223,7 +225,11 @@ function showPage(pageId) {
     if (pageId === 'devices') refreshDevices();
     if (pageId === 'employees') refreshEmployees();
     if (pageId === 'logs') refreshLogs();
-    if (pageId === 'settings') loadSettings();
+    if (pageId === 'activity') refreshActivityLogs();
+    if (pageId === 'settings') {
+        loadSettings();
+        loadUserList(); // Load user list when settings page is opened
+    }
 
     // Close mobile sidebar if open
     const sidebar = document.querySelector('.sidebar');
@@ -240,6 +246,7 @@ function updatePageSize(section, size) {
     if (section === 'devices') refreshDevices();
     if (section === 'employees') refreshEmployees();
     if (section === 'logs') refreshLogs();
+    if (section === 'activity') refreshActivityLogs();
 }
 
 function nextPage(section) {
@@ -250,6 +257,7 @@ function nextPage(section) {
         if (section === 'devices') refreshDevices();
         if (section === 'employees') refreshEmployees();
         if (section === 'logs') refreshLogs();
+        if (section === 'activity') refreshActivityLogs();
     }
 }
 
@@ -261,6 +269,7 @@ function prevPage(section) {
         if (section === 'devices') refreshDevices();
         if (section === 'employees') refreshEmployees();
         if (section === 'logs') refreshLogs();
+        if (section === 'activity') refreshActivityLogs();
     }
 }
 
@@ -309,6 +318,7 @@ function goToPage(section, page) {
     if (section === 'devices') refreshDevices();
     if (section === 'employees') refreshEmployees();
     if (section === 'logs') refreshLogs();
+    if (section === 'activity') refreshActivityLogs();
 }
 
 // Pages Logic
@@ -797,9 +807,165 @@ async function performExport(range) {
         const filename = `attendance_${range}_${today}.xlsx`;
         XLSX.writeFile(workbook, filename);
         showToast('Export successful', 'success');
+        // Record activity
+        await recordClientActivity('export_attendance', 'export', `Exported attendance logs (range: ${range}, count: ${logs.length})`);
     } catch (err) {
         showToast('Export failed', 'error');
     }
+}
+
+// ============================================================
+// Activity Log Functions
+// ============================================================
+
+let activitySearchTimer;
+function handleActivitySearch(val) {
+    clearTimeout(activitySearchTimer);
+    activitySearchTimer = setTimeout(() => {
+        if (val.length >= 2 || val.length === 0) {
+            paginationState.activity.page = 0;
+            refreshActivityLogs();
+        }
+    }, 600);
+}
+
+function applyActivityFilter() {
+    paginationState.activity.page = 0;
+    refreshActivityLogs();
+}
+
+async function refreshActivityLogs() {
+    const s = paginationState.activity;
+    const search = document.getElementById('activity-search')?.value || '';
+    const category = document.getElementById('activity-category')?.value || '';
+    const from = document.getElementById('activity-date-from')?.value || '';
+    const to = document.getElementById('activity-date-to')?.value || '';
+
+    let url = `/api/activity-logs?limit=${s.size}&offset=${s.page * s.size}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (category) url += `&category=${encodeURIComponent(category)}`;
+    if (from) url += `&from=${from}T00:00:00%2B08:00`;
+    if (to) url += `&to=${to}T23:59:59%2B08:00`;
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            document.getElementById('activity-body').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--error)">Failed to load activity logs</td></tr>';
+            return;
+        }
+        const data = await res.json();
+
+        s.total = data.data?.total || 0;
+        const body = document.getElementById('activity-body');
+
+        const categoryColors = {
+            auth: '#60a5fa',
+            employee: '#34d399',
+            device: '#a78bfa',
+            settings: '#fbbf24',
+            export: '#f59e0b',
+            import: '#10b981',
+            sync: '#6366f1',
+            general: '#9ca3af'
+        };
+
+        const actionIcons = {
+            login: 'fa-sign-in-alt',
+            logout: 'fa-sign-out-alt',
+            add_employee: 'fa-user-plus',
+            edit_employee: 'fa-user-edit',
+            delete_employee: 'fa-user-minus',
+            import_employees: 'fa-file-import',
+            add_device: 'fa-plus-circle',
+            edit_device: 'fa-edit',
+            delete_device: 'fa-trash',
+            sync_device: 'fa-sync',
+            sync_all: 'fa-sync-alt',
+            update_settings: 'fa-cog',
+            update_account: 'fa-user-cog',
+            export_attendance: 'fa-file-excel',
+            export_employees: 'fa-file-excel',
+        };
+
+        body.innerHTML = (data.data?.logs || []).map(log => {
+            const dt = new Date(log.created_at);
+            const dateStr = dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const catColor = categoryColors[log.category] || '#9ca3af';
+            const icon = actionIcons[log.action] || 'fa-circle';
+            const isSuccess = log.status === 'success';
+
+            return `
+                <tr>
+                    <td>
+                        <div style="font-weight:500;font-size:0.85rem;">${dateStr}</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);">${timeStr}</div>
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;flex-shrink:0;">${(log.username || '?')[0].toUpperCase()}</div>
+                            <strong>${log.username || '-'}</strong>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" style="background:${catColor}22;color:${catColor};border:1px solid ${catColor}44;">
+                            ${log.category || '-'}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:0.4rem;">
+                            <i class="fas ${icon}" style="font-size:0.8rem;color:${catColor};"></i>
+                            <span style="font-size:0.85rem;">${log.action || '-'}</span>
+                        </div>
+                    </td>
+                    <td style="max-width:280px;">
+                        <div style="font-size:0.82rem;color:var(--text-muted);white-space:normal;line-height:1.4;">${log.detail || '-'}</div>
+                    </td>
+                    <td style="font-size:0.8rem;color:var(--text-muted);">${log.ip_address || '-'}</td>
+                    <td>
+                        <span class="badge ${isSuccess ? 'badge-success' : 'badge-error'}">
+                            <i class="fas ${isSuccess ? 'fa-check' : 'fa-times'}"></i> ${log.status || '-'}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;"><i class="fas fa-shield-alt" style="margin-right:0.5rem;"></i>No activity logs found.</td></tr>';
+
+        updatePaginationUI('activity');
+    } catch (err) {
+        console.error('Failed to load activity logs', err);
+    }
+}
+
+async function clearOldActivityLogs() {
+    showConfirm({
+        title: 'Clear Old Activity Logs',
+        message: 'This will delete all activity logs older than 90 days. This action cannot be undone.',
+        icon: 'fa-trash-alt',
+        confirmText: 'Clear Old Logs',
+        confirmColor: 'var(--error)',
+        onConfirm: async () => {
+            const res = await fetch('/api/activity-logs/old?days=90', { method: 'DELETE' });
+            if (res.ok) {
+                const data = await res.json();
+                showToast(data.message, 'success');
+                refreshActivityLogs();
+            } else {
+                showToast('Failed to clear logs', 'error');
+            }
+        }
+    });
+}
+
+// Helper: record activity to server (for client-side actions like export)
+async function recordClientActivity(action, category, detail) {
+    try {
+        await fetch('/api/activity-logs/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, category, detail })
+        });
+    } catch (_) { }
 }
 
 // Settings Logic
@@ -913,6 +1079,156 @@ async function updateAccount() {
     }
 }
 
+// ============================================================
+// User Management Logic
+// ============================================================
+
+function toggleNewUserPassword() {
+    const input = document.getElementById('new-user-password');
+    const icon = document.getElementById('new-user-pass-icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+}
+
+async function loadUserList() {
+    const container = document.getElementById('user-list-container');
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+
+    try {
+        const res = await fetch('/auth/users');
+        if (!res.ok) throw new Error('Failed to load users');
+        const data = await res.json();
+
+        if (!data.data || data.data.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;">No users found</div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <table style="width:100%;font-size:0.85rem;border-collapse:collapse;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--glass-border);color:var(--text-muted);">
+                        <th style="padding:0.5rem;text-align:left;">Username</th>
+                        <th style="padding:0.5rem;text-align:left;">Role</th>
+                        <th style="padding:0.5rem;text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.data.map(user => `
+                        <tr style="border-bottom:1px solid var(--glass-border);">
+                            <td style="padding:0.5rem;font-weight:600;">
+                                <div style="display:flex;align-items:center;gap:0.5rem;">
+                                    <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;">${user.username[0].toUpperCase()}</div>
+                                    ${user.username}
+                                    ${currentUser?.username === user.username ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
+                                </div>
+                            </td>
+                            <td style="padding:0.5rem;">
+                                <span class="badge" style="background:${user.role === 'admin' ? 'var(--secondary)' : 'var(--glass-border)'};color:${user.role === 'admin' ? '#fff' : 'inherit'};">
+                                    ${user.role}
+                                </span>
+                            </td>
+                            <td style="padding:0.5rem;text-align:right;">
+                                <button class="icon-btn" title="Reset Password" onclick="resetUserPasswordPrompt(${user.id}, '${user.username}')" style="margin-right:0.25rem;">
+                                    <i class="fas fa-key" style="color:var(--warning);"></i>
+                                </button>
+                                <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${currentUser?.username === user.username ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                                    <i class="fas fa-trash" style="${currentUser?.username !== user.username ? 'color:var(--error);' : ''}"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (err) {
+        container.innerHTML = `<div style="text-align:center;color:var(--error);padding:1.5rem;"><i class="fas fa-exclamation-triangle"></i> Error loading users</div>`;
+    }
+}
+
+async function addNewUser() {
+    const username = document.getElementById('new-user-username').value.trim();
+    const password = document.getElementById('new-user-password').value;
+    const role = document.getElementById('new-user-role').value;
+
+    if (!username || !password) {
+        return showToast('Username and password are required', 'warning');
+    }
+    if (password.length < 6) {
+        return showToast('Password must be at least 6 characters', 'warning');
+    }
+
+    try {
+        const res = await fetch('/auth/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, role })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('User created successfully', 'success');
+            document.getElementById('new-user-username').value = '';
+            document.getElementById('new-user-password').value = '';
+            loadUserList(); // Refresh list
+        } else {
+            showToast(data.message || 'Failed to create user', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+function deleteUserPrompt(id, username) {
+    showConfirm({
+        title: 'Delete User',
+        message: `Are you sure you want to delete user <strong>${username}</strong>? This action cannot be undone.`,
+        icon: 'fa-user-minus',
+        confirmText: 'Delete User',
+        confirmColor: 'var(--error)',
+        onConfirm: async () => {
+            try {
+                const res = await fetch(`/auth/users/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'User deleted', 'success');
+                    loadUserList();
+                } else {
+                    showToast(data.message || 'Failed to delete user', 'error');
+                }
+            } catch (err) {
+                showToast('Network error', 'error');
+            }
+        }
+    });
+}
+
+function resetUserPasswordPrompt(id, username) {
+    // We reuse modal logic to create a prompt
+    const newPass = prompt(`Enter new password for user ${username} (min 6 chars):`);
+    if (newPass === null) return; // User cancelled
+    if (newPass.length < 6) {
+        return showToast('Password must be at least 6 characters', 'error');
+    }
+
+    fetch(`/auth/users/${id}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPass })
+    }).then(res => res.json()).then(data => {
+        if (data.status === 'success') {
+            showToast(`Password for ${username} has been reset`, 'success');
+        } else {
+            showToast(data.message || 'Failed to reset password', 'error');
+        }
+    }).catch(() => showToast('Network error', 'error'));
+}
+
 // Actions
 async function syncAll() {
     showToast('Starting sync for all devices...');
@@ -988,6 +1304,7 @@ async function exportEmployees() {
         // Export file
         XLSX.writeFile(workbook, `employees_export_${getWitaDateString()}.xlsx`);
         showToast('Export successful');
+        await recordClientActivity('export_employees', 'export', `Exported ${employees.length} employees to Excel`);
     } catch (err) {
         showToast('Export failed', 'error');
     }
@@ -1361,6 +1678,9 @@ function verifySettingsPass() {
         const pageId = 'settings';
         currentPath = pageId;
 
+        // Fetch data
+        loadSettings();
+        loadUserList();
         // Manual DOM updates similar to showPage
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
@@ -1431,12 +1751,13 @@ window.addEventListener('resize', () => {
         if (currentPath === 'overview') updatePaginationUI('overview');
         if (currentPath === 'employees') updatePaginationUI('employees');
         if (currentPath === 'logs') updatePaginationUI('logs');
+        if (currentPath === 'activity') updatePaginationUI('activity');
     }, 250);
 });
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'activity', 'settings'];
     if (hash && validPages.includes(hash) && hash !== currentPath) {
         showPage(hash);
     }

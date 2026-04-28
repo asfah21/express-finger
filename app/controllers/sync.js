@@ -1,5 +1,10 @@
 import { pullDeviceLogs } from '../utils/zklib.js'
 import { pool } from '../utils/database.js'
+import { recordActivity } from './activity-log.js'
+
+function getClientIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
+}
 
 export const syncController = {
     /**
@@ -31,6 +36,14 @@ export const syncController = {
 
             // Update last sync time
             await pool.query('UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2', [result.sn, targetIp])
+
+            await recordActivity({
+                username: req.user?.username || 'api',
+                action: 'sync_device',
+                category: 'sync',
+                detail: `Synced device SN: ${sn || result.sn || 'N/A'} (IP: ${targetIp}), logs: ${result.count || 0}`,
+                ip: getClientIp(req)
+            })
 
             res.json({
                 status: 'success',
@@ -96,6 +109,14 @@ export const syncController = {
                 res.write(`\n✨ All done! Total processed: ${processed} devices.\n`)
                 res.end()
             } else {
+                const successCount = results.filter(r => r.success).length
+                await recordActivity({
+                    username: req.user?.username || 'api',
+                    action: 'sync_all',
+                    category: 'sync',
+                    detail: `Sync all: ${successCount}/${devices.length} devices success`,
+                    ip: getClientIp(req)
+                })
                 res.json({
                     status: 'success',
                     message: 'Sync process finished',

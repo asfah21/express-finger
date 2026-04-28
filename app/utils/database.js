@@ -1,4 +1,5 @@
 import pkg from 'pg'
+import bcrypt from 'bcryptjs'
 import { config } from '../config/index.js'
 const { Pool } = pkg
 
@@ -85,17 +86,30 @@ export async function ensureSchema() {
       role TEXT DEFAULT 'admin',
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id BIGSERIAL PRIMARY KEY,
+      username TEXT NOT NULL DEFAULT 'system',
+      action TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general',
+      detail TEXT DEFAULT '',
+      ip_address TEXT DEFAULT '',
+      status TEXT DEFAULT 'success',
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_actlog_created ON activity_logs (created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_actlog_username ON activity_logs (username);
+    CREATE INDEX IF NOT EXISTS idx_actlog_category ON activity_logs (category);
   `)
 
   // Create default admin if no users exist
   const { rowCount } = await pool.query('SELECT 1 FROM users LIMIT 1')
   if (rowCount === 0) {
-    // Default: admin / admin123
-    // In a real app we'd hash but for simplicity/demo or we can use a hash
-    // I will use a simple hashed password if I can, but I don't see bcrypt.
-    // I'll use a plain text comparison for now OR add bcrypt.
-    // Let's add bcrypt if possible.
-    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', ['admin', 'admin123'])
+    // Default: admin / admin123 (bcrypt hashed)
+    const hashedPassword = await bcrypt.hash('admin123', 10)
+    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', ['admin', hashedPassword])
+    console.log('✅ Default admin user created (username: admin, password: admin123)')
   }
 }
 
