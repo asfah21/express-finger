@@ -1209,24 +1209,49 @@ function deleteUserPrompt(id, username) {
 }
 
 function resetUserPasswordPrompt(id, username) {
-    // We reuse modal logic to create a prompt
-    const newPass = prompt(`Enter new password for user ${username} (min 6 chars):`);
-    if (newPass === null) return; // User cancelled
-    if (newPass.length < 6) {
-        return showToast('Password must be at least 6 characters', 'error');
-    }
+    const title = document.getElementById('modal-title');
+    const content = document.getElementById('modal-content');
+    const saveBtn = document.getElementById('modal-save-btn');
 
-    fetch(`/auth/users/${id}/password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: newPass })
-    }).then(res => res.json()).then(data => {
-        if (data.status === 'success') {
-            showToast(`Password for ${username} has been reset`, 'success');
-        } else {
-            showToast(data.message || 'Failed to reset password', 'error');
+    title.innerText = `Reset Password for ${username}`;
+    content.innerHTML = `
+        <div class="form-group">
+            <label>New Password <span style="font-size:0.75rem;color:var(--text-muted);">(min. 6 characters)</span></label>
+            <div style="position:relative;">
+                <input type="password" id="reset-password-input" placeholder="••••••••" style="padding-right:3rem;" autocomplete="new-password">
+                <button type="button" onclick="const i = document.getElementById('reset-password-input'); i.type = i.type === 'password' ? 'text' : 'password';"
+                    style="position:absolute;right:0.875rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;display:flex;align-items:center;">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
+    saveBtn.innerText = 'Reset Password';
+    saveBtn.style.display = 'block';
+    
+    saveBtn.onclick = () => {
+        const newPass = document.getElementById('reset-password-input').value;
+        if (newPass.length < 6) {
+            return showToast('Password must be at least 6 characters', 'error');
         }
-    }).catch(() => showToast('Network error', 'error'));
+
+        fetch(`/auth/users/${id}/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: newPass })
+        }).then(res => res.json()).then(data => {
+            if (data.status === 'success') {
+                showToast(`Password for ${username} has been reset`, 'success');
+                closeModal();
+            } else {
+                showToast(data.message || 'Failed to reset password', 'error');
+            }
+        }).catch(() => showToast('Network error', 'error'));
+    };
+
+    toggleModal(true);
+    setTimeout(() => document.getElementById('reset-password-input')?.focus(), 150);
 }
 
 // Actions
