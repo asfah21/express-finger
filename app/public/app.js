@@ -115,12 +115,34 @@ function showDashboard() {
         navUserEl.innerText = currentUser.username;
     }
 
+    applyRoleRestrictions();
+
     // Restore page from URL hash or default to overview
     const hash = window.location.hash.replace('#', '');
     const validPages = ['overview', 'devices', 'employees', 'logs', 'activity', 'settings'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
+        showPage('overview');
+    }
+}
+
+function applyRoleRestrictions() {
+    if (!currentUser) return;
+    const isAdmin = currentUser.role === 'admin';
+    
+    // Elements with class admin-only should be hidden for viewers
+    document.querySelectorAll('.admin-only').forEach(el => {
+        if (!isAdmin) {
+            el.style.display = 'none';
+        } else {
+            // Restore display if it was hidden
+            el.style.display = '';
+        }
+    });
+
+    // If viewer tries to access settings, redirect to overview
+    if (!isAdmin && currentPath === 'settings') {
         showPage('overview');
     }
 }
@@ -460,6 +482,7 @@ async function refreshDevices() {
 
     s.total = data.data?.total || 0;
     const body = document.getElementById('devices-body');
+    const isAdmin = currentUser && currentUser.role === 'admin';
     body.innerHTML = (data.data?.list || []).map(dev => `
         <tr>
             <td><span class="badge ${dev.is_active ? 'badge-success' : 'badge-error'}">${dev.is_active ? 'Online' : 'Offline'}</span></td>
@@ -475,8 +498,10 @@ async function refreshDevices() {
                     </button>
                     <div class="action-menu">
                         <button class="action-item" onclick="syncDevice('${dev.sn}')"><i class="fas fa-sync"></i> Sync Device</button>
+                        ${isAdmin ? `
                         <button class="action-item" onclick="openEditDevice(${dev.id}, '${dev.name || ''}')"><i class="fas fa-edit"></i> Edit Name</button>
                         <button class="action-item delete" onclick="deleteDevice(${dev.id})"><i class="fas fa-trash"></i> Delete</button>
+                        ` : ''}
                     </div>
                 </div>
             </td>
@@ -498,6 +523,7 @@ async function refreshEmployees() {
 
     s.total = data.data?.total || 0;
     const body = document.getElementById('employees-body');
+    const isAdmin = currentUser && currentUser.role === 'admin';
     body.innerHTML = (data.data?.list || []).map(emp => `
         <tr>
             <td>${emp.user_id}</td>
@@ -508,6 +534,7 @@ async function refreshEmployees() {
             <td><span class="badge" style="background: rgba(255,255,255,0.1);">${emp.divisi || '-'}</span></td>
             <td><span class="badge" style="background: var(--primary); color: #ffffff !important;">${emp.type || '-'}</span></td>
             <td>
+                ${isAdmin ? `
                 <div class="action-dropdown">
                     <button class="icon-btn" onclick="toggleActions(event, this)" title="Actions">
                         <i class="fas fa-ellipsis-v"></i>
@@ -517,6 +544,7 @@ async function refreshEmployees() {
                         <button class="action-item delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i> Delete</button>
                     </div>
                 </div>
+                ` : '-'}
             </td>
         </tr>
     `).join('') || '<tr><td colspan="8" style="text-align: center;">No employees found</td></tr>';
