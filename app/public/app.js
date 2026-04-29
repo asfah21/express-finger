@@ -1110,41 +1110,43 @@ async function loadUserList() {
         }
 
         container.innerHTML = `
-            <table style="width:100%;font-size:0.85rem;border-collapse:collapse;">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--glass-border);color:var(--text-muted);">
-                        <th style="padding:0.5rem;text-align:left;">Username</th>
-                        <th style="padding:0.5rem;text-align:left;">Role</th>
-                        <th style="padding:0.5rem;text-align:right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.data.map(user => `
-                        <tr style="border-bottom:1px solid var(--glass-border);">
-                            <td style="padding:0.5rem;font-weight:600;">
-                                <div style="display:flex;align-items:center;gap:0.5rem;">
-                                    <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;">${user.username[0].toUpperCase()}</div>
-                                    ${user.username}
-                                    ${currentUser?.username === user.username ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
-                                </div>
-                            </td>
-                            <td style="padding:0.5rem;">
-                                <span class="badge" style="background:${user.role === 'admin' ? 'var(--secondary)' : 'var(--glass-border)'};color:${user.role === 'admin' ? '#fff' : 'inherit'};">
-                                    ${user.role}
-                                </span>
-                            </td>
-                            <td style="padding:0.5rem;text-align:right;">
-                                <button class="icon-btn" title="Reset Password" onclick="resetUserPasswordPrompt(${user.id}, '${user.username}')" style="margin-right:0.25rem;">
-                                    <i class="fas fa-key" style="color:var(--warning);"></i>
-                                </button>
-                                <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${currentUser?.username === user.username ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
-                                    <i class="fas fa-trash" style="${currentUser?.username !== user.username ? 'color:var(--error);' : ''}"></i>
-                                </button>
-                            </td>
+            <div style="overflow-x:auto; width:100%;">
+                <table style="width:100%;font-size:0.85rem;border-collapse:collapse;min-width:400px;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--glass-border);color:var(--text-muted);">
+                            <th style="padding:0.5rem;text-align:left;">Username</th>
+                            <th style="padding:0.5rem;text-align:left;">Role</th>
+                            <th style="padding:0.5rem;text-align:right;">Actions</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        ${data.data.map(user => `
+                            <tr style="border-bottom:1px solid var(--glass-border);">
+                                <td style="padding:0.5rem;font-weight:600;">
+                                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                                        <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0;">${user.username[0].toUpperCase()}</div>
+                                        <span style="white-space:nowrap;">${user.username}</span>
+                                        ${currentUser?.username === user.username ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
+                                    </div>
+                                </td>
+                                <td style="padding:0.5rem;">
+                                    <span class="badge" style="background:${user.role === 'admin' ? 'var(--secondary)' : 'var(--glass-border)'};color:${user.role === 'admin' ? '#fff' : 'inherit'};white-space:nowrap;">
+                                        ${user.role}
+                                    </span>
+                                </td>
+                                <td style="padding:0.5rem;text-align:right;white-space:nowrap;">
+                                    <button class="icon-btn" title="Reset Password" onclick="resetUserPasswordPrompt(${user.id}, '${user.username}')" style="margin-right:0.25rem;">
+                                        <i class="fas fa-key" style="color:var(--warning);"></i>
+                                    </button>
+                                    <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${currentUser?.username === user.username ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                                        <i class="fas fa-trash" style="${currentUser?.username !== user.username ? 'color:var(--error);' : ''}"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
         `;
     } catch (err) {
         container.innerHTML = `<div style="text-align:center;color:var(--error);padding:1.5rem;"><i class="fas fa-exclamation-triangle"></i> Error loading users</div>`;
