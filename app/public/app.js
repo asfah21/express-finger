@@ -218,6 +218,7 @@ function showPage(pageId) {
         'employees': 'Employee Management',
         'logs': 'Attendance Logs',
         'activity': 'Activity Log',
+        'pull': 'Pull Data',
         'settings': 'System Settings'
     };
     const titleEl = document.getElementById('page-title');
@@ -248,6 +249,7 @@ function showPage(pageId) {
     if (pageId === 'employees') refreshEmployees();
     if (pageId === 'logs') refreshLogs();
     if (pageId === 'activity') refreshActivityLogs();
+    if (pageId === 'pull') refreshPullDevices();
     if (pageId === 'settings') {
         loadSettings();
         loadUserList(); // Load user list when settings page is opened
@@ -1785,6 +1787,75 @@ window.addEventListener('click', () => {
 });
 
 // Initialize
+async function refreshPullDevices() {
+    const select = document.getElementById('pull-device-select');
+    select.innerHTML = '<option value="">Loading devices...</option>';
+    
+    try {
+        const res = await fetch('/api/devices?limit=100');
+        const data = await res.json();
+        
+        const devices = data.data?.list || [];
+        if (devices.length === 0) {
+            select.innerHTML = '<option value="">No devices found</option>';
+            return;
+        }
+        
+        select.innerHTML = '<option value="">-- Select a Device --</option>' + devices.map(dev => 
+            `<option value="${dev.id}">${dev.name || 'Unnamed'} (${dev.ip}) - SN: ${dev.sn || 'Unknown'}</option>`
+        ).join('');
+    } catch (err) {
+        select.innerHTML = '<option value="">Failed to load devices</option>';
+    }
+}
+
+async function pullDataFromDevice() {
+    const deviceId = document.getElementById('pull-device-select').value;
+    if (!deviceId) {
+        showToast('Please select a device first', 'error');
+        return;
+    }
+    
+    const btn = document.getElementById('btn-pull-data');
+    const statusEl = document.getElementById('pull-status');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting to Device...';
+    
+    statusEl.style.display = 'block';
+    statusEl.style.color = 'var(--warning)';
+    statusEl.innerHTML = '<i class="fas fa-sync fa-spin"></i> Establishing connection to port 4370. This might take a few seconds...';
+
+    try {
+        const response = await fetch('/api/pull', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ deviceId })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            statusEl.style.color = 'var(--success)';
+            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> Success: Pulled ${result.data.total} logs. ${result.data.saved} new/updated.`;
+            showToast('Pull data completed', 'success');
+        } else {
+            statusEl.style.color = 'var(--error)';
+            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed: ${result.message}`;
+            showToast('Failed to pull data', 'error');
+        }
+    } catch (error) {
+        statusEl.style.color = 'var(--error)';
+        statusEl.innerHTML = `<i class="fas fa-times-circle"></i> Error: Could not connect to server.`;
+        showToast('Network error', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Pull Data Now';
+    }
+}
+
 checkAuth();
 
 // Silent auth check setiap 10 menit - hanya redirect jika token expired

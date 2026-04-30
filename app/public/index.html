@@ -59,6 +59,10 @@
                     <i class="fas fa-shield-alt"></i>
                     <span>Activity Log</span>
                 </div>
+                <div class="nav-item" onclick="showPage('pull')">
+                    <i class="fas fa-download"></i>
+                    <span>Pull Data</span>
+                </div>
                 <div class="nav-item admin-only" onclick="showPage('settings')">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
@@ -466,6 +470,34 @@
                                 <div class="pagination-numbers" id="activity-pagination-numbers"></div>
                                 <button onclick="nextPage('activity')" id="activity-next-btn">Next</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="page-pull" class="page" style="display: none;">
+                    <div class="header" style="margin-bottom: 1.5rem;">
+                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-download" style="color: var(--primary);"></i> Pull Data from Device
+                        </h3>
+                    </div>
+                    
+                    <div class="stat-card" style="margin-bottom: 1.5rem;">
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
+                            This tool allows you to manually force-pull attendance logs directly from the fingerprint machine via port 4370. Use this if the machine is not pushing data properly via ADMS.
+                        </p>
+                        
+                        <div class="form-group" style="max-width: 400px;">
+                            <label>Select Device</label>
+                            <select id="pull-device-select" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white;">
+                                <option value="">Loading devices...</option>
+                            </select>
+                        </div>
+                        
+                        <button class="btn-primary" id="btn-pull-data" style="width: auto; margin-top: 1rem;" onclick="pullDataFromDevice()">
+                            <i class="fas fa-cloud-download-alt"></i> Pull Data Now
+                        </button>
+                        
+                        <div id="pull-status" style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
                         </div>
                     </div>
                 </div>
