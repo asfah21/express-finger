@@ -1983,6 +1983,63 @@ async function pullDataFromDevice(isPreview = false) {
     }
 }
 
+// ─── Pagination for Pull Results ───────────────────────────────────────────
+let pullPageState = {
+    page: 1,
+    limit: 25,
+    total: 0
+};
+
+function updatePullPageSize(val) {
+    pullPageState.limit = parseInt(val);
+    pullPageState.page = 1;
+    renderPullResults(lastPulledData);
+}
+
+function prevPullPage() {
+    if (pullPageState.page > 1) {
+        pullPageState.page--;
+        renderPullResults(lastPulledData);
+    }
+}
+
+function nextPullPage() {
+    const maxPage = Math.ceil(pullPageState.total / pullPageState.limit);
+    if (pullPageState.page < maxPage) {
+        pullPageState.page++;
+        renderPullResults(lastPulledData);
+    }
+}
+
+function renderPullPagination(total) {
+    pullPageState.total = total;
+    const maxPage = Math.ceil(total / pullPageState.limit);
+    const start = (pullPageState.page - 1) * pullPageState.limit + 1;
+    const end = Math.min(pullPageState.page * pullPageState.limit, total);
+
+    document.getElementById('pull-results-info').innerText = `Showing ${total ? start : 0}-${end} of ${total}`;
+    document.getElementById('pull-prev-btn').disabled = pullPageState.page <= 1;
+    document.getElementById('pull-next-btn').disabled = pullPageState.page >= maxPage;
+
+    const nums = document.getElementById('pull-pagination-numbers');
+    nums.innerHTML = '';
+    // Show simple pagination: First, Prev, [Page], Next, Last (if many)
+    if (maxPage <= 1) return;
+
+    let range = [];
+    for (let i = Math.max(1, pullPageState.page - 2); i <= Math.min(maxPage, pullPageState.page + 2); i++) {
+        range.push(i);
+    }
+
+    range.forEach(p => {
+        const btn = document.createElement('button');
+        btn.innerText = p;
+        btn.style.cssText = `padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid var(--glass-border); cursor: pointer; ${p === pullPageState.page ? 'background: var(--primary); color: white;' : 'background: var(--glass-bg); color: var(--text);'}`;
+        btn.onclick = () => { pullPageState.page = p; renderPullResults(lastPulledData); };
+        nums.appendChild(btn);
+    });
+}
+
 // ─── View switching ────────────────────────────────────────────────────────
 let _currentPullView = 'presensi';
 
@@ -2000,6 +2057,10 @@ function switchPullView(view) {
         tabR.style.background = 'var(--primary)'; tabR.style.color = 'white'; tabR.style.borderColor = 'var(--primary)';
         tabP.style.background = 'transparent';    tabP.style.color = 'var(--text-muted)'; tabP.style.borderColor = 'var(--glass-border)';
     }
+    
+    // Reset page and re-render
+    pullPageState.page = 1;
+    renderPullResults(lastPulledData);
 }
 
 // ─── Convert raw logs → presensi (grouped by userId + date) ────────────────
@@ -2051,48 +2112,47 @@ function _durasi(masuk, pulang) {
 }
 
 function renderPullResults(logs) {
-    // ── Raw log table
-    const rawBody = document.getElementById('pull-results-body');
-    rawBody.innerHTML = logs.map(log => {
-        const dt = new Date(log.timestamp);
-        const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString('id-ID');
-        const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
-        const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : 'badge-success';
-        return `<tr>
-            <td>${log.userId}</td>
-            <td>${dateStr}</td>
-            <td><span class="badge ${badgeCls}">${absensi}</span></td>
-        </tr>`;
-    }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+    if (!logs) return;
 
-    // ── Presensi (grouped) table
-    const presensiData = processToPresensi(logs);
-    const presensiBody = document.getElementById('pull-presensi-body');
-    presensiBody.innerHTML = presensiData.map(row => {
-        const masukStr  = _fmtTime(row.masuk);
-        const pulangStr = _fmtTime(row.pulang);
-        const durasi    = _durasi(row.masuk, row.pulang);
-        const tglStr    = new Date(row.date).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-        let status, statusCls;
-        if (!row.pulang) {
-            status = 'Belum Pulang'; statusCls = 'badge-warning';
-        } else {
-            const jam = row.masuk.getHours() + row.masuk.getMinutes() / 60;
-            status = jam > 8.25 ? 'Terlambat' : 'Hadir';
-            statusCls = jam > 8.25 ? 'badge-error' : 'badge-success';
-        }
-        return `<tr>
-            <td><strong>${row.userId}</strong></td>
-            <td>${tglStr}</td>
-            <td>${masukStr}</td>
-            <td>${pulangStr}</td>
-            <td>${durasi}</td>
-            <td><span class="badge ${statusCls}">${status}</span></td>
-        </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+    const isPresensi = _currentPullView === 'presensi';
+    const dataToRender = isPresensi ? processToPresensi(logs) : logs;
+    
+    // Pagination logic
+    const total = dataToRender.length;
+    renderPullPagination(total);
 
-    // Default to presensi view
-    switchPullView('presensi');
+    const start = (pullPageState.page - 1) * pullPageState.limit;
+    const paged = dataToRender.slice(start, start + pullPageState.limit);
+
+    if (isPresensi) {
+        const presensiBody = document.getElementById('pull-presensi-body');
+        presensiBody.innerHTML = paged.map(row => {
+            const masukStr  = _fmtTime(row.masuk);
+            const pulangStr = _fmtTime(row.pulang);
+            const durasi    = _durasi(row.masuk, row.pulang);
+            const tglStr    = new Date(row.date).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+            return `<tr>
+                <td><strong>${row.userId}</strong></td>
+                <td>${tglStr}</td>
+                <td>${masukStr}</td>
+                <td>${pulangStr}</td>
+                <td>${durasi}</td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+    } else {
+        const rawBody = document.getElementById('pull-raw-body');
+        rawBody.innerHTML = paged.map(log => {
+            const dt = new Date(log.timestamp);
+            const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString('id-ID');
+            const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
+            const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : 'badge-success';
+            return `<tr>
+                <td>${log.userId}</td>
+                <td>${dateStr}</td>
+                <td><span class="badge ${badgeCls}">${absensi}</span></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+    }
 }
 
 function exportPulledData() {
@@ -2107,17 +2167,14 @@ function exportPulledData() {
         if (_currentPullView === 'presensi') {
             // Export processed presensi format
             const presensiData = processToPresensi(lastPulledData);
-            const headers = ['User ID', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Durasi', 'Status'];
+            const headers = ['User ID', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Durasi'];
             const rows = presensiData.map(row => {
-                const jam = row.masuk ? row.masuk.getHours() + row.masuk.getMinutes() / 60 : 0;
-                let status = !row.pulang ? 'Belum Pulang' : (jam > 8.25 ? 'Terlambat' : 'Hadir');
                 return [
                     row.userId,
                     row.date,
                     _fmtTime(row.masuk),
                     _fmtTime(row.pulang),
-                    _durasi(row.masuk, row.pulang),
-                    status
+                    _durasi(row.masuk, row.pulang)
                 ].map(v => `"${v}"`).join(',');
             });
             csvContent = [headers.join(','), ...rows].join('\n');

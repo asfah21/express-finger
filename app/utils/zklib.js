@@ -160,7 +160,12 @@ export async function fetchDeviceLogsFormatted(ip, port = 4370, sn = null) {
             return {
                 uid: log.userSn || null,
                 userId: String(log.deviceUserId).trim(),
-                timestamp: finalDate.toISOString(),
+                timestamp: finalDate.getFullYear() + '-' +
+                    String(finalDate.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(finalDate.getDate()).padStart(2, '0') + 'T' +
+                    String(finalDate.getHours()).padStart(2, '0') + ':' +
+                    String(finalDate.getMinutes()).padStart(2, '0') + ':' +
+                    String(finalDate.getSeconds()).padStart(2, '0'),
                 type,
                 absensi,
                 rawType: type

@@ -506,7 +506,7 @@
                             <button class="btn-primary admin-only" id="btn-pull-clear"
                                 style="width: auto; background: #dc2626;" onclick="pullDataFromDevice('sync-clear')"
                                 title="Sync to DB, then wipe device log to free memory">
-                                <i class="fas fa-trash-alt"></i> Sync & Clear Device
+                                <i class="fas fa-trash-alt"></i> Sync & Clear
                             </button>
                             <button class="btn-primary" id="btn-export-pull"
                                 style="width: auto; background: #10b981; display: none;" onclick="exportPulledData()">
@@ -519,9 +519,7 @@
                         </div>
                         <p style="font-size: 0.75rem; color: var(--warning); margin-top: 0.6rem;">
                             <i class="fas fa-exclamation-triangle"></i>
-                            Jika data hanya sampai bulan lama, berarti <strong>memori mesin penuh</strong>. Gunakan
-                            <strong>Sync & Clear Device</strong> untuk menyinkronkan semua data ke DB lalu mengosongkan
-                            memori mesin agar bisa merekam data baru.
+                            Use <strong>Sync & Clear</strong> to sync data to the DB and free up memory for new records.
                         </p>
 
                         <!-- Progress Bar -->
@@ -596,7 +594,6 @@
                                             <th>Jam Masuk</th>
                                             <th>Jam Pulang</th>
                                             <th>Durasi</th>
-                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="pull-presensi-body"></tbody>
@@ -604,8 +601,7 @@
                             </div>
 
                             <!-- Raw log table -->
-                            <div id="view-raw" class="table-container"
-                                style="max-height: 420px; overflow-y: auto; display: none;">
+                            <div id="view-raw" class="table-container" style="display: none; max-height: 420px; overflow-y: auto;">
                                 <table>
                                     <thead>
                                         <tr>
@@ -614,8 +610,23 @@
                                             <th>Tipe</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="pull-results-body"></tbody>
+                                    <tbody id="pull-raw-body"></tbody>
                                 </table>
+                            </div>
+
+                            <!-- Pagination Footer for Pull Results -->
+                            <div class="table-footer" style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.1); border-radius: 0.5rem; border: 1px solid var(--glass-border);">
+                                <div class="table-info" id="pull-results-info">Showing 0 of 0</div>
+                                <div class="table-pagination">
+                                    <select onchange="updatePullPageSize(this.value)" style="padding: 0.25rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border);">
+                                        <option value="25">25 per page</option>
+                                        <option value="50">50 per page</option>
+                                        <option value="100">100 per page</option>
+                                    </select>
+                                    <button onclick="prevPullPage()" id="pull-prev-btn" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border); cursor: pointer;">Prev</button>
+                                    <div id="pull-pagination-numbers" style="display: flex; gap: 0.25rem;"></div>
+                                    <button onclick="nextPullPage()" id="pull-next-btn" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border); cursor: pointer;">Next</button>
+                                </div>
                             </div>
                         </div>
                     </div>
