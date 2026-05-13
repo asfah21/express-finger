@@ -1790,7 +1790,7 @@ window.addEventListener('click', () => {
 async function refreshPullDevices() {
     const select = document.getElementById('pull-device-select');
     const currentId = select.value; // Remember what was selected
-    
+
     // Only show "Loading" if the list is empty
     if (!select.options || select.options.length <= 1) {
         select.innerHTML = '<option value="">Loading devices...</option>';
@@ -1812,7 +1812,7 @@ async function refreshPullDevices() {
             html += `<option value="${dev.id}" ${selected}>${dev.name || 'Unnamed'} (${dev.ip}) - SN: ${dev.sn || 'Unknown'}</option>`;
         });
         select.innerHTML = html;
-        
+
         // If we had a selection but it wasn't restored by the 'selected' attribute (rare), force it
         if (currentId && select.value !== currentId) {
             select.value = currentId;
@@ -2039,7 +2039,7 @@ function renderPullPagination(total) {
 
     const nums = document.getElementById('pull-pagination-numbers');
     nums.innerHTML = '';
-    
+
     if (maxPage <= 1) return;
 
     const isMobile = window.innerWidth < 640;
@@ -2058,9 +2058,9 @@ function renderPullPagination(total) {
         const item = document.createElement('div');
         item.innerText = p;
         item.className = `page-link ${p === pullPageState.page ? 'active' : ''}`;
-        item.onclick = () => { 
-            pullPageState.page = p; 
-            renderPullResults(lastPulledData); 
+        item.onclick = () => {
+            pullPageState.page = p;
+            renderPullResults(lastPulledData);
         };
         nums.appendChild(item);
     }
@@ -2072,18 +2072,18 @@ let _currentPullView = 'presensi';
 function switchPullView(view) {
     _currentPullView = view;
     document.getElementById('view-presensi').style.display = view === 'presensi' ? '' : 'none';
-    document.getElementById('view-raw').style.display      = view === 'raw' ? '' : 'none';
+    document.getElementById('view-raw').style.display = view === 'raw' ? '' : 'none';
 
     const tabP = document.getElementById('tab-presensi');
     const tabR = document.getElementById('tab-raw');
     if (view === 'presensi') {
         tabP.style.background = 'var(--primary)'; tabP.style.color = 'white'; tabP.style.borderColor = 'var(--primary)';
-        tabR.style.background = 'transparent';    tabR.style.color = 'var(--text-muted)'; tabR.style.borderColor = 'var(--glass-border)';
+        tabR.style.background = 'transparent'; tabR.style.color = 'var(--text-muted)'; tabR.style.borderColor = 'var(--glass-border)';
     } else {
         tabR.style.background = 'var(--primary)'; tabR.style.color = 'white'; tabR.style.borderColor = 'var(--primary)';
-        tabP.style.background = 'transparent';    tabP.style.color = 'var(--text-muted)'; tabP.style.borderColor = 'var(--glass-border)';
+        tabP.style.background = 'transparent'; tabP.style.color = 'var(--text-muted)'; tabP.style.borderColor = 'var(--glass-border)';
     }
-    
+
     // Reset page and re-render
     pullPageState.page = 1;
     renderPullResults(lastPulledData);
@@ -2143,8 +2143,8 @@ function renderPullResults(logs) {
     const isPresensi = _currentPullView === 'presensi';
     // User wants Summary (Presensi) to be like Raw Logs but with 5 columns.
     // So we don't use processToPresensi anymore for the display.
-    const dataToRender = logs; 
-    
+    const dataToRender = logs;
+
     // Pagination logic
     const total = dataToRender.length;
     renderPullPagination(total);
@@ -2210,7 +2210,7 @@ function exportPulledData() {
                 ].map(v => `"${v}"`).join(',');
             });
             csvContent = [headers.join(','), ...rows].join('\n');
-            filename = `presensi_preview_${new Date().toISOString().slice(0, 10)}.csv`;
+            filename = `summary_${new Date().toISOString().slice(0, 10)}.csv`;
         } else {
             // Export raw log format
             const headers = ['User ID', 'Timestamp', 'Tipe'];
