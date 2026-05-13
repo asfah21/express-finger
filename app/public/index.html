@@ -486,41 +486,37 @@
                             Manually pull attendance logs via port 4370 if ADMS data push is failing.
                         </p>
 
-                        <div class="form-group" style="max-width: 400px;">
-                            <label>Select Device</label>
-                            <select id="pull-device-select"
-                                style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white;">
-                                <option value="">Loading devices...</option>
-                            </select>
-                        </div>
+                        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; margin-top: 1rem;">
+                            <!-- Device Selector Styled like Search -->
+                            <div style="flex: 1; min-width: 300px;">
+                                <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase;">DEVICE SOURCE</label>
+                                <div style="position: relative;">
+                                    <i class="fas fa-fingerprint" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                                    <select id="pull-device-select" onchange="updateDeviceStatus(this.value)" style="padding-left: 2.8rem; height: 42px;">
+                                        <option value="">-- Choose Fingerprint Device --</option>
+                                    </select>
+                                </div>
+                            </div>
 
-                        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem;">
-                            <button class="btn-primary" id="btn-pull-preview" style="width: auto;"
-                                onclick="pullDataFromDevice('preview')">
-                                <i class="fas fa-search"></i> Preview
-                            </button>
-                            <button class="btn-primary admin-only" id="btn-pull-data"
-                                style="width: auto; background: var(--secondary);" onclick="pullDataFromDevice('sync')">
-                                <i class="fas fa-cloud-download-alt"></i> Pull & Sync
-                            </button>
-                            <button class="btn-primary admin-only" id="btn-pull-clear"
-                                style="width: auto; background: #dc2626;" onclick="pullDataFromDevice('sync-clear')"
-                                title="Sync to DB, then wipe device log to free memory">
-                                <i class="fas fa-trash-alt"></i> Sync & Clear
-                            </button>
-                            <button class="btn-primary" id="btn-export-pull"
-                                style="width: auto; background: #10b981; display: none;" onclick="exportPulledData()">
-                                <i class="fas fa-file-csv"></i> Export CSV
-                            </button>
-                            <button class="btn-primary" id="btn-download-raw"
-                                style="width: auto; background: #6b7280; display: none;" onclick="downloadRawData()">
-                                <i class="fas fa-file-code"></i> Raw JSON
-                            </button>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn-primary" id="btn-pull-preview" style="width: auto; height: 42px; padding: 0 1.2rem;"
+                                    onclick="pullDataFromDevice('preview')">
+                                    <i class="fas fa-search"></i> Preview
+                                </button>
+                                <button class="btn-primary admin-only" id="btn-pull-data"
+                                    style="width: auto; height: 42px; padding: 0 1.2rem; background: var(--secondary);" onclick="pullDataFromDevice('sync')">
+                                    <i class="fas fa-cloud-download-alt"></i> Pull & Sync
+                                </button>
+                                <button class="btn-primary" id="btn-export-pull"
+                                    style="width: auto; height: 42px; padding: 0 1rem; background: #10b981; display: none;" onclick="exportPulledData()">
+                                    <i class="fas fa-file-csv"></i> Export
+                                </button>
+                                <button class="btn-primary" id="btn-download-raw"
+                                    style="width: auto; height: 42px; padding: 0 1rem; background: #6b7280; display: none;" onclick="downloadRawData()">
+                                    <i class="fas fa-file-code"></i> JSON
+                                </button>
+                            </div>
                         </div>
-                        <p style="font-size: 0.75rem; color: var(--warning); margin-top: 0.6rem;">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Use <strong>Sync & Clear</strong> to sync data to the DB and free up memory for new records.
-                        </p>
 
                         <!-- Progress Bar -->
                         <div id="pull-progress-wrap" style="display: none; margin-top: 1.25rem;">
@@ -570,7 +566,7 @@
                         <div id="pull-results-container" style="display: none; margin-top: 2rem;">
                             <div
                                 style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-                                <h4 id="pull-results-title" style="margin: 0;">Rekap Presensi</h4>
+                                <h4 id="pull-results-title" style="margin: 0;">Result Data</h4>
                                 <div style="display: flex; gap: 0.5rem;">
                                     <button onclick="switchPullView('presensi')" id="tab-presensi"
                                         style="padding: 0.35rem 0.85rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid var(--primary); background: var(--primary); color: white; transition: all 0.2s;">
@@ -600,31 +596,31 @@
                             </div>
 
                             <!-- Raw log table -->
-                            <div id="view-raw" class="table-container" style="display: none; max-height: 420px; overflow-y: auto;">
+                            <div id="view-raw" class="table-container" style="display: none;">
                                 <table>
                                     <thead>
                                         <tr>
                                             <th>User ID</th>
                                             <th>Timestamp</th>
-                                            <th>Tipe</th>
+                                            <th>Type</th>
                                         </tr>
                                     </thead>
                                     <tbody id="pull-raw-body"></tbody>
                                 </table>
                             </div>
 
-                            <!-- Pagination Footer for Pull Results -->
-                            <div class="table-footer" style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.1); border-radius: 0.5rem; border: 1px solid var(--glass-border);">
-                                <div class="table-info" id="pull-results-info">Showing 0 of 0</div>
+                            <!-- Standardized Table Footer -->
+                            <div class="table-footer">
+                                <div class="table-info" id="pull-results-info">Showing 0 of 0 entries</div>
                                 <div class="table-pagination">
-                                    <select onchange="updatePullPageSize(this.value)" style="padding: 0.25rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border);">
+                                    <select onchange="updatePullPageSize(this.value)">
                                         <option value="25">25 per page</option>
                                         <option value="50">50 per page</option>
                                         <option value="100">100 per page</option>
                                     </select>
-                                    <button onclick="prevPullPage()" id="pull-prev-btn" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border); cursor: pointer;">Prev</button>
-                                    <div id="pull-pagination-numbers" style="display: flex; gap: 0.25rem;"></div>
-                                    <button onclick="nextPullPage()" id="pull-next-btn" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border); cursor: pointer;">Next</button>
+                                    <button onclick="prevPullPage()" id="pull-prev-btn">Prev</button>
+                                    <div class="pagination-numbers" id="pull-pagination-numbers"></div>
+                                    <button onclick="nextPullPage()" id="pull-next-btn">Next</button>
                                 </div>
                             </div>
                         </div>
