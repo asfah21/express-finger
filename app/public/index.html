@@ -567,25 +567,22 @@
                         </div>
 
                         <!-- Results Section -->
-                        <div id="pull-results-container" style="display: none; margin-top: 2rem;">
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-                                <h4 id="pull-results-title" style="margin: 0;">Rekap Presensi</h4>
-                                <div style="display: flex; gap: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text);">Preview Results</h3>
+                                <div style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.05); padding: 0.25rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">
                                     <button onclick="switchPullView('presensi')" id="tab-presensi"
-                                        style="padding: 0.35rem 0.85rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid var(--primary); background: var(--primary); color: white; transition: all 0.2s;">
+                                        style="padding: 0.4rem 1rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: var(--primary); color: white; transition: all 0.2s;">
                                         <i class="fas fa-calendar-check"></i> Rekap Presensi
                                     </button>
                                     <button onclick="switchPullView('raw')" id="tab-raw"
-                                        style="padding: 0.35rem 0.85rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid var(--glass-border); background: transparent; color: var(--text-muted); transition: all 0.2s;">
+                                        style="padding: 0.4rem 1rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.2s;">
                                         <i class="fas fa-list"></i> Raw Log
                                     </button>
                                 </div>
                             </div>
 
                             <!-- Presensi (grouped) table -->
-                            <div id="view-presensi" class="table-container"
-                                style="max-height: 420px; overflow-y: auto;">
+                            <div id="view-presensi" class="table-container">
                                 <table>
                                     <thead>
                                         <tr>
@@ -614,18 +611,17 @@
                                 </table>
                             </div>
 
-                            <!-- Pagination Footer for Pull Results -->
-                            <div class="table-footer" style="margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.1); border-radius: 0.5rem; border: 1px solid var(--glass-border);">
+                            <div class="table-footer">
                                 <div class="table-info" id="pull-results-info">Showing 0 of 0</div>
                                 <div class="table-pagination">
-                                    <select onchange="updatePullPageSize(this.value)" style="padding: 0.25rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border);">
+                                    <select onchange="updatePullPageSize(this.value)">
                                         <option value="25">25 per page</option>
                                         <option value="50">50 per page</option>
                                         <option value="100">100 per page</option>
                                     </select>
-                                    <button onclick="prevPullPage()" id="pull-prev-btn" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border); cursor: pointer;">Prev</button>
-                                    <div id="pull-pagination-numbers" style="display: flex; gap: 0.25rem;"></div>
-                                    <button onclick="nextPullPage()" id="pull-next-btn" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem; background: var(--glass-bg); color: var(--text); border: 1px solid var(--glass-border); cursor: pointer;">Next</button>
+                                    <button onclick="prevPullPage()" id="pull-prev-btn">Prev</button>
+                                    <div class="pagination-numbers" id="pull-pagination-numbers"></div>
+                                    <button onclick="nextPullPage()" id="pull-next-btn">Next</button>
                                 </div>
                             </div>
                         </div>
