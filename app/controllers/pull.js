@@ -26,22 +26,34 @@ export const pullController = {
         // --- PREVIEW MODE: fetch, format, return — do NOT save ---
         const { formattedLogs, rawCount } = await fetchDeviceLogsFormatted(device.ip, port, device.sn)
 
+        // Fetch employee names to enrich logs
+        const { rows: employees } = await pool.query('SELECT user_id, nama FROM employee')
+        const employeeMap = employees.reduce((acc, emp) => {
+          acc[emp.user_id] = emp.nama
+          return acc
+        }, {})
+
+        const logsWithName = formattedLogs.map(log => ({
+          ...log,
+          name: employeeMap[log.userId] || 'Unknown'
+        }))
+
         await recordActivity({
           username,
           action: 'preview_pull_data',
           category: 'sync',
-          detail: `Preview pull from ${device.name || device.sn} (${device.ip}). Raw: ${rawCount}, After filter: ${formattedLogs.length}`,
+          detail: `Preview pull from ${device.name || device.sn} (${device.ip}). Raw: ${rawCount}, After filter: ${logsWithName.length}`,
           ip: clientIp
         })
 
         return res.json({
           status: 'success',
-          message: `Preview: ${formattedLogs.length} logs fetched (${rawCount} raw from device).`,
+          message: `Preview: ${logsWithName.length} logs fetched (${rawCount} raw from device).`,
           data: {
             total: rawCount,
-            filtered: formattedLogs.length,
+            filtered: logsWithName.length,
             saved: 0,
-            logs: formattedLogs
+            logs: logsWithName
           }
         })
       } else {

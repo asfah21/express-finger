@@ -476,14 +476,19 @@
 
                 <div id="page-pull" class="page" style="display: none;">
                     <!-- Standard Filter & Action Bar (Matching Attendance Menu) -->
-                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
-                        
+                    <div
+                        style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+
                         <!-- Device Selector styled like Search -->
                         <div style="flex: 2; min-width: 250px;">
-                            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase;">DEVICE SOURCE</label>
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase;">DEVICE
+                                SOURCE</label>
                             <div style="position: relative;">
-                                <i class="fas fa-fingerprint" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                                <select id="pull-device-select" onchange="updateDeviceStatus(this.value)" style="padding-left: 2.8rem; height: 42px;">
+                                <i class="fas fa-fingerprint"
+                                    style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                                <select id="pull-device-select" onchange="updateDeviceStatus(this.value)"
+                                    style="padding-left: 2.8rem; height: 42px;">
                                     <option value="">-- Select Fingerprint Device --</option>
                                 </select>
                             </div>
@@ -491,137 +496,143 @@
 
                         <!-- Action Buttons -->
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button class="btn-primary" id="btn-pull-preview" style="width: auto; height: 42px; padding: 0 1.2rem;"
+                            <button class="btn-primary" id="btn-pull-preview"
+                                style="width: auto; height: 42px; padding: 0 1.2rem;"
                                 onclick="pullDataFromDevice('preview')">
                                 <i class="fas fa-search"></i> Preview
                             </button>
                             <button class="btn-primary admin-only" id="btn-pull-data"
-                                style="width: auto; height: 42px; padding: 0 1.2rem; background: var(--secondary);" onclick="pullDataFromDevice('sync')">
+                                style="width: auto; height: 42px; padding: 0 1.2rem; background: var(--secondary);"
+                                onclick="pullDataFromDevice('sync')">
                                 <i class="fas fa-cloud-download-alt"></i> Pull & Sync
                             </button>
                             <button class="btn-primary" id="btn-export-pull"
-                                style="width: auto; height: 42px; padding: 0 1rem; background: #10b981; display: none;" onclick="exportPulledData()">
+                                style="width: auto; height: 42px; padding: 0 1rem; background: #10b981; display: none;"
+                                onclick="exportPulledData()">
                                 <i class="fas fa-file-csv"></i> Export
                             </button>
                             <button class="btn-primary" id="btn-download-raw"
-                                style="width: auto; height: 42px; padding: 0 1rem; background: #6b7280; display: none;" onclick="downloadRawData()">
+                                style="width: auto; height: 42px; padding: 0 1rem; background: #6b7280; display: none;"
+                                onclick="downloadRawData()">
                                 <i class="fas fa-file-code"></i> JSON
                             </button>
                         </div>
                     </div>
 
-                        <!-- Progress Bar -->
-                        <div id="pull-progress-wrap" style="display: none; margin-top: 1.25rem;">
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <span id="pull-progress-label"
-                                    style="font-size: 0.8rem; color: var(--text-muted);">Initializing...</span>
-                                <span id="pull-progress-pct"
-                                    style="font-size: 0.8rem; font-weight: 600; color: var(--primary);">0%</span>
+                    <!-- Progress Bar -->
+                    <div id="pull-progress-wrap" style="display: none; margin-top: 1.25rem;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span id="pull-progress-label"
+                                style="font-size: 0.8rem; color: var(--text-muted);">Initializing...</span>
+                            <span id="pull-progress-pct"
+                                style="font-size: 0.8rem; font-weight: 600; color: var(--primary);">0%</span>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.06); border-radius: 999px; height: 10px; overflow: hidden; border: 1px solid var(--glass-border);">
+                            <div id="pull-progress-bar"
+                                style="height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.6s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 0 8px rgba(36,97,150,0.5);">
                             </div>
-                            <div
-                                style="background: rgba(255,255,255,0.06); border-radius: 999px; height: 10px; overflow: hidden; border: 1px solid var(--glass-border);">
-                                <div id="pull-progress-bar"
-                                    style="height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.6s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 0 8px rgba(36,97,150,0.5);">
-                                </div>
+                        </div>
+                        <!-- Stage Indicators -->
+                        <div style="display: flex; justify-content: space-between; margin-top: 0.75rem; gap: 0.5rem;">
+                            <div class="pull-stage" id="stage-connect"
+                                style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
+                                <i class="fas fa-plug" style="display:block; margin-bottom:2px;"></i> Connect
                             </div>
-                            <!-- Stage Indicators -->
-                            <div
-                                style="display: flex; justify-content: space-between; margin-top: 0.75rem; gap: 0.5rem;">
-                                <div class="pull-stage" id="stage-connect"
-                                    style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
-                                    <i class="fas fa-plug" style="display:block; margin-bottom:2px;"></i> Connect
-                                </div>
-                                <div class="pull-stage" id="stage-fetch"
-                                    style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
-                                    <i class="fas fa-database" style="display:block; margin-bottom:2px;"></i> Fetch Logs
-                                </div>
-                                <div class="pull-stage" id="stage-process"
-                                    style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
-                                    <i class="fas fa-cogs" style="display:block; margin-bottom:2px;"></i> Process
-                                </div>
-                                <div class="pull-stage" id="stage-done"
-                                    style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
-                                    <i class="fas fa-check" style="display:block; margin-bottom:2px;"></i> Done
-                                </div>
+                            <div class="pull-stage" id="stage-fetch"
+                                style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
+                                <i class="fas fa-database" style="display:block; margin-bottom:2px;"></i> Fetch Logs
                             </div>
-                            <p id="pull-eta"
-                                style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.6rem; text-align: center;">
-                            </p>
+                            <div class="pull-stage" id="stage-process"
+                                style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
+                                <i class="fas fa-cogs" style="display:block; margin-bottom:2px;"></i> Process
+                            </div>
+                            <div class="pull-stage" id="stage-done"
+                                style="flex:1; text-align:center; font-size:0.7rem; padding: 0.35rem 0.5rem; border-radius: 0.4rem; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-muted); transition: all 0.3s;">
+                                <i class="fas fa-check" style="display:block; margin-bottom:2px;"></i> Done
+                            </div>
+                        </div>
+                        <p id="pull-eta"
+                            style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.6rem; text-align: center;">
+                        </p>
+                    </div>
+
+                    <div id="pull-status"
+                        style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
+                    </div>
+
+                    <!-- Results Section (Tabs & Table) -->
+                    <div id="pull-results-container" style="display: none; margin-top: 1rem;">
+                        <!-- Header & Tabs above the table card -->
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                            <h3 style="margin: 0; font-size: 1.1rem; color: var(--text); font-weight: 700;">
+                                <i class="fas fa-poll-h" style="color: var(--primary); margin-right: 0.5rem;"></i>
+                                Preview Result
+                            </h3>
+                            <div
+                                style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.05); padding: 0.25rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">
+                                <button onclick="switchPullView('presensi')" id="tab-presensi"
+                                    style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: var(--primary); color: white; transition: all 0.2s;">
+                                    <i class="fas fa-calendar-check"></i> Rekap Presensi
+                                </button>
+                                <button onclick="switchPullView('raw')" id="tab-raw"
+                                    style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.2s;">
+                                    <i class="fas fa-list"></i> Raw Log
+                                </button>
+                            </div>
                         </div>
 
-                        <div id="pull-status"
-                            style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
-                        </div>
-
-                        <!-- Results Section (Tabs & Table) -->
-                        <div id="pull-results-container" style="display: none; margin-top: 1rem;">
-                            <!-- Header & Tabs above the table card -->
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
-                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text); font-weight: 700;">
-                                    <i class="fas fa-poll-h" style="color: var(--primary); margin-right: 0.5rem;"></i> Preview Result
-                                </h3>
-                                <div style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.05); padding: 0.25rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">
-                                    <button onclick="switchPullView('presensi')" id="tab-presensi"
-                                        style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: var(--primary); color: white; transition: all 0.2s;">
-                                        <i class="fas fa-calendar-check"></i> Rekap Presensi
-                                    </button>
-                                    <button onclick="switchPullView('raw')" id="tab-raw"
-                                        style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.2s;">
-                                        <i class="fas fa-list"></i> Raw Log
-                                    </button>
-                                </div>
+                        <!-- The Main Result Card -->
+                        <div class="table-container">
+                            <!-- Presensi (grouped) table -->
+                            <div id="view-presensi">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>User ID</th>
+                                            <th>Name</th>
+                                            <th>Date</th>
+                                            <th>Time</th>
+                                            <th>Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pull-presensi-body"></tbody>
+                                </table>
                             </div>
 
-                            <!-- The Main Result Card -->
-                            <div class="table-container">
-                                <!-- Presensi (grouped) table -->
-                                <div id="view-presensi">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>User ID</th>
-                                                <th>Tanggal</th>
-                                                <th>Jam Masuk</th>
-                                                <th>Jam Pulang</th>
-                                                <th>Durasi</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="pull-presensi-body"></tbody>
-                                    </table>
-                                </div>
+                            <!-- Raw log table -->
+                            <div id="view-raw" style="display: none;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>User ID</th>
+                                            <th>Timestamp</th>
+                                            <th>Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pull-raw-body"></tbody>
+                                </table>
+                            </div>
 
-                                <!-- Raw log table -->
-                                <div id="view-raw" style="display: none;">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>User ID</th>
-                                                <th>Timestamp</th>
-                                                <th>Type</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="pull-raw-body"></tbody>
-                                    </table>
-                                </div>
-
-                                <!-- Table Footer (Inside Container for Card Look) -->
-                                <div class="table-footer">
-                                    <div class="table-info" id="pull-results-info">Showing 0-0 of 0</div>
-                                    <div class="table-pagination">
-                                        <select onchange="updatePullPageSize(this.value)">
-                                            <option value="25">25 per page</option>
-                                            <option value="50">50 per page</option>
-                                            <option value="100">100 per page</option>
-                                        </select>
-                                        <button onclick="prevPullPage()" id="pull-prev-btn">Prev</button>
-                                        <div class="pagination-numbers" id="pull-pagination-numbers"></div>
-                                        <button onclick="nextPullPage()" id="pull-next-btn">Next</button>
-                                    </div>
+                            <!-- Table Footer (Inside Container for Card Look) -->
+                            <div class="table-footer">
+                                <div class="table-info" id="pull-results-info">Showing 0-0 of 0</div>
+                                <div class="table-pagination">
+                                    <select onchange="updatePullPageSize(this.value)">
+                                        <option value="25">25 per page</option>
+                                        <option value="50">50 per page</option>
+                                        <option value="100">100 per page</option>
+                                    </select>
+                                    <button onclick="prevPullPage()" id="pull-prev-btn">Prev</button>
+                                    <div class="pagination-numbers" id="pull-pagination-numbers"></div>
+                                    <button onclick="nextPullPage()" id="pull-next-btn">Next</button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
                 <div id="page-settings" class="page" style="display: none; padding-bottom: 2rem;">
                     <!-- User Management Section -->

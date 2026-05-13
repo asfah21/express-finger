@@ -2130,7 +2130,9 @@ function renderPullResults(logs) {
     if (!logs) return;
 
     const isPresensi = _currentPullView === 'presensi';
-    const dataToRender = isPresensi ? processToPresensi(logs) : logs;
+    // User wants Summary (Presensi) to be like Raw Logs but with 5 columns.
+    // So we don't use processToPresensi anymore for the display.
+    const dataToRender = logs; 
     
     // Pagination logic
     const total = dataToRender.length;
@@ -2141,17 +2143,19 @@ function renderPullResults(logs) {
 
     if (isPresensi) {
         const presensiBody = document.getElementById('pull-presensi-body');
-        presensiBody.innerHTML = paged.map(row => {
-            const masukStr  = _fmtTime(row.masuk);
-            const pulangStr = _fmtTime(row.pulang);
-            const durasi    = _durasi(row.masuk, row.pulang);
-            const tglStr    = new Date(row.date).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+        presensiBody.innerHTML = paged.map(log => {
+            const dt = new Date(log.timestamp);
+            const dateStr = dt.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
+            const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : (absensi.startsWith('Masuk') ? 'badge-success' : 'badge-info');
+
             return `<tr>
-                <td><strong>${row.userId}</strong></td>
-                <td>${tglStr}</td>
-                <td>${masukStr}</td>
-                <td>${pulangStr}</td>
-                <td>${durasi}</td>
+                <td><strong>${log.userId}</strong></td>
+                <td>${log.name || 'Unknown'}</td>
+                <td>${dateStr}</td>
+                <td><strong style="color: var(--primary);">${timeStr}</strong></td>
+                <td><span class="badge ${badgeCls}">${absensi}</span></td>
             </tr>`;
         }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
     } else {
@@ -2160,7 +2164,7 @@ function renderPullResults(logs) {
             const dt = new Date(log.timestamp);
             const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString('id-ID');
             const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
-            const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : 'badge-success';
+            const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : (absensi.startsWith('Masuk') ? 'badge-success' : 'badge-info');
             return `<tr>
                 <td><strong>${log.userId}</strong></td>
                 <td>${dateStr}</td>
@@ -2180,20 +2184,22 @@ function exportPulledData() {
         let csvContent, filename;
 
         if (_currentPullView === 'presensi') {
-            // Export processed presensi format
-            const presensiData = processToPresensi(lastPulledData);
-            const headers = ['User ID', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Durasi'];
-            const rows = presensiData.map(row => {
+            // Export format: User ID, Name, Date, Time, Type
+            const headers = ['User ID', 'Name', 'Date', 'Time', 'Type'];
+            const rows = lastPulledData.map(log => {
+                const dt = new Date(log.timestamp);
+                const dateStr = dt.toISOString().slice(0, 10);
+                const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 return [
-                    row.userId,
-                    row.date,
-                    _fmtTime(row.masuk),
-                    _fmtTime(row.pulang),
-                    _durasi(row.masuk, row.pulang)
+                    log.userId,
+                    log.name || 'Unknown',
+                    dateStr,
+                    timeStr,
+                    log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')
                 ].map(v => `"${v}"`).join(',');
             });
             csvContent = [headers.join(','), ...rows].join('\n');
-            filename = `presensi_${new Date().toISOString().slice(0, 10)}.csv`;
+            filename = `presensi_preview_${new Date().toISOString().slice(0, 10)}.csv`;
         } else {
             // Export raw log format
             const headers = ['User ID', 'Timestamp', 'Tipe'];
