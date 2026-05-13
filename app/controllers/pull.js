@@ -2,6 +2,7 @@ import ZKLib from 'node-zklib'
 import { pool } from '../utils/database.js'
 import { saveManyLogs } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
+import { SYNC_CONFIG } from '../config/sync.js'
 
 export const pullController = {
   async pullData(req, res) {
@@ -35,7 +36,17 @@ export const pullController = {
       const formattedLogs = data.map(log => {
         // node-zklib fields can vary by version: recordTime or timestamp
         let ts = log.recordTime || log.timestamp;
-        const dt = new Date(ts);
+        let dt = new Date(ts);
+        
+        // --- KOREKSI TANGGAL (FIX BIT-SHIFT FW 8.X) ---
+        // Mirroring logic from utils/zklib.js for consistency
+        let year = dt.getFullYear();
+        let month = dt.getMonth(); // 0-indexed
+        if (year === 2025 && month === 9) {
+             // Oct 2025 shifted to Feb 2026
+             dt = new Date(2026, 1, dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
+        }
+        
         const isoTs = isNaN(dt.getTime()) ? ts : dt.toISOString();
 
         // status or state
@@ -48,7 +59,16 @@ export const pullController = {
           type: type,
           absensi: type === 0 ? 'Masuk' : 'Pulang'
         };
-      })
+      }).filter(log => {
+        // Filter future dates (corruption protection)
+        if (!log.timestamp || isNaN(new Date(log.timestamp).getTime())) return true;
+        const limit = new Date();
+        limit.setDate(limit.getDate() + (SYNC_CONFIG.MAX_FUTURE_DAYS || 1));
+        return new Date(log.timestamp) <= limit;
+      });
+
+      // Reverse to show newest first (node-zklib returns oldest first)
+      formattedLogs.reverse();
 
       let totalSaved = 0
       if (!preview && formattedLogs.length > 0) {
