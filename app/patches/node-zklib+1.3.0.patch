@@ -423,3 +423,41 @@ index 97ce15b..7e55d6c 100644
    return commandId === COMMANDS.CMD_REG_EVENT
  }
 \ No newline at end of file
+diff --git a/node_modules/node-zklib/zklibtcp.js b/node_modules/node-zklib/zklibtcp.js
+index 194a9d8..684aea1 100644
+--- a/node_modules/node-zklib/zklibtcp.js
++++ b/node_modules/node-zklib/zklibtcp.js
+@@ -299,6 +299,8 @@ class ZKLibTCP {
+ 
+                 if (totalPackets <= 0) {
+                   internalCallback(replyData)
++                } else {
++                  requestNextChunk()
+                 }
+               }
+             }
+@@ -310,13 +312,19 @@ class ZKLibTCP {
+ 
+           this.socket.on('data', handleOnData);
+ 
+-          for (let i = 0; i <= numberChunks; i++) {
+-            if (i === numberChunks) {
+-              this.sendChunkRequest(numberChunks * MAX_CHUNK, remain)
++          let currentChunk = 0;
++          const requestNextChunk = () => {
++            if (currentChunk > numberChunks) return;
++            if (currentChunk === numberChunks) {
++              this.sendChunkRequest(currentChunk * MAX_CHUNK, remain)
+             } else {
+-              this.sendChunkRequest(i * MAX_CHUNK, MAX_CHUNK)
++              this.sendChunkRequest(currentChunk * MAX_CHUNK, MAX_CHUNK)
+             }
+-          }
++            currentChunk++;
++          };
++
++          // Start requesting the first chunk
++          requestNextChunk();
+ 
+           break;
+         }

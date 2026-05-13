@@ -1,10 +1,10 @@
 import { pool, saveManyLogs } from '../utils/database.js'
-import { pullDeviceLogs, fetchDeviceLogsFormatted } from '../utils/zklib.js'
+import { pullDeviceLogs, fetchDeviceLogsFormatted, clearDeviceLogs } from '../utils/zklib.js'
 import { recordActivity } from './activity-log.js'
 
 export const pullController = {
   async pullData(req, res) {
-    const { deviceId, preview = false } = req.body
+    const { deviceId, preview = false, clearAfterSync = false } = req.body
     if (!deviceId) return res.status(400).json({ status: 'error', message: 'Device ID is required' })
 
     const username = req.user?.username || 'api'
@@ -23,8 +23,7 @@ export const pullController = {
       const port = device.port || 4370
 
       if (preview) {
-        // --- PREVIEW MODE ---
-        // Uses fetchDeviceLogsFormatted which mirrors pullDeviceLogs logic exactly
+        // --- PREVIEW MODE: fetch, format, return — do NOT save ---
         const { formattedLogs, rawCount } = await fetchDeviceLogsFormatted(device.ip, port, device.sn)
 
         await recordActivity({
@@ -46,26 +45,38 @@ export const pullController = {
           }
         })
       } else {
-        // --- SYNC MODE ---
-        // Uses the production pullDeviceLogs which saves to DB
+        // --- SYNC MODE: pull + save to DB ---
         const result = await pullDeviceLogs(device.ip, port, device.sn)
 
         await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
+
+        let cleared = false
+        let clearError = null
+        if (clearAfterSync) {
+          try {
+            await clearDeviceLogs(device.ip, port)
+            cleared = true
+          } catch (e) {
+            clearError = e.message
+          }
+        }
 
         await recordActivity({
           username,
           action: 'pull_data',
           category: 'sync',
-          detail: `Force pull from ${device.name || device.sn} (${device.ip}). Logs synced: ${result.count}`,
+          detail: `Force pull from ${device.name || device.sn} (${device.ip}). Logs: ${result.count}. Cleared: ${cleared}`,
           ip: clientIp
         })
 
         return res.json({
           status: 'success',
-          message: `Successfully pulled and synced ${result.count} logs from device.`,
+          message: `Successfully pulled and synced ${result.count} logs from device.${cleared ? ' Device log cleared.' : ''}${clearError ? ` Warning: clear failed: ${clearError}` : ''}`,
           data: {
             total: result.count,
             saved: result.count,
+            cleared,
+            clearError,
             logs: []
           }
         })

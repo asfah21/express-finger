@@ -130,7 +130,7 @@ function showDashboard() {
 function applyRoleRestrictions() {
     if (!currentUser) return;
     const isAdmin = currentUser.role === 'admin';
-    
+
     // Elements with class admin-only should be hidden for viewers
     document.querySelectorAll('.admin-only').forEach(el => {
         if (!isAdmin) {
@@ -1261,7 +1261,7 @@ function resetUserPasswordPrompt(id, username) {
 
     saveBtn.innerText = 'Reset Password';
     saveBtn.style.display = 'block';
-    
+
     saveBtn.onclick = () => {
         const newPass = document.getElementById('reset-password-input').value;
         if (newPass.length < 6) {
@@ -1790,18 +1790,18 @@ window.addEventListener('click', () => {
 async function refreshPullDevices() {
     const select = document.getElementById('pull-device-select');
     select.innerHTML = '<option value="">Loading devices...</option>';
-    
+
     try {
         const res = await fetch('/api/devices?limit=100');
         const data = await res.json();
-        
+
         const devices = data.data?.list || [];
         if (devices.length === 0) {
             select.innerHTML = '<option value="">No devices found</option>';
             return;
         }
-        
-        select.innerHTML = '<option value="">-- Select a Device --</option>' + devices.map(dev => 
+
+        select.innerHTML = '<option value="">-- Select a Device --</option>' + devices.map(dev =>
             `<option value="${dev.id}">${dev.name || 'Unnamed'} (${dev.ip}) - SN: ${dev.sn || 'Unknown'}</option>`
         ).join('');
     } catch (err) {
@@ -1815,8 +1815,8 @@ let _pullProgressTimer = null;
 // ─── Progress bar helpers ───────────────────────────────────────────────────
 
 function _setPullProgress(pct, label) {
-    const bar   = document.getElementById('pull-progress-bar');
-    const lbl   = document.getElementById('pull-progress-label');
+    const bar = document.getElementById('pull-progress-bar');
+    const lbl = document.getElementById('pull-progress-label');
     const pctEl = document.getElementById('pull-progress-pct');
     if (!bar) return;
     bar.style.width = pct + '%';
@@ -1825,33 +1825,33 @@ function _setPullProgress(pct, label) {
 }
 
 function _activateStage(stageId) {
-    const stages = ['stage-connect','stage-fetch','stage-process','stage-done'];
+    const stages = ['stage-connect', 'stage-fetch', 'stage-process', 'stage-done'];
     stages.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         if (id === stageId) {
-            el.style.background  = 'rgba(36,97,150,0.2)';
+            el.style.background = 'rgba(36,97,150,0.2)';
             el.style.borderColor = 'var(--primary)';
-            el.style.color       = 'var(--text)';
-            el.style.fontWeight  = '600';
+            el.style.color = 'var(--text)';
+            el.style.fontWeight = '600';
         } else if (stages.indexOf(id) < stages.indexOf(stageId)) {
             // Completed
-            el.style.background  = 'rgba(99,211,144,0.12)';
+            el.style.background = 'rgba(99,211,144,0.12)';
             el.style.borderColor = 'var(--success)';
-            el.style.color       = 'var(--success)';
-            el.style.fontWeight  = '500';
+            el.style.color = 'var(--success)';
+            el.style.fontWeight = '500';
         } else {
-            el.style.background  = 'rgba(255,255,255,0.04)';
+            el.style.background = 'rgba(255,255,255,0.04)';
             el.style.borderColor = 'var(--glass-border)';
-            el.style.color       = 'var(--text-muted)';
-            el.style.fontWeight  = 'normal';
+            el.style.color = 'var(--text-muted)';
+            el.style.fontWeight = 'normal';
         }
     });
 }
 
 function _startProgressSimulation(isPreview) {
     const progressWrap = document.getElementById('pull-progress-wrap');
-    const etaEl        = document.getElementById('pull-eta');
+    const etaEl = document.getElementById('pull-eta');
     if (!progressWrap) return;
 
     // Reset
@@ -1863,10 +1863,10 @@ function _startProgressSimulation(isPreview) {
     // Stages: [targetPct, durationMs, label, stageId, etaText]
     // Total estimated time: ~20-30s (real device pull)
     const stages = [
-        { pct: 18, ms: 3000,  label: 'Connecting to device on port 4370…',  stage: 'stage-connect',  eta: 'Est. ~20s remaining' },
-        { pct: 70, ms: 12000, label: 'Fetching attendance logs from memory…', stage: 'stage-fetch',   eta: 'Est. ~12s remaining' },
-        { pct: 88, ms: 4000,  label: 'Processing & filtering records…',       stage: 'stage-process', eta: 'Est. ~4s remaining'  },
-        { pct: 96, ms: 2000,  label: 'Finalizing response…',                  stage: 'stage-process', eta: 'Almost done…'        },
+        { pct: 18, ms: 3000, label: 'Connecting to device on port 4370…', stage: 'stage-connect', eta: 'Est. ~20s remaining' },
+        { pct: 70, ms: 12000, label: 'Fetching attendance logs from memory…', stage: 'stage-fetch', eta: 'Est. ~12s remaining' },
+        { pct: 88, ms: 4000, label: 'Processing & filtering records…', stage: 'stage-process', eta: 'Est. ~4s remaining' },
+        { pct: 96, ms: 2000, label: 'Finalizing response…', stage: 'stage-process', eta: 'Almost done…' },
     ];
 
     let i = 0;
@@ -1912,21 +1912,21 @@ async function pullDataFromDevice(isPreview = false) {
         return;
     }
 
-    const btn            = isPreview ? document.getElementById('btn-pull-preview') : document.getElementById('btn-pull-data');
-    const statusEl       = document.getElementById('pull-status');
+    const btn = isPreview ? document.getElementById('btn-pull-preview') : document.getElementById('btn-pull-data');
+    const statusEl = document.getElementById('pull-status');
     const resultsContainer = document.getElementById('pull-results-container');
-    const exportBtn      = document.getElementById('btn-export-pull');
-    const rawBtn         = document.getElementById('btn-download-raw');
+    const exportBtn = document.getElementById('btn-export-pull');
+    const rawBtn = document.getElementById('btn-download-raw');
 
     btn.disabled = true;
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working…';
 
     // Hide old results / status
-    statusEl.style.display  = 'none';
+    statusEl.style.display = 'none';
     resultsContainer.style.display = 'none';
     exportBtn.style.display = 'none';
-    rawBtn.style.display    = 'none';
+    rawBtn.style.display = 'none';
     lastPulledData = [];
 
     // Start animated progress (only for preview — sync is fast on UI side)
@@ -1944,11 +1944,11 @@ async function pullDataFromDevice(isPreview = false) {
         if (response.ok) {
             _finishProgress(true);
 
-            const total    = result.data.total    ?? 0;
+            const total = result.data.total ?? 0;
             const filtered = result.data.filtered ?? total;
 
             statusEl.style.display = 'block';
-            statusEl.style.color   = 'var(--success)';
+            statusEl.style.color = 'var(--success)';
             statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${isPreview
                 ? `Preview: <strong>${filtered.toLocaleString()}</strong> logs (${total.toLocaleString()} raw from device)`
                 : `Sync complete: <strong>${total.toLocaleString()}</strong> logs pulled and saved to DB.`}`;
@@ -1960,42 +1960,139 @@ async function pullDataFromDevice(isPreview = false) {
                 renderPullResults(lastPulledData);
                 resultsContainer.style.display = 'block';
                 exportBtn.style.display = 'block';
-                rawBtn.style.display    = 'block';
+                rawBtn.style.display = 'block';
             }
         } else {
             _finishProgress(false);
             statusEl.style.display = 'block';
-            statusEl.style.color   = 'var(--error)';
-            statusEl.innerHTML     = `<i class="fas fa-exclamation-triangle"></i> Failed: ${result.message}`;
+            statusEl.style.color = 'var(--error)';
+            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed: ${result.message}`;
             showToast('Failed to pull data', 'error');
         }
     } catch (error) {
         _finishProgress(false);
         statusEl.style.display = 'block';
-        statusEl.style.color   = 'var(--error)';
-        statusEl.innerHTML     = `<i class="fas fa-times-circle"></i> Error: Could not connect to server.`;
+        statusEl.style.color = 'var(--error)';
+        statusEl.innerHTML = `<i class="fas fa-times-circle"></i> Error: Could not connect to server.`;
         showToast('Network error', 'error');
     } finally {
-        btn.disabled   = false;
-        btn.innerHTML  = originalHtml;
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
         // Keep progress visible for 3s then hide
         setTimeout(_hideProgress, 3000);
     }
 }
 
-function renderPullResults(logs) {
-    const body = document.getElementById('pull-results-body');
-    body.innerHTML = logs.map(log => {
+// ─── View switching ────────────────────────────────────────────────────────
+let _currentPullView = 'presensi';
+
+function switchPullView(view) {
+    _currentPullView = view;
+    document.getElementById('view-presensi').style.display = view === 'presensi' ? '' : 'none';
+    document.getElementById('view-raw').style.display      = view === 'raw' ? '' : 'none';
+
+    const tabP = document.getElementById('tab-presensi');
+    const tabR = document.getElementById('tab-raw');
+    if (view === 'presensi') {
+        tabP.style.background = 'var(--primary)'; tabP.style.color = 'white'; tabP.style.borderColor = 'var(--primary)';
+        tabR.style.background = 'transparent';    tabR.style.color = 'var(--text-muted)'; tabR.style.borderColor = 'var(--glass-border)';
+    } else {
+        tabR.style.background = 'var(--primary)'; tabR.style.color = 'white'; tabR.style.borderColor = 'var(--primary)';
+        tabP.style.background = 'transparent';    tabP.style.color = 'var(--text-muted)'; tabP.style.borderColor = 'var(--glass-border)';
+    }
+}
+
+// ─── Convert raw logs → presensi (grouped by userId + date) ────────────────
+function processToPresensi(logs) {
+    // Sort ascending so first scan = masuk, last scan = pulang
+    const sorted = [...logs].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    const map = {}; // key: "userId|YYYY-MM-DD"
+    for (const log of sorted) {
         const dt = new Date(log.timestamp);
-        const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString();
-        return `
-            <tr>
-                <td>${log.userId}</td>
-                <td>${dateStr}</td>
-                <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-            </tr>
-        `;
-    }).join('') || '<tr><td colspan="3" style="text-align: center;">No data found</td></tr>';
+        if (isNaN(dt.getTime())) continue;
+        // Local date string as key (use device timezone via toLocaleDateString)
+        const dateKey = dt.toISOString().slice(0, 10); // "YYYY-MM-DD"
+        const key = `${log.userId}|${dateKey}`;
+
+        if (!map[key]) {
+            map[key] = {
+                userId: log.userId,
+                date: dateKey,
+                masuk: dt,
+                pulang: null,
+                scanCount: 1
+            };
+        } else {
+            map[key].pulang = dt; // always update so last scan = pulang
+            map[key].scanCount++;
+        }
+    }
+
+    // Convert to sorted array (newest date first)
+    return Object.values(map).sort((a, b) => {
+        if (b.date !== a.date) return b.date.localeCompare(a.date);
+        return a.userId.localeCompare(b.userId);
+    });
+}
+
+function _fmtTime(dt) {
+    if (!dt) return '-';
+    return dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function _durasi(masuk, pulang) {
+    if (!masuk || !pulang) return '-';
+    const diffMs = pulang - masuk;
+    if (diffMs <= 0) return '-';
+    const h = Math.floor(diffMs / 3600000);
+    const m = Math.floor((diffMs % 3600000) / 60000);
+    return `${h}j ${m}m`;
+}
+
+function renderPullResults(logs) {
+    // ── Raw log table
+    const rawBody = document.getElementById('pull-results-body');
+    rawBody.innerHTML = logs.map(log => {
+        const dt = new Date(log.timestamp);
+        const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString('id-ID');
+        const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
+        const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : 'badge-success';
+        return `<tr>
+            <td>${log.userId}</td>
+            <td>${dateStr}</td>
+            <td><span class="badge ${badgeCls}">${absensi}</span></td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+
+    // ── Presensi (grouped) table
+    const presensiData = processToPresensi(logs);
+    const presensiBody = document.getElementById('pull-presensi-body');
+    presensiBody.innerHTML = presensiData.map(row => {
+        const masukStr  = _fmtTime(row.masuk);
+        const pulangStr = _fmtTime(row.pulang);
+        const durasi    = _durasi(row.masuk, row.pulang);
+        const tglStr    = new Date(row.date).toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+        let status, statusCls;
+        if (!row.pulang) {
+            status = 'Belum Pulang'; statusCls = 'badge-warning';
+        } else {
+            const jam = row.masuk.getHours() + row.masuk.getMinutes() / 60;
+            status = jam > 8.25 ? 'Terlambat' : 'Hadir';
+            statusCls = jam > 8.25 ? 'badge-error' : 'badge-success';
+        }
+        return `<tr>
+            <td><strong>${row.userId}</strong></td>
+            <td>${tglStr}</td>
+            <td>${masukStr}</td>
+            <td>${pulangStr}</td>
+            <td>${durasi}</td>
+            <td><span class="badge ${statusCls}">${status}</span></td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+
+    // Default to presensi view
+    switchPullView('presensi');
 }
 
 function exportPulledData() {
@@ -2005,32 +2102,49 @@ function exportPulledData() {
     }
 
     try {
-        const headers = ['User ID', 'Timestamp', 'Type'];
-        const csvContent = [
-            headers.join(','),
-            ...lastPulledData.map(log => {
+        let csvContent, filename;
+
+        if (_currentPullView === 'presensi') {
+            // Export processed presensi format
+            const presensiData = processToPresensi(lastPulledData);
+            const headers = ['User ID', 'Tanggal', 'Jam Masuk', 'Jam Pulang', 'Durasi', 'Status'];
+            const rows = presensiData.map(row => {
+                const jam = row.masuk ? row.masuk.getHours() + row.masuk.getMinutes() / 60 : 0;
+                let status = !row.pulang ? 'Belum Pulang' : (jam > 8.25 ? 'Terlambat' : 'Hadir');
+                return [
+                    row.userId,
+                    row.date,
+                    _fmtTime(row.masuk),
+                    _fmtTime(row.pulang),
+                    _durasi(row.masuk, row.pulang),
+                    status
+                ].map(v => `"${v}"`).join(',');
+            });
+            csvContent = [headers.join(','), ...rows].join('\n');
+            filename = `presensi_${new Date().toISOString().slice(0, 10)}.csv`;
+        } else {
+            // Export raw log format
+            const headers = ['User ID', 'Timestamp', 'Tipe'];
+            const rows = lastPulledData.map(log => {
                 const dt = new Date(log.timestamp);
                 const tsStr = isNaN(dt.getTime()) ? log.timestamp : dt.toISOString();
-                return [
-                    log.userId,
-                    tsStr,
-                    log.type == 0 ? 'Masuk' : 'Pulang'
-                ].join(',');
-            })
-        ].join('\n');
+                return [log.userId, tsStr, log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')].join(',');
+            });
+            csvContent = [headers.join(','), ...rows].join('\n');
+            filename = `rawlog_${new Date().toISOString().slice(0, 10)}.csv`;
+        }
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
-        
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
         link.setAttribute('href', url);
-        link.setAttribute('download', `fingerprint_pull_${timestamp}.csv`);
+        link.setAttribute('download', filename);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         showToast('Exporting to CSV...', 'success');
     } catch (err) {
         console.error('Export error:', err);
@@ -2049,7 +2163,7 @@ function downloadRawData() {
         const blob = new Blob([jsonContent], { type: 'application/json' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
-        
+
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         link.setAttribute('href', url);
         link.setAttribute('download', `fingerprint_raw_${timestamp}.json`);
@@ -2057,7 +2171,7 @@ function downloadRawData() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         showToast('Downloading Raw JSON...', 'success');
     } catch (err) {
         console.error('Download error:', err);

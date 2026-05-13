@@ -13,6 +13,24 @@ import path from 'path'
  */
 import { SYNC_CONFIG } from '../config/sync.js'
 
+/**
+ * Clear attendance logs from device after a successful sync.
+ */
+export async function clearDeviceLogs(ip, port = 4370) {
+    const zk = new ZKLib(ip, parseInt(port), 10000, 5200 + Math.floor(Math.random() * 1000));
+    try {
+        await zk.createSocket();
+        await zk.clearAttendanceLog();
+        await zk.disconnect();
+        console.log(`🧹 Cleared attendance log on device ${ip}`);
+        return true;
+    } catch (error) {
+        console.error(`❌ Failed to clear log on ${ip}:`, error.message);
+        try { await zk.disconnect(); } catch (e) { }
+        throw error;
+    }
+}
+
 export async function pullDeviceLogs(ip, port = 4370, sn = null) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
 
