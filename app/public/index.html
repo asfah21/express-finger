@@ -475,48 +475,40 @@
                 </div>
 
                 <div id="page-pull" class="page" style="display: none;">
-                    <!-- <div class="header" style="margin-bottom: 1.5rem;">
-                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
-                            <i class="fas fa-download" style="color: var(--primary);"></i> Pull Data from Device
-                        </h3>
-                    </div> -->
-
-                    <div class="stat-card" style="margin-bottom: 1.5rem;">
-                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
-                            Manually pull attendance logs via port 4370 if ADMS data push is failing.
-                        </p>
-
-                        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; margin-top: 1rem;">
-                            <!-- Device Selector Styled like Search -->
-                            <div style="flex: 1; min-width: 300px;">
-                                <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase;">DEVICE SOURCE</label>
-                                <div style="position: relative;">
-                                    <i class="fas fa-fingerprint" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                                    <select id="pull-device-select" onchange="updateDeviceStatus(this.value)" style="padding-left: 2.8rem; height: 42px;">
-                                        <option value="">-- Choose Fingerprint Device --</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn-primary" id="btn-pull-preview" style="width: auto; height: 42px; padding: 0 1.2rem;"
-                                    onclick="pullDataFromDevice('preview')">
-                                    <i class="fas fa-search"></i> Preview
-                                </button>
-                                <button class="btn-primary admin-only" id="btn-pull-data"
-                                    style="width: auto; height: 42px; padding: 0 1.2rem; background: var(--secondary);" onclick="pullDataFromDevice('sync')">
-                                    <i class="fas fa-cloud-download-alt"></i> Pull & Sync
-                                </button>
-                                <button class="btn-primary" id="btn-export-pull"
-                                    style="width: auto; height: 42px; padding: 0 1rem; background: #10b981; display: none;" onclick="exportPulledData()">
-                                    <i class="fas fa-file-csv"></i> Export
-                                </button>
-                                <button class="btn-primary" id="btn-download-raw"
-                                    style="width: auto; height: 42px; padding: 0 1rem; background: #6b7280; display: none;" onclick="downloadRawData()">
-                                    <i class="fas fa-file-code"></i> JSON
-                                </button>
+                    <!-- Standard Filter & Action Bar (Matching Attendance Menu) -->
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+                        
+                        <!-- Device Selector styled like Search -->
+                        <div style="flex: 2; min-width: 250px;">
+                            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase;">DEVICE SOURCE</label>
+                            <div style="position: relative;">
+                                <i class="fas fa-fingerprint" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                                <select id="pull-device-select" onchange="updateDeviceStatus(this.value)" style="padding-left: 2.8rem; height: 42px;">
+                                    <option value="">-- Select Fingerprint Device --</option>
+                                </select>
                             </div>
                         </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn-primary" id="btn-pull-preview" style="width: auto; height: 42px; padding: 0 1.2rem;"
+                                onclick="pullDataFromDevice('preview')">
+                                <i class="fas fa-search"></i> Preview
+                            </button>
+                            <button class="btn-primary admin-only" id="btn-pull-data"
+                                style="width: auto; height: 42px; padding: 0 1.2rem; background: var(--secondary);" onclick="pullDataFromDevice('sync')">
+                                <i class="fas fa-cloud-download-alt"></i> Pull & Sync
+                            </button>
+                            <button class="btn-primary" id="btn-export-pull"
+                                style="width: auto; height: 42px; padding: 0 1rem; background: #10b981; display: none;" onclick="exportPulledData()">
+                                <i class="fas fa-file-csv"></i> Export
+                            </button>
+                            <button class="btn-primary" id="btn-download-raw"
+                                style="width: auto; height: 42px; padding: 0 1rem; background: #6b7280; display: none;" onclick="downloadRawData()">
+                                <i class="fas fa-file-code"></i> JSON
+                            </button>
+                        </div>
+                    </div>
 
                         <!-- Progress Bar -->
                         <div id="pull-progress-wrap" style="display: none; margin-top: 1.25rem;">
@@ -562,65 +554,68 @@
                             style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
                         </div>
 
-                        <!-- Results Section -->
-                        <div id="pull-results-container" style="display: none; margin-top: 2rem;">
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-                                <h4 id="pull-results-title" style="margin: 0;">Result Data</h4>
-                                <div style="display: flex; gap: 0.5rem;">
+                        <!-- Results Section (Tabs & Table) -->
+                        <div id="pull-results-container" style="display: none; margin-top: 1rem;">
+                            <!-- Header & Tabs above the table card -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Preview Results</h3>
+                                <div style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.05); padding: 0.25rem; border-radius: 0.5rem; border: 1px solid var(--glass-border);">
                                     <button onclick="switchPullView('presensi')" id="tab-presensi"
-                                        style="padding: 0.35rem 0.85rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid var(--primary); background: var(--primary); color: white; transition: all 0.2s;">
+                                        style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: var(--primary); color: white; transition: all 0.2s;">
                                         <i class="fas fa-calendar-check"></i> Rekap Presensi
                                     </button>
                                     <button onclick="switchPullView('raw')" id="tab-raw"
-                                        style="padding: 0.35rem 0.85rem; border-radius: 0.4rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid var(--glass-border); background: transparent; color: var(--text-muted); transition: all 0.2s;">
+                                        style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.2s;">
                                         <i class="fas fa-list"></i> Raw Log
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- Presensi (grouped) table -->
-                            <div id="view-presensi" class="table-container">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>User ID</th>
-                                            <th>Tanggal</th>
-                                            <th>Jam Masuk</th>
-                                            <th>Jam Pulang</th>
-                                            <th>Durasi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pull-presensi-body"></tbody>
-                                </table>
-                            </div>
+                            <!-- The Main Result Card -->
+                            <div class="table-container">
+                                <!-- Presensi (grouped) table -->
+                                <div id="view-presensi">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>User ID</th>
+                                                <th>Tanggal</th>
+                                                <th>Jam Masuk</th>
+                                                <th>Jam Pulang</th>
+                                                <th>Durasi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="pull-presensi-body"></tbody>
+                                    </table>
+                                </div>
 
-                            <!-- Raw log table -->
-                            <div id="view-raw" class="table-container" style="display: none;">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>User ID</th>
-                                            <th>Timestamp</th>
-                                            <th>Type</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="pull-raw-body"></tbody>
-                                </table>
-                            </div>
+                                <!-- Raw log table -->
+                                <div id="view-raw" style="display: none;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>User ID</th>
+                                                <th>Timestamp</th>
+                                                <th>Type</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="pull-raw-body"></tbody>
+                                    </table>
+                                </div>
 
-                            <!-- Standardized Table Footer -->
-                            <div class="table-footer">
-                                <div class="table-info" id="pull-results-info">Showing 0 of 0 entries</div>
-                                <div class="table-pagination">
-                                    <select onchange="updatePullPageSize(this.value)">
-                                        <option value="25">25 per page</option>
-                                        <option value="50">50 per page</option>
-                                        <option value="100">100 per page</option>
-                                    </select>
-                                    <button onclick="prevPullPage()" id="pull-prev-btn">Prev</button>
-                                    <div class="pagination-numbers" id="pull-pagination-numbers"></div>
-                                    <button onclick="nextPullPage()" id="pull-next-btn">Next</button>
+                                <!-- Table Footer (Inside Container for Card Look) -->
+                                <div class="table-footer">
+                                    <div class="table-info" id="pull-results-info">Showing 0-0 of 0</div>
+                                    <div class="table-pagination">
+                                        <select onchange="updatePullPageSize(this.value)">
+                                            <option value="25">25 per page</option>
+                                            <option value="50">50 per page</option>
+                                            <option value="100">100 per page</option>
+                                        </select>
+                                        <button onclick="prevPullPage()" id="pull-prev-btn">Prev</button>
+                                        <div class="pagination-numbers" id="pull-pagination-numbers"></div>
+                                        <button onclick="nextPullPage()" id="pull-next-btn">Next</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

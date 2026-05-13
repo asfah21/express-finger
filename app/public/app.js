@@ -1789,7 +1789,12 @@ window.addEventListener('click', () => {
 // Initialize
 async function refreshPullDevices() {
     const select = document.getElementById('pull-device-select');
-    select.innerHTML = '<option value="">Loading devices...</option>';
+    const currentId = select.value; // Remember what was selected
+    
+    // Only show "Loading" if the list is empty
+    if (!select.options || select.options.length <= 1) {
+        select.innerHTML = '<option value="">Loading devices...</option>';
+    }
 
     try {
         const res = await fetch('/api/devices?limit=100');
@@ -1801,11 +1806,21 @@ async function refreshPullDevices() {
             return;
         }
 
-        select.innerHTML = '<option value="">-- Select a Device --</option>' + devices.map(dev =>
-            `<option value="${dev.id}">${dev.name || 'Unnamed'} (${dev.ip}) - SN: ${dev.sn || 'Unknown'}</option>`
-        ).join('');
+        let html = '<option value="">-- Select Fingerprint Device --</option>';
+        devices.forEach(dev => {
+            const selected = dev.id == currentId ? 'selected' : '';
+            html += `<option value="${dev.id}" ${selected}>${dev.name || 'Unnamed'} (${dev.ip}) - SN: ${dev.sn || 'Unknown'}</option>`;
+        });
+        select.innerHTML = html;
+        
+        // If we had a selection but it wasn't restored by the 'selected' attribute (rare), force it
+        if (currentId && select.value !== currentId) {
+            select.value = currentId;
+        }
     } catch (err) {
-        select.innerHTML = '<option value="">Failed to load devices</option>';
+        if (!select.value) {
+            select.innerHTML = '<option value="">Failed to load devices</option>';
+        }
     }
 }
 
@@ -2147,7 +2162,7 @@ function renderPullResults(logs) {
             const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
             const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : 'badge-success';
             return `<tr>
-                <td>${log.userId}</td>
+                <td><strong>${log.userId}</strong></td>
                 <td>${dateStr}</td>
                 <td><span class="badge ${badgeCls}">${absensi}</span></td>
             </tr>`;
