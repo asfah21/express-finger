@@ -1810,6 +1810,100 @@ async function refreshPullDevices() {
 }
 
 let lastPulledData = [];
+let _pullProgressTimer = null;
+
+// ─── Progress bar helpers ───────────────────────────────────────────────────
+
+function _setPullProgress(pct, label) {
+    const bar   = document.getElementById('pull-progress-bar');
+    const lbl   = document.getElementById('pull-progress-label');
+    const pctEl = document.getElementById('pull-progress-pct');
+    if (!bar) return;
+    bar.style.width = pct + '%';
+    if (lbl) lbl.textContent = label;
+    if (pctEl) pctEl.textContent = pct + '%';
+}
+
+function _activateStage(stageId) {
+    const stages = ['stage-connect','stage-fetch','stage-process','stage-done'];
+    stages.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === stageId) {
+            el.style.background  = 'rgba(36,97,150,0.2)';
+            el.style.borderColor = 'var(--primary)';
+            el.style.color       = 'var(--text)';
+            el.style.fontWeight  = '600';
+        } else if (stages.indexOf(id) < stages.indexOf(stageId)) {
+            // Completed
+            el.style.background  = 'rgba(99,211,144,0.12)';
+            el.style.borderColor = 'var(--success)';
+            el.style.color       = 'var(--success)';
+            el.style.fontWeight  = '500';
+        } else {
+            el.style.background  = 'rgba(255,255,255,0.04)';
+            el.style.borderColor = 'var(--glass-border)';
+            el.style.color       = 'var(--text-muted)';
+            el.style.fontWeight  = 'normal';
+        }
+    });
+}
+
+function _startProgressSimulation(isPreview) {
+    const progressWrap = document.getElementById('pull-progress-wrap');
+    const etaEl        = document.getElementById('pull-eta');
+    if (!progressWrap) return;
+
+    // Reset
+    _setPullProgress(0, 'Initializing...');
+    _activateStage('stage-connect');
+    progressWrap.style.display = 'block';
+    if (etaEl) etaEl.textContent = '';
+
+    // Stages: [targetPct, durationMs, label, stageId, etaText]
+    // Total estimated time: ~20-30s (real device pull)
+    const stages = [
+        { pct: 18, ms: 3000,  label: 'Connecting to device on port 4370…',  stage: 'stage-connect',  eta: 'Est. ~20s remaining' },
+        { pct: 70, ms: 12000, label: 'Fetching attendance logs from memory…', stage: 'stage-fetch',   eta: 'Est. ~12s remaining' },
+        { pct: 88, ms: 4000,  label: 'Processing & filtering records…',       stage: 'stage-process', eta: 'Est. ~4s remaining'  },
+        { pct: 96, ms: 2000,  label: 'Finalizing response…',                  stage: 'stage-process', eta: 'Almost done…'        },
+    ];
+
+    let i = 0;
+    function runNext() {
+        if (i >= stages.length) return;
+        const s = stages[i++];
+        _setPullProgress(s.pct, s.label);
+        _activateStage(s.stage);
+        if (etaEl) etaEl.textContent = s.eta;
+        _pullProgressTimer = setTimeout(runNext, s.ms);
+    }
+    runNext();
+}
+
+function _finishProgress(success) {
+    clearTimeout(_pullProgressTimer);
+    const etaEl = document.getElementById('pull-eta');
+    if (success) {
+        _setPullProgress(100, 'Complete!');
+        _activateStage('stage-done');
+        if (etaEl) etaEl.textContent = '';
+    } else {
+        const bar = document.getElementById('pull-progress-bar');
+        if (bar) bar.style.background = 'var(--error)';
+        _setPullProgress(100, 'Failed');
+        if (etaEl) etaEl.textContent = '';
+    }
+}
+
+function _hideProgress() {
+    const progressWrap = document.getElementById('pull-progress-wrap');
+    if (progressWrap) progressWrap.style.display = 'none';
+    const bar = document.getElementById('pull-progress-bar');
+    if (bar) bar.style.background = 'linear-gradient(90deg, var(--primary), var(--secondary))';
+}
+
+// ─── Main pull function ─────────────────────────────────────────────────────
 
 async function pullDataFromDevice(isPreview = false) {
     const deviceId = document.getElementById('pull-device-select').value;
@@ -1817,62 +1911,75 @@ async function pullDataFromDevice(isPreview = false) {
         showToast('Please select a device first', 'error');
         return;
     }
-    
-    const btn = isPreview ? document.getElementById('btn-pull-preview') : document.getElementById('btn-pull-data');
-    const statusEl = document.getElementById('pull-status');
+
+    const btn            = isPreview ? document.getElementById('btn-pull-preview') : document.getElementById('btn-pull-data');
+    const statusEl       = document.getElementById('pull-status');
     const resultsContainer = document.getElementById('pull-results-container');
-    const resultsBody = document.getElementById('pull-results-body');
-    const exportBtn = document.getElementById('btn-export-pull');
-    const rawBtn = document.getElementById('btn-download-raw');
-    
+    const exportBtn      = document.getElementById('btn-export-pull');
+    const rawBtn         = document.getElementById('btn-download-raw');
+
     btn.disabled = true;
     const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-    
-    statusEl.style.display = 'block';
-    statusEl.style.color = 'var(--warning)';
-    statusEl.innerHTML = `<i class="fas fa-sync fa-spin"></i> ${isPreview ? 'Fetching preview' : 'Pulling & Syncing'}... Establishing connection to port 4370. This might take a few seconds...`;
-    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working…';
+
+    // Hide old results / status
+    statusEl.style.display  = 'none';
     resultsContainer.style.display = 'none';
     exportBtn.style.display = 'none';
-    rawBtn.style.display = 'none';
+    rawBtn.style.display    = 'none';
     lastPulledData = [];
+
+    // Start animated progress (only for preview — sync is fast on UI side)
+    if (isPreview) _startProgressSimulation(true);
 
     try {
         const response = await fetch('/api/pull', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId, preview: isPreview })
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
-            statusEl.style.color = 'var(--success)';
-            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> Success: Found ${result.data.total} logs. ${!isPreview ? result.data.saved + ' new/updated.' : ''}`;
+            _finishProgress(true);
+
+            const total    = result.data.total    ?? 0;
+            const filtered = result.data.filtered ?? total;
+
+            statusEl.style.display = 'block';
+            statusEl.style.color   = 'var(--success)';
+            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${isPreview
+                ? `Preview: <strong>${filtered.toLocaleString()}</strong> logs (${total.toLocaleString()} raw from device)`
+                : `Sync complete: <strong>${total.toLocaleString()}</strong> logs pulled and saved to DB.`}`;
+
             showToast(isPreview ? 'Preview data loaded' : 'Pull data completed', 'success');
-            
+
             if (isPreview && result.data.logs) {
                 lastPulledData = result.data.logs;
                 renderPullResults(lastPulledData);
                 resultsContainer.style.display = 'block';
                 exportBtn.style.display = 'block';
-                rawBtn.style.display = 'block';
+                rawBtn.style.display    = 'block';
             }
         } else {
-            statusEl.style.color = 'var(--error)';
-            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed: ${result.message}`;
+            _finishProgress(false);
+            statusEl.style.display = 'block';
+            statusEl.style.color   = 'var(--error)';
+            statusEl.innerHTML     = `<i class="fas fa-exclamation-triangle"></i> Failed: ${result.message}`;
             showToast('Failed to pull data', 'error');
         }
     } catch (error) {
-        statusEl.style.color = 'var(--error)';
-        statusEl.innerHTML = `<i class="fas fa-times-circle"></i> Error: Could not connect to server.`;
+        _finishProgress(false);
+        statusEl.style.display = 'block';
+        statusEl.style.color   = 'var(--error)';
+        statusEl.innerHTML     = `<i class="fas fa-times-circle"></i> Error: Could not connect to server.`;
         showToast('Network error', 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
+        btn.disabled   = false;
+        btn.innerHTML  = originalHtml;
+        // Keep progress visible for 3s then hide
+        setTimeout(_hideProgress, 3000);
     }
 }
 
