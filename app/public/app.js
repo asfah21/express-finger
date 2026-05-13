@@ -2034,7 +2034,7 @@ function renderPullPagination(total) {
     range.forEach(p => {
         const btn = document.createElement('button');
         btn.innerText = p;
-        btn.className = 'page-link' + (p === pullPageState.page ? ' active' : '');
+        btn.style.cssText = `padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid var(--glass-border); cursor: pointer; ${p === pullPageState.page ? 'background: var(--primary); color: white;' : 'background: var(--glass-bg); color: var(--text);'}`;
         btn.onclick = () => { pullPageState.page = p; renderPullResults(lastPulledData); };
         nums.appendChild(btn);
     });
