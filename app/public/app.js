@@ -1809,22 +1809,32 @@ async function refreshPullDevices() {
     }
 }
 
-async function pullDataFromDevice() {
+let lastPulledData = [];
+
+async function pullDataFromDevice(isPreview = false) {
     const deviceId = document.getElementById('pull-device-select').value;
     if (!deviceId) {
         showToast('Please select a device first', 'error');
         return;
     }
     
-    const btn = document.getElementById('btn-pull-data');
+    const btn = isPreview ? document.getElementById('btn-pull-preview') : document.getElementById('btn-pull-data');
     const statusEl = document.getElementById('pull-status');
+    const resultsContainer = document.getElementById('pull-results-container');
+    const resultsBody = document.getElementById('pull-results-body');
+    const exportBtn = document.getElementById('btn-export-pull');
     
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting to Device...';
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
     
     statusEl.style.display = 'block';
     statusEl.style.color = 'var(--warning)';
-    statusEl.innerHTML = '<i class="fas fa-sync fa-spin"></i> Establishing connection to port 4370. This might take a few seconds...';
+    statusEl.innerHTML = `<i class="fas fa-sync fa-spin"></i> ${isPreview ? 'Fetching preview' : 'Pulling & Syncing'}... Establishing connection to port 4370. This might take a few seconds...`;
+    
+    resultsContainer.style.display = 'none';
+    exportBtn.style.display = 'none';
+    lastPulledData = [];
 
     try {
         const response = await fetch('/api/pull', {
@@ -1832,15 +1842,22 @@ async function pullDataFromDevice() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ deviceId })
+            body: JSON.stringify({ deviceId, preview: isPreview })
         });
         
         const result = await response.json();
         
         if (response.ok) {
             statusEl.style.color = 'var(--success)';
-            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> Success: Pulled ${result.data.total} logs. ${result.data.saved} new/updated.`;
-            showToast('Pull data completed', 'success');
+            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> Success: Found ${result.data.total} logs. ${!isPreview ? result.data.saved + ' new/updated.' : ''}`;
+            showToast(isPreview ? 'Preview data loaded' : 'Pull data completed', 'success');
+            
+            if (isPreview && result.data.logs) {
+                lastPulledData = result.data.logs;
+                renderPullResults(lastPulledData);
+                resultsContainer.style.display = 'block';
+                exportBtn.style.display = 'block';
+            }
         } else {
             statusEl.style.color = 'var(--error)';
             statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed: ${result.message}`;
@@ -1852,7 +1869,54 @@ async function pullDataFromDevice() {
         showToast('Network error', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Pull Data Now';
+        btn.innerHTML = originalHtml;
+    }
+}
+
+function renderPullResults(logs) {
+    const body = document.getElementById('pull-results-body');
+    body.innerHTML = logs.map(log => `
+        <tr>
+            <td>${log.userId}</td>
+            <td>${new Date(log.timestamp).toLocaleString()}</td>
+            <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+        </tr>
+    `).join('') || '<tr><td colspan="3" style="text-align: center;">No data found</td></tr>';
+}
+
+function exportPulledData() {
+    if (!lastPulledData || lastPulledData.length === 0) {
+        showToast('No data to export', 'warning');
+        return;
+    }
+
+    try {
+        const headers = ['User ID', 'Timestamp', 'Type'];
+        const csvContent = [
+            headers.join(','),
+            ...lastPulledData.map(log => [
+                log.userId,
+                new Date(log.timestamp).toISOString(),
+                log.type == 0 ? 'Masuk' : 'Pulang'
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `fingerprint_pull_${timestamp}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast('Exporting to CSV...', 'success');
+    } catch (err) {
+        console.error('Export error:', err);
+        showToast('Export failed', 'error');
     }
 }
 

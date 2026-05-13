@@ -493,11 +493,36 @@
                             </select>
                         </div>
                         
-                        <button class="btn-primary" id="btn-pull-data" style="width: auto; margin-top: 1rem;" onclick="pullDataFromDevice()">
-                            <i class="fas fa-cloud-download-alt"></i> Pull Data Now
-                        </button>
+                        <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                            <button class="btn-primary" id="btn-pull-preview" style="width: auto;" onclick="pullDataFromDevice(true)">
+                                <i class="fas fa-search"></i> Preview Data Only
+                            </button>
+                            <button class="btn-primary admin-only" id="btn-pull-data" style="width: auto; background: var(--secondary);" onclick="pullDataFromDevice(false)">
+                                <i class="fas fa-cloud-download-alt"></i> Pull & Sync to DB
+                            </button>
+                            <button class="btn-primary" id="btn-export-pull" style="width: auto; background: #10b981; display: none;" onclick="exportPulledData()">
+                                <i class="fas fa-file-csv"></i> Export to CSV
+                            </button>
+                        </div>
                         
                         <div id="pull-status" style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
+                        </div>
+
+                        <!-- Results Table -->
+                        <div id="pull-results-container" style="display: none; margin-top: 2rem;">
+                            <h4 style="margin-bottom: 1rem;">Retrieved Data</h4>
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>User ID</th>
+                                            <th>Timestamp</th>
+                                            <th>Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pull-results-body"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -5,7 +5,7 @@ import { recordActivity } from './activity-log.js'
 
 export const pullController = {
   async pullData(req, res) {
-    const { deviceId } = req.body
+    const { deviceId, preview = false } = req.body
     if (!deviceId) return res.status(400).json({ status: 'error', message: 'Device ID is required' })
 
     const username = req.user?.username || 'api'
@@ -30,30 +30,29 @@ export const pullController = {
       const attendances = await zk.getAttendances()
       const data = attendances?.data || []
 
-      // 4. Transform data if needed and save to DB
+      // 4. Transform data
       // node-zklib returns: { uid, id, state, timestamp, deviceDotProp }
-      // saveManyLogs expects: { uid, userId, timestamp, type }
       const formattedLogs = data.map(log => ({
         uid: log.uid,
         userId: log.id || log.deviceUserId || log.userId,
         timestamp: log.timestamp,
-        type: log.state
+        type: log.state,
+        absensi: log.state === 0 ? 'Masuk' : 'Pulang'
       }))
 
       let totalSaved = 0
-      if (formattedLogs.length > 0) {
+      if (!preview && formattedLogs.length > 0) {
         totalSaved = await saveManyLogs(formattedLogs, device.sn)
+        // 5. Update last_sync only if not preview
+        await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
       }
-
-      // 5. Update last_sync
-      await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
 
       // 6. Record activity
       await recordActivity({
         username,
-        action: 'pull_data',
+        action: preview ? 'preview_pull_data' : 'pull_data',
         category: 'sync',
-        detail: `Force pull data from ${device.name || device.sn} (${device.ip}). Total logs: ${data.length}`,
+        detail: `${preview ? 'Preview' : 'Force pull'} data from ${device.name || device.sn} (${device.ip}). Total logs: ${data.length}`,
         ip: clientIp
       })
 
@@ -63,10 +62,11 @@ export const pullController = {
 
       res.json({
         status: 'success',
-        message: `Successfully pulled ${data.length} logs from device.`,
+        message: preview ? `Successfully fetched ${data.length} logs for preview.` : `Successfully pulled ${data.length} logs from device.`,
         data: {
           total: data.length,
-          saved: totalSaved
+          saved: totalSaved,
+          logs: preview ? formattedLogs : []
         }
       })
     } catch (error) {
