@@ -2028,8 +2028,8 @@ function nextPullPage() {
 
 function renderPullPagination(total) {
     pullPageState.total = total;
-    const maxPage = Math.ceil(total / pullPageState.limit);
-    const start = (pullPageState.page - 1) * pullPageState.limit + 1;
+    const maxPage = Math.ceil(total / pullPageState.limit) || 1;
+    const start = total === 0 ? 0 : (pullPageState.page - 1) * pullPageState.limit + 1;
     const end = Math.min(pullPageState.page * pullPageState.limit, total);
 
     document.getElementById('pull-results-info').innerText = `Showing ${total ? start : 0}-${end} of ${total}`;
@@ -2038,21 +2038,31 @@ function renderPullPagination(total) {
 
     const nums = document.getElementById('pull-pagination-numbers');
     nums.innerHTML = '';
-    // Show simple pagination: First, Prev, [Page], Next, Last (if many)
+    
     if (maxPage <= 1) return;
 
-    let range = [];
-    for (let i = Math.max(1, pullPageState.page - 2); i <= Math.min(maxPage, pullPageState.page + 2); i++) {
-        range.push(i);
+    const isMobile = window.innerWidth < 640;
+    const maxLinks = isMobile ? 3 : 5;
+    const offset = Math.floor(maxLinks / 2);
+
+    // Render pages around current page (Adjusted for 1-based pullPageState.page)
+    let startPage = Math.max(1, pullPageState.page - offset);
+    let endPage = Math.min(maxPage, startPage + (maxLinks - 1));
+
+    if (endPage - startPage < (maxLinks - 1)) {
+        startPage = Math.max(1, endPage - (maxLinks - 1));
     }
 
-    range.forEach(p => {
-        const btn = document.createElement('button');
-        btn.innerText = p;
-        btn.className = 'page-link' + (p === pullPageState.page ? ' active' : '');
-        btn.onclick = () => { pullPageState.page = p; renderPullResults(lastPulledData); };
-        nums.appendChild(btn);
-    });
+    for (let p = startPage; p <= endPage; p++) {
+        const item = document.createElement('div');
+        item.innerText = p;
+        item.className = `page-link ${p === pullPageState.page ? 'active' : ''}`;
+        item.onclick = () => { 
+            pullPageState.page = p; 
+            renderPullResults(lastPulledData); 
+        };
+        nums.appendChild(item);
+    }
 }
 
 // ─── View switching ────────────────────────────────────────────────────────
