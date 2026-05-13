@@ -32,32 +32,42 @@ export const pullController = {
       const data = attendances?.data || []
 
       // 4. Transform data
-      // node-zklib returns: { uid, id, state, timestamp, deviceDotProp }
       const formattedLogs = data.map(log => {
         // node-zklib fields can vary by version: recordTime or timestamp
         let ts = log.recordTime || log.timestamp;
         let dt = new Date(ts);
         
         // --- KOREKSI TANGGAL (FIX BIT-SHIFT FW 8.X) ---
-        // Mirroring logic from utils/zklib.js for consistency
         let year = dt.getFullYear();
         let month = dt.getMonth(); // 0-indexed
         if (year === 2025 && month === 9) {
-             // Oct 2025 shifted to Feb 2026
              dt = new Date(2026, 1, dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
         }
         
         const isoTs = isNaN(dt.getTime()) ? ts : dt.toISOString();
 
-        // status or state
-        const type = Number(log.status ?? log.state ?? 0);
+        /**
+         * Mapping Status (verifyState):
+         * 0 = Check In (Masuk)
+         * 1 = Check Out (Pulang)
+         */
+        const type = Number(log.verifyState ?? log.status ?? log.state ?? 0);
+        
+        let absensiDesc = type === 1 ? 'Pulang' : 'Masuk';
+        
+        // Smart Fallback: Jika mesin merekam semua sebagai 0 (tidak tekan tombol In/Out)
+        // Kita anggap log di atas jam 13:00 sebagai Pulang.
+        if (type === 0 && dt.getHours() >= 13) {
+            absensiDesc = 'Pulang (Estimasi)';
+        }
 
         return {
           uid: log.userSn || log.uid,
           userId: String(log.deviceUserId || log.id || log.userId).trim(),
           timestamp: isoTs,
           type: type,
-          absensi: type === 0 ? 'Masuk' : 'Pulang'
+          absensi: absensiDesc,
+          rawType: type
         };
       }).filter(log => {
         // Filter future dates (corruption protection)
@@ -67,8 +77,8 @@ export const pullController = {
         return new Date(log.timestamp) <= limit;
       });
 
-      // Reverse to show newest first (node-zklib returns oldest first)
-      formattedLogs.reverse();
+      // Sort newest first by timestamp
+      formattedLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
       let totalSaved = 0
       if (!preview && formattedLogs.length > 0) {
