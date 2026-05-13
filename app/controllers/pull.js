@@ -32,13 +32,23 @@ export const pullController = {
 
       // 4. Transform data
       // node-zklib returns: { uid, id, state, timestamp, deviceDotProp }
-      const formattedLogs = data.map(log => ({
-        uid: log.uid,
-        userId: log.id || log.deviceUserId || log.userId,
-        timestamp: log.timestamp,
-        type: log.state,
-        absensi: log.state === 0 ? 'Masuk' : 'Pulang'
-      }))
+      const formattedLogs = data.map(log => {
+        // node-zklib fields can vary by version: recordTime or timestamp
+        let ts = log.recordTime || log.timestamp;
+        const dt = new Date(ts);
+        const isoTs = isNaN(dt.getTime()) ? ts : dt.toISOString();
+
+        // status or state
+        const type = Number(log.status ?? log.state ?? 0);
+
+        return {
+          uid: log.userSn || log.uid,
+          userId: String(log.deviceUserId || log.id || log.userId).trim(),
+          timestamp: isoTs,
+          type: type,
+          absensi: type === 0 ? 'Masuk' : 'Pulang'
+        };
+      })
 
       let totalSaved = 0
       if (!preview && formattedLogs.length > 0) {

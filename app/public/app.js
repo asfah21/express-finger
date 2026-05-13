@@ -1823,6 +1823,7 @@ async function pullDataFromDevice(isPreview = false) {
     const resultsContainer = document.getElementById('pull-results-container');
     const resultsBody = document.getElementById('pull-results-body');
     const exportBtn = document.getElementById('btn-export-pull');
+    const rawBtn = document.getElementById('btn-download-raw');
     
     btn.disabled = true;
     const originalHtml = btn.innerHTML;
@@ -1834,6 +1835,7 @@ async function pullDataFromDevice(isPreview = false) {
     
     resultsContainer.style.display = 'none';
     exportBtn.style.display = 'none';
+    rawBtn.style.display = 'none';
     lastPulledData = [];
 
     try {
@@ -1857,6 +1859,7 @@ async function pullDataFromDevice(isPreview = false) {
                 renderPullResults(lastPulledData);
                 resultsContainer.style.display = 'block';
                 exportBtn.style.display = 'block';
+                rawBtn.style.display = 'block';
             }
         } else {
             statusEl.style.color = 'var(--error)';
@@ -1875,13 +1878,17 @@ async function pullDataFromDevice(isPreview = false) {
 
 function renderPullResults(logs) {
     const body = document.getElementById('pull-results-body');
-    body.innerHTML = logs.map(log => `
-        <tr>
-            <td>${log.userId}</td>
-            <td>${new Date(log.timestamp).toLocaleString()}</td>
-            <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-        </tr>
-    `).join('') || '<tr><td colspan="3" style="text-align: center;">No data found</td></tr>';
+    body.innerHTML = logs.map(log => {
+        const dt = new Date(log.timestamp);
+        const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString();
+        return `
+            <tr>
+                <td>${log.userId}</td>
+                <td>${dateStr}</td>
+                <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="3" style="text-align: center;">No data found</td></tr>';
 }
 
 function exportPulledData() {
@@ -1894,11 +1901,15 @@ function exportPulledData() {
         const headers = ['User ID', 'Timestamp', 'Type'];
         const csvContent = [
             headers.join(','),
-            ...lastPulledData.map(log => [
-                log.userId,
-                new Date(log.timestamp).toISOString(),
-                log.type == 0 ? 'Masuk' : 'Pulang'
-            ].join(','))
+            ...lastPulledData.map(log => {
+                const dt = new Date(log.timestamp);
+                const tsStr = isNaN(dt.getTime()) ? log.timestamp : dt.toISOString();
+                return [
+                    log.userId,
+                    tsStr,
+                    log.type == 0 ? 'Masuk' : 'Pulang'
+                ].join(',');
+            })
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1916,7 +1927,34 @@ function exportPulledData() {
         showToast('Exporting to CSV...', 'success');
     } catch (err) {
         console.error('Export error:', err);
-        showToast('Export failed', 'error');
+        showToast('Export failed: ' + err.message, 'error');
+    }
+}
+
+function downloadRawData() {
+    if (!lastPulledData || lastPulledData.length === 0) {
+        showToast('No data to download', 'warning');
+        return;
+    }
+
+    try {
+        const jsonContent = JSON.stringify(lastPulledData, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `fingerprint_raw_${timestamp}.json`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast('Downloading Raw JSON...', 'success');
+    } catch (err) {
+        console.error('Download error:', err);
+        showToast('Download failed', 'error');
     }
 }
 

@@ -55,13 +55,13 @@
                     <i class="fas fa-list"></i>
                     <span>Attendance</span>
                 </div>
-                <div class="nav-item" onclick="showPage('activity')">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>Activity Log</span>
-                </div>
                 <div class="nav-item" onclick="showPage('pull')">
                     <i class="fas fa-download"></i>
                     <span>Pull Data</span>
+                </div>
+                <div class="nav-item" onclick="showPage('activity')">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Activity Log</span>
                 </div>
                 <div class="nav-item admin-only" onclick="showPage('settings')">
                     <i class="fas fa-cog"></i>
@@ -480,32 +480,42 @@
                             <i class="fas fa-download" style="color: var(--primary);"></i> Pull Data from Device
                         </h3>
                     </div>
-                    
+
                     <div class="stat-card" style="margin-bottom: 1.5rem;">
                         <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
-                            This tool allows you to manually force-pull attendance logs directly from the fingerprint machine via port 4370. Use this if the machine is not pushing data properly via ADMS.
+                            This tool allows you to manually force-pull attendance logs directly from the fingerprint
+                            machine via port 4370. Use this if the machine is not pushing data properly via ADMS.
                         </p>
-                        
+
                         <div class="form-group" style="max-width: 400px;">
                             <label>Select Device</label>
-                            <select id="pull-device-select" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white;">
+                            <select id="pull-device-select"
+                                style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: white;">
                                 <option value="">Loading devices...</option>
                             </select>
                         </div>
-                        
+
                         <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
-                            <button class="btn-primary" id="btn-pull-preview" style="width: auto;" onclick="pullDataFromDevice(true)">
+                            <button class="btn-primary" id="btn-pull-preview" style="width: auto;"
+                                onclick="pullDataFromDevice(true)">
                                 <i class="fas fa-search"></i> Preview Data Only
                             </button>
-                            <button class="btn-primary admin-only" id="btn-pull-data" style="width: auto; background: var(--secondary);" onclick="pullDataFromDevice(false)">
+                            <button class="btn-primary admin-only" id="btn-pull-data"
+                                style="width: auto; background: var(--secondary);" onclick="pullDataFromDevice(false)">
                                 <i class="fas fa-cloud-download-alt"></i> Pull & Sync to DB
                             </button>
-                            <button class="btn-primary" id="btn-export-pull" style="width: auto; background: #10b981; display: none;" onclick="exportPulledData()">
-                                <i class="fas fa-file-csv"></i> Export to CSV
+                            <button class="btn-primary" id="btn-export-pull"
+                                style="width: auto; background: #10b981; display: none;" onclick="exportPulledData()">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </button>
+                            <button class="btn-primary" id="btn-download-raw"
+                                style="width: auto; background: #6b7280; display: none;" onclick="downloadRawData()">
+                                <i class="fas fa-file-code"></i> Raw JSON
                             </button>
                         </div>
-                        
-                        <div id="pull-status" style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
+
+                        <div id="pull-status"
+                            style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
                         </div>
 
                         <!-- Results Table -->
@@ -529,8 +539,9 @@
 
                 <div id="page-settings" class="page" style="display: none; padding-bottom: 2rem;">
                     <!-- User Management Section -->
-                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 2rem;">
-                        
+                    <div
+                        style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 2rem;">
+
                         <!-- Add User Card -->
                         <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 400px;">
                             <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
@@ -567,7 +578,8 @@
 
                         <!-- User List Card -->
                         <div class="stat-card" style="flex: 2; min-width: 300px;">
-                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+                            <h3
+                                style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;">
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                                     <i class="fas fa-users-cog" style="color: var(--primary);"></i> Existing Users
                                 </div>
@@ -577,8 +589,7 @@
                                 </button>
                             </h3>
                             <div id="user-list-container">
-                                <div
-                                    style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.9rem;">
+                                <div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.9rem;">
                                     <i class="fas fa-spinner fa-spin"></i> Loading...
                                 </div>
                             </div>
