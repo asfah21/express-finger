@@ -1920,7 +1920,8 @@ function _hideProgress() {
 
 // ─── Main pull function ─────────────────────────────────────────────────────
 
-async function pullDataFromDevice(isPreview = false) {
+async function pullDataFromDevice(mode = 'preview') {
+    const isPreview = mode === 'preview';
     const deviceId = document.getElementById('pull-device-select').value;
     if (!deviceId) {
         showToast('Please select a device first', 'error');
