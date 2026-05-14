@@ -32,31 +32,33 @@ export const apiController = {
 
       const dataQuery = {
         text: `
-          SELECT 
-            al.id, 
-            al.user_id, 
-            e.nik,
-            e.nama,
-            e.jabatan,
-            e.department,
-            e.divisi,
-            e.type as emp_type,
-            al.type, 
-            al.device_sn,
-            d.name as device_name,
-            al."timestamp", 
-            al.created_at,
-            EXISTS (
-              SELECT 1 FROM attendance_logs a2
-              WHERE a2.user_id = al.user_id AND a2.type = al.type
-              AND DATE(a2."timestamp" AT TIME ZONE 'Asia/Makassar') = DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar')
-              AND (a2."timestamp" < al."timestamp" OR (a2."timestamp" = al."timestamp" AND a2.id < al.id))
-            ) as is_duplicate
-          FROM attendance_logs al
-          LEFT JOIN employee e ON al.user_id::text = e.user_id::text
-          LEFT JOIN devices d ON al.device_sn = d.sn
-          ${whereSql}
-          ORDER BY al."timestamp" DESC
+          WITH ranked_logs AS (
+            SELECT 
+              al.id, 
+              al.user_id, 
+              e.nik,
+              e.nama,
+              e.jabatan,
+              e.department,
+              e.divisi,
+              e.type as emp_type,
+              al.type, 
+              al.device_sn,
+              d.name as device_name,
+              al."timestamp", 
+              al.created_at,
+              ROW_NUMBER() OVER (
+                PARTITION BY al.user_id, al.type, DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar') 
+                ORDER BY al."timestamp" ASC, al.id ASC
+              ) as row_num
+            FROM attendance_logs al
+            LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+            LEFT JOIN devices d ON al.device_sn = d.sn
+            ${whereSql}
+          )
+          SELECT *, (row_num > 1) as is_duplicate
+          FROM ranked_logs
+          ORDER BY "timestamp" DESC
           LIMIT $${i++} OFFSET $${i++}
         `,
         values: [...params, lim, off],
