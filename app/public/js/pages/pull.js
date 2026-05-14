@@ -60,14 +60,28 @@ export async function pullDataFromDevice(mode = 'preview') {
     if (resultsContainer) resultsContainer.style.display = 'none';
     if (statusDiv) statusDiv.style.display = 'none';
 
-    updateProgress(10, 'Connecting to device...');
+    updateProgress(5, 'Initializing connection...');
     setStage('stage-connect');
 
+    // Smooth Progress Simulation
+    let currentPct = 5;
+    const progressInterval = setInterval(() => {
+        if (currentPct < 90) {
+            currentPct += Math.random() * 2;
+            let label = 'Connecting...';
+            if (currentPct > 20) {
+                label = 'Fetching logs from device...';
+                setStage('stage-fetch');
+            }
+            if (currentPct > 60) {
+                label = 'Processing records...';
+                setStage('stage-process');
+            }
+            updateProgress(Math.floor(currentPct), label);
+        }
+    }, 200);
+
     try {
-        // Step 1: Initialize Pull (Start Backend Process)
-        setTimeout(() => updateProgress(35, 'Fetching logs from device memory...'), 500);
-        setStage('stage-fetch');
-        
         const res = await fetch('/api/pull', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -79,18 +93,16 @@ export async function pullDataFromDevice(mode = 'preview') {
         });
         const data = await res.json();
 
-        if (res.ok && data.status === 'success') {
-            updateProgress(85, 'Processing data...');
-            setStage('stage-process');
+        clearInterval(progressInterval);
 
-            lastPulledData = data.data?.logs || [];
-            
+        if (res.ok && data.status === 'success') {
             updateProgress(100, mode === 'sync' ? 'Sync completed!' : 'Preview ready!');
             setStage('stage-done');
 
+            lastPulledData = data.data?.logs || [];
+            
             if (mode === 'sync') {
                 showToast(data.message || `Successfully synced ${lastPulledData.length} logs`, 'success');
-                // Show status summary
                 statusDiv.style.display = 'block';
                 statusDiv.innerHTML = `
                     <div style="color: var(--success); font-weight: 600; margin-bottom: 0.5rem;">
@@ -104,11 +116,21 @@ export async function pullDataFromDevice(mode = 'preview') {
                 showToast(`Successfully pulled ${lastPulledData.length} logs for preview`, 'success');
                 if (lastPulledData.length > 0) {
                     resultsContainer.style.display = 'block';
-                    // Show export buttons
+                    // Show export buttons with proper layout
                     const btnExport = document.getElementById('btn-export-pull');
                     const btnJson = document.getElementById('btn-download-raw');
-                    if (btnExport) btnExport.style.display = 'inline-flex';
-                    if (btnJson) btnJson.style.display = 'inline-flex';
+                    if (btnExport) {
+                        btnExport.style.display = 'inline-flex';
+                        btnExport.style.alignItems = 'center';
+                        btnExport.style.gap = '0.5rem';
+                        btnExport.style.justifyContent = 'center';
+                    }
+                    if (btnJson) {
+                        btnJson.style.display = 'inline-flex';
+                        btnJson.style.alignItems = 'center';
+                        btnJson.style.gap = '0.5rem';
+                        btnJson.style.justifyContent = 'center';
+                    }
 
                     pullPageState.page = 1;
                     renderPullResults();
@@ -121,6 +143,7 @@ export async function pullDataFromDevice(mode = 'preview') {
             throw new Error(data.message || 'Failed to pull data');
         }
     } catch (err) {
+        clearInterval(progressInterval);
         showToast(err.message || 'Network error during pull', 'error');
         updateProgress(0, 'Failed');
         resetStages();
@@ -138,7 +161,7 @@ export async function pullDataFromDevice(mode = 'preview') {
             if (progressBar && progressBar.style.width === '100%') {
                 if (progressWrap) progressWrap.style.display = 'none';
             }
-        }, 2000);
+        }, 2500);
     }
 
     function updateProgress(pct, label) {
