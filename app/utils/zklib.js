@@ -154,9 +154,6 @@ export async function fetchDeviceLogsFormatted(ip, port = 4370, sn = null) {
             else if (type === 4) absensi = 'OT Masuk';
             else absensi = 'Masuk';
 
-            // Smart fallback hanya jika type=0 dan jam >= 13
-            if (type === 0 && finalDate.getHours() >= 13) absensi = 'Pulang (Est.)';
-
             return {
                 uid: log.userSn || null,
                 userId: String(log.deviceUserId).trim(),

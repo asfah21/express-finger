@@ -43,9 +43,19 @@ export async function pullDataFromDevice(mode = 'preview') {
     const resultsContainer = document.getElementById('pull-results-container');
     const statusDiv = document.getElementById('pull-status');
 
+    const btnPreviewOrig = btnPreview.innerHTML;
+    const btnSyncOrig = btnSync.innerHTML;
+
     // Reset UI
-    if (btnPreview) btnPreview.disabled = true;
-    if (btnSync) btnSync.disabled = true;
+    if (btnPreview) {
+        btnPreview.disabled = true;
+        if (mode === 'preview') btnPreview.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Previewing...';
+    }
+    if (btnSync) {
+        btnSync.disabled = true;
+        if (mode === 'sync') btnSync.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    }
+    
     if (progressWrap) progressWrap.style.display = 'block';
     if (resultsContainer) resultsContainer.style.display = 'none';
     if (statusDiv) statusDiv.style.display = 'none';
@@ -55,7 +65,7 @@ export async function pullDataFromDevice(mode = 'preview') {
 
     try {
         // Step 1: Initialize Pull (Start Backend Process)
-        updateProgress(30, 'Fetching logs from device memory...');
+        setTimeout(() => updateProgress(35, 'Fetching logs from device memory...'), 500);
         setStage('stage-fetch');
         
         const res = await fetch('/api/pull', {
@@ -70,7 +80,7 @@ export async function pullDataFromDevice(mode = 'preview') {
         const data = await res.json();
 
         if (res.ok && data.status === 'success') {
-            updateProgress(70, 'Processing data...');
+            updateProgress(85, 'Processing data...');
             setStage('stage-process');
 
             lastPulledData = data.data?.logs || [];
@@ -94,6 +104,12 @@ export async function pullDataFromDevice(mode = 'preview') {
                 showToast(`Successfully pulled ${lastPulledData.length} logs for preview`, 'success');
                 if (lastPulledData.length > 0) {
                     resultsContainer.style.display = 'block';
+                    // Show export buttons
+                    const btnExport = document.getElementById('btn-export-pull');
+                    const btnJson = document.getElementById('btn-download-raw');
+                    if (btnExport) btnExport.style.display = 'inline-flex';
+                    if (btnJson) btnJson.style.display = 'inline-flex';
+
                     pullPageState.page = 1;
                     renderPullResults();
                 } else {
@@ -109,12 +125,20 @@ export async function pullDataFromDevice(mode = 'preview') {
         updateProgress(0, 'Failed');
         resetStages();
     } finally {
-        if (btnPreview) btnPreview.disabled = false;
-        if (btnSync) btnSync.disabled = false;
-        // Hide progress after a delay if success, or keep if needed
+        if (btnPreview) {
+            btnPreview.disabled = false;
+            btnPreview.innerHTML = btnPreviewOrig;
+        }
+        if (btnSync) {
+            btnSync.disabled = false;
+            btnSync.innerHTML = btnSyncOrig;
+        }
+        // Hide progress after a delay if success
         setTimeout(() => {
-            // progressWrap.style.display = 'none';
-        }, 3000);
+            if (progressBar && progressBar.style.width === '100%') {
+                if (progressWrap) progressWrap.style.display = 'none';
+            }
+        }, 2000);
     }
 
     function updateProgress(pct, label) {
