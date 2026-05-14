@@ -17,10 +17,10 @@ export async function refreshPull() {
         if (!select) return;
 
         const devices = data.data?.list || [];
-        const currentSn = select.value;
+        const currentId = select.value;
         
         select.innerHTML = '<option value="">-- Select Device --</option>' + 
-            devices.map(d => `<option value="${d.sn}" ${d.sn === currentSn ? 'selected' : ''}>${d.name || d.ip} (${d.sn})</option>`).join('');
+            devices.map(d => `<option value="${d.id}" ${d.id == currentId ? 'selected' : ''}>${d.name || d.ip} (${d.sn})</option>`).join('');
     } catch (err) {
         console.error('Failed to load devices for pull', err);
     }
@@ -31,8 +31,8 @@ export async function refreshPull() {
  * @param {'preview'|'sync'} mode 
  */
 export async function pullDataFromDevice(mode = 'preview') {
-    const sn = document.getElementById('pull-device-select').value;
-    if (!sn) return showToast('Please select a device', 'warning');
+    const deviceId = document.getElementById('pull-device-select').value;
+    if (!deviceId) return showToast('Please select a device', 'warning');
 
     const btnPreview = document.getElementById('btn-pull-preview');
     const btnSync = document.getElementById('btn-pull-data');
@@ -58,7 +58,15 @@ export async function pullDataFromDevice(mode = 'preview') {
         updateProgress(30, 'Fetching logs from device memory...');
         setStage('stage-fetch');
         
-        const res = await fetch(`/api/pull?sn=${sn}&mode=${mode}`);
+        const res = await fetch('/api/pull', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deviceId: parseInt(deviceId),
+                preview: mode === 'preview',
+                clearAfterSync: false
+            })
+        });
         const data = await res.json();
 
         if (res.ok && data.status === 'success') {
