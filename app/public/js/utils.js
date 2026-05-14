@@ -18,32 +18,35 @@ export function getWitaDateString() {
 }
 
 export function showToast(message, type = 'success') {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
+    const toast = document.getElementById('toast');
+    const msgEl = document.getElementById('toast-message');
+    if (!toast || !msgEl) return;
+
+    msgEl.innerText = message;
     
-    let icon = 'fa-check-circle';
-    if (type === 'error') icon = 'fa-exclamation-circle';
-    if (type === 'warning') icon = 'fa-exclamation-triangle';
+    // Set color based on type
+    let color = 'var(--glass-border)';
+    if (type === 'error') color = 'var(--error)';
+    if (type === 'success') color = 'var(--success)';
+    if (type === 'warning') color = 'var(--warning)';
     
-    toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
-    document.body.appendChild(toast);
+    toast.style.borderColor = color;
+    toast.classList.add('active');
     
     setTimeout(() => {
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }, 100);
+        toast.classList.remove('active');
+    }, 3000);
 }
 
 export function toggleModal(show) {
     const modal = document.getElementById('modal-overlay');
+    if (!modal) return;
+
     if (show) {
-        modal.style.display = 'flex';
+        modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     } else {
-        modal.style.display = 'none';
+        modal.classList.remove('active');
         document.body.style.overflow = 'auto';
     }
 }
