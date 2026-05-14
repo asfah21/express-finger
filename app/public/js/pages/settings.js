@@ -308,22 +308,9 @@ export function openSettingsAuth() {
             });
 
             if (res.ok) {
+                state.isSettingsUnlocked = true;
                 toggleModal(false);
-                state.currentPath = 'settings';
-                window.location.hash = 'settings';
-                
-                // Fetch data
-                loadSettings();
-                loadUserList();
-                
-                // Force UI update
-                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-                document.getElementById('settings').classList.add('active');
-                document.querySelectorAll('.nav-links li').forEach(li => {
-                    li.classList.remove('active');
-                    if (li.getAttribute('onclick')?.includes('settings')) li.classList.add('active');
-                });
-                document.getElementById('header-title').innerText = 'System Settings';
+                showPage('settings');
             } else {
                 showToast('Invalid password', 'error');
             }

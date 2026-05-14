@@ -11,5 +11,6 @@ export const state = {
         employees: { page: 0, size: 25, total: 0 },
         logs: { page: 0, size: 25, total: 0 },
         activity: { page: 0, size: 25, total: 0 }
-    }
+    },
+    isSettingsUnlocked: false
 };

@@ -135,7 +135,7 @@ function applyRoleRestrictions() {
 }
 
 function showPage(pageId) {
-    if (pageId === 'settings' && state.currentPath !== 'settings') {
+    if (pageId === 'settings' && !state.isSettingsUnlocked) {
         openSettingsAuth();
         return;
     }

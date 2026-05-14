@@ -9,9 +9,11 @@ export async function checkAuth() {
             state.currentUser = data.data.user;
             window.showDashboard();
         } else {
+            state.isSettingsUnlocked = false;
             window.showLogin();
         }
     } catch (err) {
+        state.isSettingsUnlocked = false;
         window.showLogin();
     }
 }
@@ -68,5 +70,6 @@ export async function handleLogin(e) {
 export async function logout() {
     await fetch('/auth/logout', { method: 'POST' });
     state.currentUser = null;
+    state.isSettingsUnlocked = false;
     window.showLogin();
 }
