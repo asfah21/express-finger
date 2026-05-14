@@ -1945,8 +1945,8 @@ async function pullDataFromDevice(mode = 'preview') {
     rawBtn.style.display = 'none';
     lastPulledData = [];
 
-    // Start animated progress (only for preview — sync is fast on UI side)
-    if (isPreview) _startProgressSimulation(true);
+    // Start animated progress
+    _startProgressSimulation(true);
 
     try {
         const response = await fetch('/api/pull', {
