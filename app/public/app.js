@@ -7,7 +7,7 @@ import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, o
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, openSettingsAuth } from './js/pages/settings.js';
-import { refreshPull, handlePullData, changePullView, nextPullPage, prevPullPage, savePulledLogs, exportPulledData, downloadRawData } from './js/pages/pull.js';
+import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 
 // Expose to window for HTML onclick handlers
 window.toggleTheme = toggleTheme;
@@ -73,11 +73,11 @@ window.openSettingsAuth = openSettingsAuth;
 
 // Pull Data Page Functions
 window.refreshPull = refreshPull;
-window.handlePullData = handlePullData;
-window.changePullView = changePullView;
+window.pullDataFromDevice = pullDataFromDevice;
+window.switchPullView = switchPullView;
 window.nextPullPage = nextPullPage;
 window.prevPullPage = prevPullPage;
-window.savePulledLogs = savePulledLogs;
+window.updatePullPageSize = updatePullPageSize;
 window.exportPulledData = exportPulledData;
 window.downloadRawData = downloadRawData;
 

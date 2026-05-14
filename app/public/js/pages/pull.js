@@ -2,7 +2,11 @@ import { showToast, showConfirm } from '../utils.js';
 
 // Pull Page State
 export let lastPulledData = [];
-export let pullPageState = { page: 1, limit: 10 };
+export let pullPageState = { 
+    page: 1, 
+    limit: 25, // Matched with default in HTML
+    total: 0
+};
 export let _currentPullView = 'presensi'; // 'presensi' or 'raw'
 
 export async function refreshPull() {
@@ -10,9 +14,9 @@ export async function refreshPull() {
         const res = await fetch('/api/devices');
         const data = await res.json();
         const select = document.getElementById('pull-device-select');
+        if (!select) return;
+
         const devices = data.data?.list || [];
-        
-        // Simpan SN yang sedang terpilih jika ada
         const currentSn = select.value;
         
         select.innerHTML = '<option value="">-- Select Device --</option>' + 
@@ -22,161 +26,258 @@ export async function refreshPull() {
     }
 }
 
-export async function handlePullData() {
+/**
+ * Main function for pulling data from device
+ * @param {'preview'|'sync'} mode 
+ */
+export async function pullDataFromDevice(mode = 'preview') {
     const sn = document.getElementById('pull-device-select').value;
     if (!sn) return showToast('Please select a device', 'warning');
 
-    const btn = document.getElementById('btn-pull-action');
-    const container = document.getElementById('pull-results-container');
-    const emptyState = document.getElementById('pull-empty-state');
+    const btnPreview = document.getElementById('btn-pull-preview');
+    const btnSync = document.getElementById('btn-pull-data');
+    const progressWrap = document.getElementById('pull-progress-wrap');
+    const progressBar = document.getElementById('pull-progress-bar');
+    const progressPct = document.getElementById('pull-progress-pct');
+    const progressLabel = document.getElementById('pull-progress-label');
+    const resultsContainer = document.getElementById('pull-results-container');
+    const statusDiv = document.getElementById('pull-status');
 
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pulling Data...';
-    
+    // Reset UI
+    if (btnPreview) btnPreview.disabled = true;
+    if (btnSync) btnSync.disabled = true;
+    if (progressWrap) progressWrap.style.display = 'block';
+    if (resultsContainer) resultsContainer.style.display = 'none';
+    if (statusDiv) statusDiv.style.display = 'none';
+
+    updateProgress(10, 'Connecting to device...');
+    setStage('stage-connect');
+
     try {
-        // We use mode=preview to just fetch without saving to DB
-        const res = await fetch(`/api/pull?sn=${sn}&mode=preview`);
+        // Step 1: Initialize Pull (Start Backend Process)
+        updateProgress(30, 'Fetching logs from device memory...');
+        setStage('stage-fetch');
+        
+        const res = await fetch(`/api/pull?sn=${sn}&mode=${mode}`);
         const data = await res.json();
 
         if (res.ok && data.status === 'success') {
+            updateProgress(70, 'Processing data...');
+            setStage('stage-process');
+
             lastPulledData = data.data?.logs || [];
-            showToast(`Successfully pulled ${lastPulledData.length} logs`, 'success');
             
-            if (lastPulledData.length > 0) {
-                container.style.display = 'block';
-                emptyState.style.display = 'none';
-                pullPageState.page = 1;
-                renderPullResults(lastPulledData);
+            updateProgress(100, mode === 'sync' ? 'Sync completed!' : 'Preview ready!');
+            setStage('stage-done');
+
+            if (mode === 'sync') {
+                showToast(data.message || `Successfully synced ${lastPulledData.length} logs`, 'success');
+                // Show status summary
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = `
+                    <div style="color: var(--success); font-weight: 600; margin-bottom: 0.5rem;">
+                        <i class="fas fa-check-circle"></i> ${data.message || 'Sync Completed'}
+                    </div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">
+                        Total logs retrieved: ${lastPulledData.length}
+                    </div>
+                `;
             } else {
-                container.style.display = 'none';
-                emptyState.style.display = 'block';
-                emptyState.innerHTML = '<i class="fas fa-info-circle"></i> No new logs found on device.';
+                showToast(`Successfully pulled ${lastPulledData.length} logs for preview`, 'success');
+                if (lastPulledData.length > 0) {
+                    resultsContainer.style.display = 'block';
+                    pullPageState.page = 1;
+                    renderPullResults();
+                } else {
+                    statusDiv.style.display = 'block';
+                    statusDiv.innerHTML = '<i class="fas fa-info-circle"></i> No new logs found on device.';
+                }
             }
         } else {
-            showToast(data.message || 'Failed to pull data', 'error');
+            throw new Error(data.message || 'Failed to pull data');
         }
     } catch (err) {
-        showToast('Network error during pull', 'error');
+        showToast(err.message || 'Network error during pull', 'error');
+        updateProgress(0, 'Failed');
+        resetStages();
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i> Pull & Preview Data';
+        if (btnPreview) btnPreview.disabled = false;
+        if (btnSync) btnSync.disabled = false;
+        // Hide progress after a delay if success, or keep if needed
+        setTimeout(() => {
+            // progressWrap.style.display = 'none';
+        }, 3000);
+    }
+
+    function updateProgress(pct, label) {
+        if (progressBar) progressBar.style.width = pct + '%';
+        if (progressPct) progressPct.innerText = pct + '%';
+        if (progressLabel) progressLabel.innerText = label;
+    }
+
+    function setStage(stageId) {
+        resetStages();
+        const el = document.getElementById(stageId);
+        if (el) {
+            el.style.background = 'rgba(36, 97, 150, 0.2)';
+            el.style.borderColor = 'var(--primary)';
+            el.style.color = 'var(--text)';
+        }
+    }
+
+    function resetStages() {
+        ['stage-connect', 'stage-fetch', 'stage-process', 'stage-done'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.background = 'rgba(255,255,255,0.04)';
+                el.style.borderColor = 'var(--glass-border)';
+                el.style.color = 'var(--text-muted)';
+            }
+        });
     }
 }
 
-export function renderPullResults(logs) {
+export function renderPullResults() {
+    const logs = lastPulledData;
     if (!logs) return;
 
     const isPresensi = _currentPullView === 'presensi';
-    const dataToRender = logs;
+    
+    // Update pagination info
+    const total = logs.length;
+    pullPageState.total = total;
+    
+    const totalPages = Math.ceil(total / pullPageState.limit);
+    const info = document.getElementById('pull-results-info');
+    const start = (pullPageState.page - 1) * pullPageState.limit + 1;
+    const end = Math.min(pullPageState.page * pullPageState.limit, total);
+    
+    if (info) info.innerText = `Showing ${total ? start : 0}-${end} of ${total}`;
+    
+    const prevBtn = document.getElementById('pull-prev-btn');
+    const nextBtn = document.getElementById('pull-next-btn');
+    if (prevBtn) prevBtn.disabled = pullPageState.page <= 1;
+    if (nextBtn) nextBtn.disabled = pullPageState.page >= totalPages;
 
-    const total = dataToRender.length;
-    renderPullPagination(total);
+    // Render pagination numbers
+    renderPullPaginationNumbers(totalPages);
 
-    const start = (pullPageState.page - 1) * pullPageState.limit;
-    const paged = dataToRender.slice(start, start + pullPageState.limit);
+    const startIdx = (pullPageState.page - 1) * pullPageState.limit;
+    const paged = logs.slice(startIdx, startIdx + pullPageState.limit);
 
     if (isPresensi) {
-        const presensiBody = document.getElementById('pull-presensi-body');
-        presensiBody.innerHTML = paged.map(log => {
-            const dt = new Date(log.timestamp);
-            const dateStr = dt.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
-            const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
-            const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : (absensi.startsWith('Masuk') ? 'badge-success' : 'badge-info');
+        const body = document.getElementById('pull-presensi-body');
+        if (body) {
+            body.innerHTML = paged.map(log => {
+                const dt = new Date(log.timestamp);
+                const dateStr = dt.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+                const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
+                const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : (absensi.startsWith('Masuk') ? 'badge-success' : 'badge-info');
 
-            return `<tr>
-                <td><strong>${log.userId}</strong></td>
-                <td>${log.name || 'Unknown'}</td>
-                <td>${dateStr}</td>
-                <td><strong style="color: var(--primary);">${timeStr}</strong></td>
-                <td><span class="badge ${badgeCls}">${absensi}</span></td>
-            </tr>`;
-        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+                return `<tr>
+                    <td><strong>${log.userId}</strong></td>
+                    <td>${log.name || 'Unknown'}</td>
+                    <td>${dateStr}</td>
+                    <td><strong style="color: var(--primary);">${timeStr}</strong></td>
+                    <td><span class="badge ${badgeCls}">${absensi}</span></td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
+        }
     } else {
-        const rawBody = document.getElementById('pull-raw-body');
-        rawBody.innerHTML = paged.map(log => {
-            const dt = new Date(log.timestamp);
-            const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString('id-ID');
-            const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
-            const badgeCls = absensi.startsWith('Pulang') ? 'badge-warning' : (absensi.startsWith('Masuk') ? 'badge-success' : 'badge-info');
-            return `<tr>
-                <td><strong>${log.userId}</strong></td>
-                <td>${dateStr}</td>
-                <td><span class="badge ${badgeCls}">${absensi}</span></td>
-            </tr>`;
-        }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">Tidak ada data</td></tr>';
+        const body = document.getElementById('pull-raw-body');
+        if (body) {
+            body.innerHTML = paged.map(log => {
+                const dt = new Date(log.timestamp);
+                const dateStr = isNaN(dt.getTime()) ? log.timestamp : dt.toLocaleString('id-ID');
+                const absensi = log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang');
+                return `<tr>
+                    <td><strong>${log.userId}</strong></td>
+                    <td>${dateStr}</td>
+                    <td><span class="badge">${absensi}</span></td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
+        }
     }
 }
 
-export function changePullView(view) {
+function renderPullPaginationNumbers(totalPages) {
+    const container = document.getElementById('pull-pagination-numbers');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+
+    const maxLinks = 5;
+    let start = Math.max(1, pullPageState.page - 2);
+    let end = Math.min(totalPages, start + maxLinks - 1);
+    if (end - start < maxLinks - 1) start = Math.max(1, end - maxLinks + 1);
+
+    for (let i = start; i <= end; i++) {
+        const btn = document.createElement('div');
+        btn.className = `page-link ${i === pullPageState.page ? 'active' : ''}`;
+        btn.innerText = i;
+        btn.onclick = () => {
+            pullPageState.page = i;
+            renderPullResults();
+        };
+        container.appendChild(btn);
+    }
+}
+
+export function switchPullView(view) {
     _currentPullView = view;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.tab-btn[onclick*="${view}"]`).classList.add('active');
-
+    
+    const tabPresensi = document.getElementById('tab-presensi');
+    const tabRaw = document.getElementById('tab-raw');
+    
     if (view === 'presensi') {
-        document.getElementById('pull-presensi-view').style.display = 'block';
-        document.getElementById('pull-raw-view').style.display = 'none';
+        if (tabPresensi) {
+            tabPresensi.style.background = 'var(--primary)';
+            tabPresensi.style.color = 'white';
+        }
+        if (tabRaw) {
+            tabRaw.style.background = 'transparent';
+            tabRaw.style.color = 'var(--text-muted)';
+        }
+        document.getElementById('view-presensi').style.display = 'block';
+        document.getElementById('view-raw').style.display = 'none';
     } else {
-        document.getElementById('pull-presensi-view').style.display = 'none';
-        document.getElementById('pull-raw-view').style.display = 'block';
+        if (tabPresensi) {
+            tabPresensi.style.background = 'transparent';
+            tabPresensi.style.color = 'var(--text-muted)';
+        }
+        if (tabRaw) {
+            tabRaw.style.background = 'var(--primary)';
+            tabRaw.style.color = 'white';
+        }
+        document.getElementById('view-presensi').style.display = 'none';
+        document.getElementById('view-raw').style.display = 'block';
     }
-    renderPullResults(lastPulledData);
+    
+    pullPageState.page = 1;
+    renderPullResults();
 }
 
-export function renderPullPagination(total) {
-    const totalPages = Math.ceil(total / pullPageState.limit);
-    document.getElementById('pull-page-info').innerText = `Page ${pullPageState.page} of ${totalPages || 1} (${total} items)`;
-    document.getElementById('btn-pull-prev').disabled = pullPageState.page <= 1;
-    document.getElementById('btn-pull-next').disabled = pullPageState.page >= totalPages;
+export function updatePullPageSize(val) {
+    pullPageState.limit = parseInt(val);
+    pullPageState.page = 1;
+    renderPullResults();
 }
 
 export function nextPullPage() {
-    pullPageState.page++;
-    renderPullResults(lastPulledData);
+    const totalPages = Math.ceil(pullPageState.total / pullPageState.limit);
+    if (pullPageState.page < totalPages) {
+        pullPageState.page++;
+        renderPullResults();
+    }
 }
 
 export function prevPullPage() {
-    pullPageState.page--;
-    renderPullResults(lastPulledData);
-}
-
-export async function savePulledLogs() {
-    if (!lastPulledData || lastPulledData.length === 0) return;
-
-    showConfirm({
-        title: 'Sync to Database',
-        message: `You are about to save <strong>${lastPulledData.length}</strong> logs to the main attendance system. Duplicate logs will be automatically handled.`,
-        icon: 'fa-database',
-        confirmText: 'Save to Main Database',
-        onConfirm: async () => {
-            const sn = document.getElementById('pull-device-select').value;
-            const btn = document.getElementById('btn-save-pull');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-
-            try {
-                // Now we pull with mode=sync to actually save
-                const res = await fetch(`/api/pull?sn=${sn}&mode=sync`);
-                const data = await res.json();
-                
-                if (res.ok) {
-                    showToast(data.message || 'Data synchronized successfully', 'success');
-                    // Clear preview
-                    lastPulledData = [];
-                    document.getElementById('pull-results-container').style.display = 'none';
-                    document.getElementById('pull-empty-state').style.display = 'block';
-                    document.getElementById('pull-empty-state').innerHTML = '<i class="fas fa-check-circle" style="color:var(--success)"></i> Data successfully synchronized to database.';
-                } else {
-                    showToast(data.message || 'Sync failed', 'error');
-                }
-            } catch (err) {
-                showToast('Network error during sync', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check"></i> Fix & Sync to Database';
-            }
-        }
-    });
+    if (pullPageState.page > 1) {
+        pullPageState.page--;
+        renderPullResults();
+    }
 }
 
 export function exportPulledData() {
@@ -184,52 +285,16 @@ export function exportPulledData() {
         showToast('No data to export', 'warning');
         return;
     }
-
+    // ... existing export logic ...
+    // Note: SheetJS (XLSX) is already loaded in index.html, using CSV for simplicity or XLSX
     try {
-        let csvContent, filename;
-
-        if (_currentPullView === 'presensi') {
-            const headers = ['User ID', 'Name', 'Date', 'Time', 'Type'];
-            const rows = lastPulledData.map(log => {
-                const dt = new Date(log.timestamp);
-                const dateStr = dt.toISOString().slice(0, 10);
-                const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                return [
-                    log.userId,
-                    log.name || 'Unknown',
-                    dateStr,
-                    timeStr,
-                    log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')
-                ].map(v => `"${v}"`).join(',');
-            });
-            csvContent = [headers.join(','), ...rows].join('\n');
-            filename = `summary_${new Date().toISOString().slice(0, 10)}.csv`;
-        } else {
-            const headers = ['User ID', 'Timestamp', 'Tipe'];
-            const rows = lastPulledData.map(log => {
-                const dt = new Date(log.timestamp);
-                const tsStr = isNaN(dt.getTime()) ? log.timestamp : dt.toISOString();
-                return [log.userId, tsStr, log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')].join(',');
-            });
-            csvContent = [headers.join(','), ...rows].join('\n');
-            filename = `rawlog_${new Date().toISOString().slice(0, 10)}.csv`;
-        }
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        showToast('Exporting to CSV...', 'success');
+        const worksheet = XLSX.utils.json_to_sheet(lastPulledData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Pulled Logs");
+        XLSX.writeFile(workbook, `pulled_logs_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        showToast('Export successful', 'success');
     } catch (err) {
-        console.error('Export error:', err);
-        showToast('Export failed: ' + err.message, 'error');
+        showToast('Export failed', 'error');
     }
 }
 
@@ -238,24 +303,11 @@ export function downloadRawData() {
         showToast('No data to download', 'warning');
         return;
     }
-
-    try {
-        const jsonContent = JSON.stringify(lastPulledData, null, 2);
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `fingerprint_raw_${timestamp}.json`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        showToast('Downloading Raw JSON...', 'success');
-    } catch (err) {
-        console.error('Download error:', err);
-        showToast('Download failed', 'error');
-    }
+    const blob = new Blob([JSON.stringify(lastPulledData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `raw_pull_${new Date().getTime()}.json`;
+    a.click();
+    showToast('Download started', 'success');
 }
