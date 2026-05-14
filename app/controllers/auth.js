@@ -112,6 +112,48 @@ export const me = (req, res) => {
     })
 }
 
+export const verify = async (req, res) => {
+    const { password } = req.body
+    const userId = req.user.id
+    const ip = getClientIp(req)
+
+    if (!password) {
+        return res.status(400).json({ status: 'error', message: 'Password is required' })
+    }
+
+    try {
+        const { rows } = await pool.query('SELECT password FROM users WHERE id = $1', [userId])
+        const user = rows[0]
+
+        if (!user) return res.status(404).json({ status: 'error', message: 'User not found' })
+
+        const match = await bcrypt.compare(password, user.password)
+        if (match) {
+            await recordActivity({
+                username: req.user.username,
+                action: 'verify_settings_access',
+                category: 'auth',
+                detail: 'Secondary authentication successful for settings access',
+                ip
+            })
+            return res.json({ status: 'success', message: 'Verified' })
+        } else {
+            await recordActivity({
+                username: req.user.username,
+                action: 'verify_settings_access',
+                category: 'auth',
+                detail: 'Secondary authentication failed: wrong password',
+                ip,
+                status: 'failed'
+            })
+            return res.status(401).json({ status: 'error', message: 'Invalid password' })
+        }
+    } catch (err) {
+        console.error('Verify error:', err)
+        res.status(500).json({ status: 'error', message: 'Verification failed' })
+    }
+}
+
 export const updateAccount = async (req, res) => {
     const { username, password } = req.body
     const userId = req.user.id
