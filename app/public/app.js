@@ -119,7 +119,7 @@ function showDashboard() {
 
     // Restore page from URL hash or default to overview
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'activity', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pull', 'activity', 'settings'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
@@ -2295,7 +2295,7 @@ window.addEventListener('resize', () => {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'activity', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pull', 'activity', 'settings'];
     if (hash && validPages.includes(hash) && hash !== currentPath) {
         showPage(hash);
     }
