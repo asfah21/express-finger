@@ -25,6 +25,7 @@ window.closeModal = () => toggleModal(false);
 window.updatePaginationUI = updatePaginationUI;
 window.showDashboard = showDashboard;
 window.showLogin = showLogin;
+window.toggleActions = toggleActions;
 
 // Device Page Functions
 window.refreshDevices = refreshDevices;
