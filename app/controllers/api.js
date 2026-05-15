@@ -227,6 +227,95 @@ export const apiController = {
     }
   },
 
+  async getAttendanceSummary(req, res) {
+    try {
+      const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
+      const { from_date = todayWita, to_date = todayWita, user_id, limit = 1000, offset = 0 } = req.query;
+      
+      const from = new Date(`${from_date}T00:00:00+08:00`);
+      const to = new Date(`${to_date}T23:59:59+08:00`);
+
+      let whereClause = `al."timestamp" BETWEEN $1 AND $2`;
+      let queryParams = [from, to, limit, offset];
+      
+      if (user_id) {
+        whereClause += ` AND al.user_id = $5`;
+        queryParams.push(String(user_id));
+      }
+
+      // Query to pivot Check-In (type 0) and Check-Out (type 1) per day per user
+      const query = `
+        WITH daily_logs AS (
+          SELECT 
+            al.user_id,
+            DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar') as log_date,
+            MIN(al."timestamp") FILTER (WHERE al.type = 0) as check_in_time,
+            MAX(al."timestamp") FILTER (WHERE al.type = 1) as check_out_time
+          FROM attendance_logs al
+          ${whereClause ? 'WHERE ' + whereClause : ''}
+          GROUP BY al.user_id, DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar')
+        )
+        SELECT 
+          dl.log_date,
+          dl.user_id,
+          e.nik,
+          e.nama,
+          e.department,
+          e.jabatan,
+          dl.check_in_time,
+          dl.check_out_time
+        FROM daily_logs dl
+        LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
+        ORDER BY dl.log_date DESC, dl.user_id ASC
+        LIMIT $3 OFFSET $4;
+      `;
+
+      const { rows } = await pool.query({ text: query, values: queryParams });
+
+      // Format response for external systems
+      const formattedData = rows.map(row => {
+        const checkIn = row.check_in_time ? new Date(row.check_in_time) : null;
+        const checkOut = row.check_out_time ? new Date(row.check_out_time) : null;
+        
+        let workHoursStr = null;
+        if (checkIn && checkOut && checkOut > checkIn) {
+            const diffMs = checkOut - checkIn;
+            const diffHrs = Math.floor(diffMs / 3600000);
+            const diffMins = Math.floor((diffMs % 3600000) / 60000);
+            workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
+        }
+
+        const toTimeString = (dt) => dt ? dt.toISOString().split('T')[1].substring(0, 8) : null;
+
+        return {
+          date: new Date(row.log_date).toISOString().split('T')[0],
+          user_id: row.user_id,
+          nik: row.nik || null,
+          nama: row.nama || null,
+          department: row.department || null,
+          jabatan: row.jabatan || null,
+          check_in: toTimeString(checkIn),
+          check_out: toTimeString(checkOut),
+          work_hours: workHoursStr,
+          status: checkIn && checkOut ? "Hadir Penuh" : (checkIn ? "Belum Pulang" : (checkOut ? "Tidak Absen Masuk" : "Tidak Hadir"))
+        };
+      });
+
+      res.json({ 
+        status: 'success', 
+        data: { 
+          from_date, 
+          to_date,
+          count: formattedData.length,
+          summary: formattedData 
+        } 
+      });
+
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e.message });
+    }
+  },
+
   async getRawFiles(_req, res) {
     try {
       const files = await readdir(config.RAW_DIR)
