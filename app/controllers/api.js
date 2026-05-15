@@ -262,8 +262,9 @@ export const apiController = {
           e.nama,
           e.department,
           e.jabatan,
-          dl.check_in_time,
-          dl.check_out_time
+          TO_CHAR(dl.check_in_time AT TIME ZONE 'Asia/Makassar', 'HH24:MI:SS') as check_in,
+          TO_CHAR(dl.check_out_time AT TIME ZONE 'Asia/Makassar', 'HH24:MI:SS') as check_out,
+          EXTRACT(EPOCH FROM (dl.check_out_time - dl.check_in_time)) as diff_seconds
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
         ORDER BY dl.log_date DESC, dl.user_id ASC
@@ -274,18 +275,12 @@ export const apiController = {
 
       // Format response for external systems
       const formattedData = rows.map(row => {
-        const checkIn = row.check_in_time ? new Date(row.check_in_time) : null;
-        const checkOut = row.check_out_time ? new Date(row.check_out_time) : null;
-        
         let workHoursStr = null;
-        if (checkIn && checkOut && checkOut > checkIn) {
-            const diffMs = checkOut - checkIn;
-            const diffHrs = Math.floor(diffMs / 3600000);
-            const diffMins = Math.floor((diffMs % 3600000) / 60000);
+        if (row.check_out && row.diff_seconds > 0) {
+            const diffHrs = Math.floor(row.diff_seconds / 3600);
+            const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
             workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
         }
-
-        const toTimeString = (dt) => dt ? dt.toISOString().split('T')[1].substring(0, 8) : null;
 
         return {
           date: new Date(row.log_date).toISOString().split('T')[0],
@@ -294,10 +289,10 @@ export const apiController = {
           nama: row.nama || null,
           department: row.department || null,
           jabatan: row.jabatan || null,
-          check_in: toTimeString(checkIn),
-          check_out: toTimeString(checkOut),
+          check_in: row.check_in,
+          check_out: row.check_out,
           work_hours: workHoursStr,
-          status: checkIn && checkOut ? "Hadir Penuh" : (checkIn ? "Belum Pulang" : (checkOut ? "Tidak Absen Masuk" : "Tidak Hadir"))
+          status: row.check_in && row.check_out ? "Hadir Penuh" : (row.check_in ? "Belum Pulang" : "Tidak Hadir")
         };
       });
 
