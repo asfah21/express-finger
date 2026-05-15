@@ -290,7 +290,7 @@ export const apiController = {
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
         WHERE dl.log_date >= $5::date AND dl.log_date <= $6::date
-        ORDER BY dl.log_date DESC, dl.user_id ASC
+        ORDER BY dl.log_date DESC, dl.check_in_time DESC NULLS LAST, dl.check_out_time DESC NULLS LAST
         LIMIT $3 OFFSET $4;
       `;
 
