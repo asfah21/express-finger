@@ -115,18 +115,71 @@ export async function showPrintSlipModal() {
             <i class="fas fa-print" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
             <p style="color: var(--text-muted);">Generate a professional monthly attendance report.</p>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="position: relative;">
             <label>Select Employee</label>
-            <select id="slip-employee-id" style="width: 100%; padding: 0.75rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px;">
-                <option value="">-- Select Employee --</option>
-                ${employees.map(e => `<option value="${e.user_id}">${e.nama} (${e.nik || e.user_id})</option>`).join('')}
-            </select>
+            <div style="position: relative;">
+                <input type="text" id="slip-employee-search" placeholder="Search by name or NIK..." 
+                    style="width: 100%; padding-right: 2.5rem;" autocomplete="off">
+                <i class="fas fa-search" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); opacity: 0.5;"></i>
+            </div>
+            <input type="hidden" id="slip-employee-id" value="">
+            
+            <div id="slip-employee-results" class="autocomplete-results" style="display: none;">
+                <!-- Results will be injected here -->
+            </div>
         </div>
         <div class="form-group">
             <label>Select Month</label>
             <input type="month" id="slip-month" value="${currentMonth}" style="width: 100%;">
         </div>
     `;
+
+    const searchInput = document.getElementById('slip-employee-search');
+    const resultsDiv = document.getElementById('slip-employee-results');
+    const hiddenId = document.getElementById('slip-employee-id');
+
+    searchInput.addEventListener('input', (e) => {
+        const val = e.target.value.toLowerCase();
+        if (val.length < 1) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const filtered = employees.filter(emp => 
+            emp.nama.toLowerCase().includes(val) || 
+            (emp.nik && emp.nik.toLowerCase().includes(val)) ||
+            emp.user_id.toString().includes(val)
+        ).slice(0, 10);
+
+        if (filtered.length > 0) {
+            resultsDiv.innerHTML = filtered.map(emp => `
+                <div class="autocomplete-item" data-id="${emp.user_id}" data-name="${emp.nama}">
+                    <div style="font-weight: 600;">${emp.nama}</div>
+                    <div style="font-size: 0.75rem; opacity: 0.7;">NIK: ${emp.nik || '-'} | ID: ${emp.user_id}</div>
+                </div>
+            `).join('');
+            resultsDiv.style.display = 'block';
+
+            // Add click handlers for items
+            resultsDiv.querySelectorAll('.autocomplete-item').forEach(item => {
+                item.onclick = () => {
+                    searchInput.value = item.dataset.name;
+                    hiddenId.value = item.dataset.id;
+                    resultsDiv.style.display = 'none';
+                };
+            });
+        } else {
+            resultsDiv.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--text-muted);">No employee found</div>';
+            resultsDiv.style.display = 'block';
+        }
+    });
+
+    // Close results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.style.display = 'none';
+        }
+    }, { once: true });
 
     const saveBtn = document.getElementById('modal-save-btn');
     saveBtn.style.display = 'block';

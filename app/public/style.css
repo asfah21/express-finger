@@ -918,3 +918,40 @@ select option {
     color: var(--error);
     background: rgba(248, 113, 113, 0.1);
 }
+
+/* Autocomplete Styles */
+.autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 0.75rem;
+    margin-top: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10000;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+:root.theme-light .autocomplete-results {
+    background: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.autocomplete-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover {
+    background: var(--hover-bg);
+    color: var(--primary);
+}
