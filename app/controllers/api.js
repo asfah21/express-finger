@@ -235,27 +235,47 @@ export const apiController = {
       const from = new Date(`${from_date}T00:00:00Z`);
       const to = new Date(`${to_date}T23:59:59Z`);
 
+      // Expand timestamp search by 1 day backward and forward to catch cross-midnight shifts
+      const fetchFrom = new Date(from);
+      fetchFrom.setDate(fetchFrom.getDate() - 1);
+      const fetchTo = new Date(to);
+      fetchTo.setDate(fetchTo.getDate() + 1);
+
       let whereClause = `al."timestamp" BETWEEN $1 AND $2`;
-      let queryParams = [from, to, limit, offset];
+      let queryParams = [fetchFrom, fetchTo, limit, offset, from.toISOString().split('T')[0], to.toISOString().split('T')[0]];
       
       if (user_id) {
-        whereClause += ` AND al.user_id = $5`;
+        whereClause += ` AND al.user_id = $7`;
         queryParams.push(String(user_id));
       }
 
       // Query to pivot Check-In (type 0) and Check-Out (type 1) per day per user
-      // We subtract 6 hours for grouping to ensure early morning check-outs (e.g. 01:00 AM)
-      // are paired with the previous day's check-in instead of the current day's.
+      // For night shifts: Check-Outs (type 1) before 09:00 AM are shifted 12 hours backward
+      // so they correctly pair with the previous day's Check-In.
       const query = `
         WITH daily_logs AS (
           SELECT 
             al.user_id,
-            DATE((al."timestamp" AT TIME ZONE 'UTC') - INTERVAL '6 hours') as log_date,
+            DATE(
+              (al."timestamp" AT TIME ZONE 'UTC') - 
+              CASE 
+                WHEN al.type = 1 AND EXTRACT(HOUR FROM (al."timestamp" AT TIME ZONE 'UTC')) < 9 
+                THEN INTERVAL '12 hours' 
+                ELSE INTERVAL '0 hours' 
+              END
+            ) as log_date,
             MIN(al."timestamp") FILTER (WHERE al.type = 0) as check_in_time,
             MAX(al."timestamp") FILTER (WHERE al.type = 1) as check_out_time
           FROM attendance_logs al
           ${whereClause ? 'WHERE ' + whereClause : ''}
-          GROUP BY al.user_id, DATE((al."timestamp" AT TIME ZONE 'UTC') - INTERVAL '6 hours')
+          GROUP BY al.user_id, DATE(
+              (al."timestamp" AT TIME ZONE 'UTC') - 
+              CASE 
+                WHEN al.type = 1 AND EXTRACT(HOUR FROM (al."timestamp" AT TIME ZONE 'UTC')) < 9 
+                THEN INTERVAL '12 hours' 
+                ELSE INTERVAL '0 hours' 
+              END
+            )
         )
         SELECT 
           dl.log_date,
@@ -269,6 +289,7 @@ export const apiController = {
           EXTRACT(EPOCH FROM (dl.check_out_time - dl.check_in_time)) as diff_seconds
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
+        WHERE dl.log_date >= $5::date AND dl.log_date <= $6::date
         ORDER BY dl.log_date DESC, dl.user_id ASC
         LIMIT $3 OFFSET $4;
       `;
