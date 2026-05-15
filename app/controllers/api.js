@@ -202,8 +202,8 @@ export const apiController = {
     try {
       const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
       const dateStr = String(req.query.date || todayWita)
-      const from = new Date(`${dateStr}T00:00:00+08:00`)
-      const to = new Date(`${dateStr}T23:59:59+08:00`)
+      const from = new Date(`${dateStr}T00:00:00Z`)
+      const to = new Date(`${dateStr}T23:59:59Z`)
       const { rows } = await pool.query({
         text: `
           SELECT user_id,
@@ -232,8 +232,8 @@ export const apiController = {
       const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
       const { from_date = todayWita, to_date = todayWita, user_id, limit = 1000, offset = 0 } = req.query;
       
-      const from = new Date(`${from_date}T00:00:00+08:00`);
-      const to = new Date(`${to_date}T23:59:59+08:00`);
+      const from = new Date(`${from_date}T00:00:00Z`);
+      const to = new Date(`${to_date}T23:59:59Z`);
 
       let whereClause = `al."timestamp" BETWEEN $1 AND $2`;
       let queryParams = [from, to, limit, offset];
@@ -244,16 +244,18 @@ export const apiController = {
       }
 
       // Query to pivot Check-In (type 0) and Check-Out (type 1) per day per user
+      // We subtract 6 hours for grouping to ensure early morning check-outs (e.g. 01:00 AM)
+      // are paired with the previous day's check-in instead of the current day's.
       const query = `
         WITH daily_logs AS (
           SELECT 
             al.user_id,
-            DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar') as log_date,
+            DATE((al."timestamp" AT TIME ZONE 'UTC') - INTERVAL '6 hours') as log_date,
             MIN(al."timestamp") FILTER (WHERE al.type = 0) as check_in_time,
             MAX(al."timestamp") FILTER (WHERE al.type = 1) as check_out_time
           FROM attendance_logs al
           ${whereClause ? 'WHERE ' + whereClause : ''}
-          GROUP BY al.user_id, DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar')
+          GROUP BY al.user_id, DATE((al."timestamp" AT TIME ZONE 'UTC') - INTERVAL '6 hours')
         )
         SELECT 
           dl.log_date,
@@ -262,8 +264,8 @@ export const apiController = {
           e.nama,
           e.department,
           e.jabatan,
-          TO_CHAR(dl.check_in_time AT TIME ZONE 'Asia/Makassar', 'HH24:MI:SS') as check_in,
-          TO_CHAR(dl.check_out_time AT TIME ZONE 'Asia/Makassar', 'HH24:MI:SS') as check_out,
+          TO_CHAR(dl.check_in_time AT TIME ZONE 'UTC', 'HH24:MI:SS') as check_in,
+          TO_CHAR(dl.check_out_time AT TIME ZONE 'UTC', 'HH24:MI:SS') as check_out,
           EXTRACT(EPOCH FROM (dl.check_out_time - dl.check_in_time)) as diff_seconds
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
