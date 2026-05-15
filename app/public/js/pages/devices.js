@@ -12,12 +12,24 @@ export async function refreshDevices() {
     
     body.innerHTML = (data.data?.list || []).map(dev => `
         <tr>
-            <td><span class="badge ${dev.is_active ? 'badge-success' : 'badge-error'}">${dev.is_active ? 'Online' : 'Offline'}</span></td>
+            <td>
+                <span class="badge ${dev.status === 'online' ? 'badge-success' : 'badge-error'}">
+                    <i class="fas fa-circle" style="font-size: 0.6rem; margin-right: 4px;"></i>
+                    ${dev.status === 'online' ? 'Online' : 'Offline'}
+                </span>
+            </td>
             <td>${dev.name || 'Unnamed'}</td>
             <td>${dev.ip}</td>
             <td>${dev.sn || '-'}</td>
             <td><span class="badge">${dev.sync_mode || 'HYBRID'}</span></td>
-            <td>${dev.last_sync ? new Date(dev.last_sync).toLocaleString() : 'Never'}</td>
+            <td>
+                <div style="font-size: 0.85rem;">
+                    <div>Sync: ${dev.last_sync ? new Date(dev.last_sync).toLocaleString() : 'Never'}</div>
+                    <div style="color: var(--text-muted); font-size: 0.75rem;">
+                        Online: ${dev.last_online ? new Date(dev.last_online).toLocaleString() : 'Never'}
+                    </div>
+                </div>
+            </td>
             <td>
                 <div class="action-dropdown">
                     <button class="icon-btn" onclick="toggleActions(event, this)" title="Actions">

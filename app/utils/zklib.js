@@ -31,6 +31,21 @@ export async function clearDeviceLogs(ip, port = 4370) {
     }
 }
 
+/**
+ * Lightweight check if device is online
+ */
+export async function checkDeviceStatus(ip, port = 4370) {
+    const zk = new ZKLib(ip, parseInt(port), 5000, 5200);
+    try {
+        await zk.createSocket();
+        await zk.disconnect();
+        return true;
+    } catch (err) {
+        try { await zk.disconnect(); } catch (e) { }
+        return false;
+    }
+}
+
 export async function pullDeviceLogs(ip, port = 4370, sn = null) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
 

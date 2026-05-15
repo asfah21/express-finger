@@ -36,9 +36,15 @@ export async function ensureSchema() {
       port INT DEFAULT 4370,
       is_active BOOLEAN DEFAULT true,
       sync_mode TEXT DEFAULT 'HYBRID',
+      status TEXT DEFAULT 'offline',
       last_sync TIMESTAMPTZ,
+      last_online TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+    
+    -- Ensure status and last_online columns exist for existing installations
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'offline';
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_online TIMESTAMPTZ;
     
     -- Ensure sync_mode column exists for existing installations
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS sync_mode TEXT DEFAULT 'HYBRID';

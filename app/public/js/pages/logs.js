@@ -83,6 +83,10 @@ export function showExportMenu() {
             <button class="btn-primary" id="btn-export-absolute" style="background: #1a202c;">
                 <i class="fas fa-file-invoice"></i> Export All (Ignored Filters)
             </button>
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;">
+            <button class="btn-primary" id="btn-print-slip" style="background: var(--secondary); color: white;">
+                <i class="fas fa-file-pdf"></i> Generate Monthly Slip (PDF)
+            </button>
         </div>
     `;
 
@@ -90,9 +94,143 @@ export function showExportMenu() {
     document.getElementById('btn-export-today').onclick = () => performExport('today');
     document.getElementById('btn-export-3days').onclick = () => performExport('3days');
     document.getElementById('btn-export-absolute').onclick = () => performExport('all_absolute');
+    document.getElementById('btn-print-slip').onclick = showPrintSlipModal;
 
     const saveBtn = document.getElementById('modal-save-btn');
     saveBtn.style.display = 'none';
+}
+
+export async function showPrintSlipModal() {
+    // Fetch all employees to select one
+    const res = await fetch('/api/employees?limit=1000');
+    const data = await res.json();
+    const employees = data.data?.list || [];
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    document.getElementById('modal-title').innerText = 'Generate Monthly Slip';
+    document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <i class="fas fa-print" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;"></i>
+            <p style="color: var(--text-muted);">Generate a professional monthly attendance report.</p>
+        </div>
+        <div class="form-group">
+            <label>Select Employee</label>
+            <select id="slip-employee-id" style="width: 100%; padding: 0.75rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px;">
+                <option value="">-- Select Employee --</option>
+                ${employees.map(e => `<option value="${e.user_id}">${e.nama} (${e.nik || e.user_id})</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Select Month</label>
+            <input type="month" id="slip-month" value="${currentMonth}" style="width: 100%;">
+        </div>
+    `;
+
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.style.display = 'block';
+    saveBtn.innerText = 'Generate PDF Slip';
+    saveBtn.onclick = generatePDFSlip;
+}
+
+async function generatePDFSlip() {
+    const employeeId = document.getElementById('slip-employee-id').value;
+    const monthStr = document.getElementById('slip-month').value;
+
+    if (!employeeId || !monthStr) {
+        return showToast('Please select employee and month', 'warning');
+    }
+
+    try {
+        showToast('Fetching data for PDF...');
+        const [year, month] = monthStr.split('-');
+        
+        // Fetch specific employee logs for that month
+        const fromDate = `${monthStr}-01T00:00:00%2B08:00`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const toDate = `${monthStr}-${lastDay}T23:59:59%2B08:00`;
+
+        const res = await fetch(`/api/logs?user_id=${employeeId}&from=${fromDate}&to=${toDate}&limit=1000`);
+        const data = await res.json();
+        const logs = data.data?.logs || [];
+
+        if (logs.length === 0) {
+            return showToast('No data found for this period', 'warning');
+        }
+
+        const employee = logs[0]; // Info employee dari log pertama
+        
+        // Generate PDF using jsPDF
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // --- Header ---
+        doc.setFontSize(22);
+        doc.setTextColor(40, 44, 52);
+        doc.text("MONTHLY ATTENDANCE SLIP", 105, 20, null, null, "center");
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 26, null, null, "center");
+
+        doc.setDrawColor(0, 102, 204);
+        doc.setLineWidth(0.5);
+        doc.line(14, 30, 196, 30);
+
+        // --- Info Section ---
+        doc.setFontSize(11);
+        doc.setTextColor(0);
+        doc.setFont(undefined, 'bold');
+        doc.text("EMPLOYEE INFORMATION", 14, 40);
+        
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`Name: ${employee.nama || 'N/A'}`, 14, 48);
+        doc.text(`NIK: ${employee.nik || '-'}`, 14, 54);
+        doc.text(`Dept: ${employee.department || '-'}`, 14, 60);
+        
+        doc.text(`Period: ${new Date(year, month-1).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}`, 130, 48);
+        doc.text(`ID Device: ${employee.user_id}`, 130, 54);
+        doc.text(`Jabatan: ${employee.jabatan || '-'}`, 130, 60);
+
+        // --- Table ---
+        const tableData = logs.map(log => {
+            const dt = new Date(log.timestamp);
+            return [
+                `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`,
+                dt.toISOString().split('T')[1].substring(0, 8),
+                log.absensi,
+                log.ket || '-'
+            ];
+        });
+
+        doc.autoTable({
+            startY: 70,
+            head: [['Date', 'Time', 'Status', 'Remarks']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [0, 102, 204], textColor: 255 },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            margin: { top: 70 },
+        });
+
+        // --- Footer / Signature ---
+        const finalY = doc.lastAutoTable.finalY + 20;
+        doc.setFontSize(10);
+        doc.text("Printed by AZRA System", 14, 285);
+        
+        doc.text("Manager / Supervisor,", 150, finalY);
+        doc.text("( ____________________ )", 150, finalY + 25);
+
+        doc.save(`Slip_${employee.nama}_${monthStr}.pdf`);
+        showToast('PDF Generated successfully', 'success');
+        toggleModal(false);
+
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to generate PDF', 'error');
+    }
 }
 
 async function performExport(range) {
