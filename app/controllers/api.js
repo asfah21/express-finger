@@ -250,28 +250,41 @@ export const apiController = {
       }
 
       // Query to pivot Check-In (type 0) and Check-Out (type 1) per day per user
-      // For night shifts: Check-Outs (type 1) before 09:00 AM are shifted 12 hours backward
-      // so they correctly pair with the previous day's Check-In.
+      // We use LEAD to detect if a user accidentally pressed IN (0) then OUT (1) within 5 minutes (300s).
+      // We filter out that accidental IN so it doesn't create a ghost check-in.
       const query = `
-        WITH daily_logs AS (
+        WITH raw_logs AS (
           SELECT 
             al.user_id,
+            al."timestamp" AT TIME ZONE 'UTC' as ts,
+            al.type,
+            LEAD(al."timestamp" AT TIME ZONE 'UTC') OVER (PARTITION BY al.user_id ORDER BY al."timestamp") as next_ts,
+            LEAD(al.type) OVER (PARTITION BY al.user_id ORDER BY al."timestamp") as next_type
+          FROM attendance_logs al
+          ${whereClause ? 'WHERE ' + whereClause : ''}
+        ),
+        cleaned_logs AS (
+          SELECT * FROM raw_logs
+          WHERE NOT (type = 0 AND next_type = 1 AND EXTRACT(EPOCH FROM (next_ts - ts)) <= 300)
+        ),
+        daily_logs AS (
+          SELECT 
+            user_id,
             DATE(
-              (al."timestamp" AT TIME ZONE 'UTC') - 
+              ts - 
               CASE 
-                WHEN al.type = 1 AND EXTRACT(HOUR FROM (al."timestamp" AT TIME ZONE 'UTC')) < 9 
+                WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9 
                 THEN INTERVAL '12 hours' 
                 ELSE INTERVAL '0 hours' 
               END
             ) as log_date,
-            MIN(al."timestamp" AT TIME ZONE 'UTC') as first_scan,
-            MAX(al."timestamp" AT TIME ZONE 'UTC') as last_scan
-          FROM attendance_logs al
-          ${whereClause ? 'WHERE ' + whereClause : ''}
-          GROUP BY al.user_id, DATE(
-              (al."timestamp" AT TIME ZONE 'UTC') - 
+            MIN(ts) FILTER (WHERE type = 0) as check_in_time,
+            MAX(ts) FILTER (WHERE type = 1) as check_out_time
+          FROM cleaned_logs
+          GROUP BY user_id, DATE(
+              ts - 
               CASE 
-                WHEN al.type = 1 AND EXTRACT(HOUR FROM (al."timestamp" AT TIME ZONE 'UTC')) < 9 
+                WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9 
                 THEN INTERVAL '12 hours' 
                 ELSE INTERVAL '0 hours' 
               END
@@ -284,13 +297,13 @@ export const apiController = {
           e.nama,
           e.department,
           e.jabatan,
-          TO_CHAR(dl.first_scan, 'HH24:MI:SS') as check_in,
-          CASE WHEN dl.first_scan <> dl.last_scan THEN TO_CHAR(dl.last_scan, 'HH24:MI:SS') ELSE NULL END as check_out,
-          CASE WHEN dl.first_scan <> dl.last_scan THEN EXTRACT(EPOCH FROM (dl.last_scan - dl.first_scan)) ELSE 0 END as diff_seconds
+          TO_CHAR(dl.check_in_time, 'HH24:MI:SS') as check_in,
+          TO_CHAR(dl.check_out_time, 'HH24:MI:SS') as check_out,
+          EXTRACT(EPOCH FROM (dl.check_out_time - dl.check_in_time)) as diff_seconds
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
         WHERE dl.log_date >= $5::date AND dl.log_date <= $6::date
-        ORDER BY dl.log_date DESC, dl.first_scan DESC NULLS LAST, dl.last_scan DESC NULLS LAST
+        ORDER BY dl.log_date DESC, dl.check_in_time DESC NULLS LAST, dl.check_out_time DESC NULLS LAST
         LIMIT $3 OFFSET $4;
       `;
 
