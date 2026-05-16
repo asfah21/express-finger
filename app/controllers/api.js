@@ -265,7 +265,7 @@ export const apiController = {
         ),
         cleaned_logs AS (
           SELECT * FROM raw_logs
-          WHERE NOT (type = 0 AND next_type = 1 AND EXTRACT(EPOCH FROM (next_ts - ts)) <= 300)
+          WHERE COALESCE(type = 0 AND next_type = 1 AND EXTRACT(EPOCH FROM (next_ts - ts)) <= 300, FALSE) = FALSE
         ),
         daily_logs AS (
           SELECT 
@@ -302,7 +302,9 @@ export const apiController = {
           EXTRACT(EPOCH FROM (dl.check_out_time - dl.check_in_time)) as diff_seconds
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
-        WHERE dl.log_date >= $5::date AND dl.log_date <= $6::date
+        WHERE (dl.log_date >= $5::date AND dl.log_date <= $6::date)
+           OR (DATE(dl.check_out_time) >= $5::date AND DATE(dl.check_out_time) <= $6::date)
+           OR (DATE(dl.check_in_time) >= $5::date AND DATE(dl.check_in_time) <= $6::date)
         ORDER BY dl.log_date DESC, dl.check_in_time DESC NULLS LAST, dl.check_out_time DESC NULLS LAST
         LIMIT $3 OFFSET $4;
       `;
