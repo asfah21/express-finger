@@ -264,8 +264,8 @@ export const apiController = {
                 ELSE INTERVAL '0 hours' 
               END
             ) as log_date,
-            MIN(al."timestamp") FILTER (WHERE al.type = 0) as check_in_time,
-            MAX(al."timestamp") FILTER (WHERE al.type = 1) as check_out_time
+            MIN(al."timestamp" AT TIME ZONE 'UTC') as first_scan,
+            MAX(al."timestamp" AT TIME ZONE 'UTC') as last_scan
           FROM attendance_logs al
           ${whereClause ? 'WHERE ' + whereClause : ''}
           GROUP BY al.user_id, DATE(
@@ -284,13 +284,13 @@ export const apiController = {
           e.nama,
           e.department,
           e.jabatan,
-          TO_CHAR(dl.check_in_time AT TIME ZONE 'UTC', 'HH24:MI:SS') as check_in,
-          TO_CHAR(dl.check_out_time AT TIME ZONE 'UTC', 'HH24:MI:SS') as check_out,
-          EXTRACT(EPOCH FROM (dl.check_out_time - dl.check_in_time)) as diff_seconds
+          TO_CHAR(dl.first_scan, 'HH24:MI:SS') as check_in,
+          CASE WHEN dl.first_scan <> dl.last_scan THEN TO_CHAR(dl.last_scan, 'HH24:MI:SS') ELSE NULL END as check_out,
+          CASE WHEN dl.first_scan <> dl.last_scan THEN EXTRACT(EPOCH FROM (dl.last_scan - dl.first_scan)) ELSE 0 END as diff_seconds
         FROM daily_logs dl
         LEFT JOIN employee e ON dl.user_id::text = e.user_id::text
         WHERE dl.log_date >= $5::date AND dl.log_date <= $6::date
-        ORDER BY dl.log_date DESC, dl.check_in_time DESC NULLS LAST, dl.check_out_time DESC NULLS LAST
+        ORDER BY dl.log_date DESC, dl.first_scan DESC NULLS LAST, dl.last_scan DESC NULLS LAST
         LIMIT $3 OFFSET $4;
       `;
 
