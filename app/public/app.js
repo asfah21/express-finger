@@ -147,8 +147,8 @@ function showPage(pageId) {
     const titles = {
         'overview': 'System Overview',
         'devices': 'Devices & Sync',
-        'employees': 'Employee Management',
-        'logs': 'Attendance Logs',
+        'employees': 'Employee List',
+        'logs': 'Attendance Log',
         'activity': 'Activity Log',
         'pull': 'Pull Data',
         'settings': 'System Settings'
@@ -160,7 +160,7 @@ function showPage(pageId) {
         item.classList.remove('active');
         if (item.getAttribute('onclick')?.includes(`'${pageId}'`)) {
             item.classList.add('active');
-            
+
             // Auto-expand parent submenu if it is a sub-menu item
             const parentSubmenu = item.closest('.submenu-container');
             if (parentSubmenu) {

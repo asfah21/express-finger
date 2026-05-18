@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    
+
     <script type="module">
         async function loadIncludes() {
             const includes = document.querySelectorAll('[data-include]');
@@ -26,20 +26,20 @@
                     console.error('Error loading include:', e);
                 }
             }));
-            
+
             // Now load the main app.js
             const script = document.createElement('script');
             script.type = 'module';
             script.src = 'app.js';
             document.head.appendChild(script);
         }
-        
+
         // Dynamic submenu toggle logic
-        window.toggleSubMenu = function(menuEl, submenuId) {
+        window.toggleSubMenu = function (menuEl, submenuId) {
             const submenu = document.getElementById(submenuId);
             if (!submenu) return;
             const isOpen = submenu.classList.contains('open');
-            
+
             // Close all other submenus first (accordion style)
             document.querySelectorAll('.submenu-container').forEach(sub => {
                 if (sub.id !== submenuId) {
@@ -60,7 +60,7 @@
                 menuEl.classList.add('open');
             }
         };
-        
+
         loadIncludes();
     </script>
 
@@ -116,14 +116,15 @@
                 </div>
 
                 <div class="nav-item" onclick="toggleSubMenu(this, 'submenu-attendance')">
-                    <i class="fas fa-list"></i>
+                    <i class="fas fa-user-clock"></i>
+                    <!-- <i class="fas fa-list"></i> -->
                     <span>Attendance</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
                 </div>
                 <div id="submenu-attendance" class="submenu-container">
                     <div class="nav-item submenu-item" onclick="showPage('logs')">
                         <i class="fas fa-calendar-check"></i>
-                        <span>Summary</span>
+                        <span>Log</span>
                     </div>
                 </div>
                 <div class="nav-item" onclick="showPage('pull')">
