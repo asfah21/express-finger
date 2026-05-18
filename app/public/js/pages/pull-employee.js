@@ -9,6 +9,47 @@ export let pullEmployeePageState = {
 };
 export let _currentPullEmployeeView = 'list'; // 'list' or 'summary'
 
+// Storage key for persisting pull employee state across refreshes
+const STORAGE_KEY = 'pull_employee_state';
+
+function saveStateToStorage() {
+    try {
+        const state = {
+            deviceId: document.getElementById('pull-employee-device-select')?.value || '',
+            data: lastPulledEmployeeData,
+            view: _currentPullEmployeeView
+        };
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        // Ignore storage errors
+    }
+}
+
+function restoreStateFromStorage() {
+    try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const state = JSON.parse(saved);
+            if (state.data && state.data.length > 0) {
+                lastPulledEmployeeData = state.data;
+                _currentPullEmployeeView = state.view || 'list';
+                return state;
+            }
+        }
+    } catch (e) {
+        // Ignore storage errors
+    }
+    return null;
+}
+
+function clearSavedState() {
+    try {
+        sessionStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        // Ignore storage errors
+    }
+}
+
 export async function refreshPullEmployee() {
     try {
         const res = await fetch('/api/devices');
@@ -17,13 +58,55 @@ export async function refreshPullEmployee() {
         if (!select) return;
 
         const devices = data.data?.list || [];
-        const currentId = select.value;
+        
+        // Check if we have saved state to restore
+        const savedState = restoreStateFromStorage();
+        const savedDeviceId = savedState?.deviceId || '';
         
         select.innerHTML = '<option value="">-- Select Device --</option>' + 
-            devices.map(d => `<option value="${d.id}" ${d.id == currentId ? 'selected' : ''}>${d.name || d.ip} (${d.sn})</option>`).join('');
+            devices.map(d => `<option value="${d.id}" ${d.id == savedDeviceId ? 'selected' : ''}>${d.name || d.ip} (${d.sn})</option>`).join('');
+        
+        // If we restored data from storage, re-render the results
+        if (savedState && savedState.data && savedState.data.length > 0) {
+            renderPullEmployeeResultsAfterRefresh();
+        }
+        
+        // Listen for device select changes to save to storage
+        select.onchange = function() {
+            saveStateToStorage();
+        };
     } catch (err) {
         console.error('Failed to load devices for pull employee', err);
     }
+}
+
+function renderPullEmployeeResultsAfterRefresh() {
+    const resultsContainer = document.getElementById('pull-employee-results-container');
+    const statusDiv = document.getElementById('pull-employee-status');
+    const btnExport = document.getElementById('btn-export-pull-employee');
+    const btnJson = document.getElementById('btn-download-raw-employee');
+    
+    if (resultsContainer) resultsContainer.style.display = 'block';
+    if (statusDiv) statusDiv.style.display = 'none';
+    
+    if (btnExport) {
+        btnExport.style.display = 'inline-flex';
+        btnExport.style.alignItems = 'center';
+        btnExport.style.gap = '0.5rem';
+        btnExport.style.justifyContent = 'center';
+    }
+    if (btnJson) {
+        btnJson.style.display = 'inline-flex';
+        btnJson.style.alignItems = 'center';
+        btnJson.style.gap = '0.5rem';
+        btnJson.style.justifyContent = 'center';
+    }
+    
+    // Restore the active tab
+    switchPullEmployeeView(_currentPullEmployeeView);
+    
+    pullEmployeePageState.page = 1;
+    renderPullEmployeeResults();
 }
 
 // Show sync direction modal
@@ -32,13 +115,23 @@ export function showSyncModal() {
     if (!deviceId) return showToast('Please select a device', 'warning');
     
     const modal = document.getElementById('sync-mode-modal-overlay');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        // Add active class to trigger CSS opacity/pointer-events transition
+        setTimeout(() => modal.classList.add('active'), 10);
+    }
 }
 
 export function closeSyncModal(e) {
     if (e && e.target !== e.currentTarget) return;
     const modal = document.getElementById('sync-mode-modal-overlay');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.classList.remove('active');
+        // Wait for transition to finish before hiding
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+    }
 }
 
 /**
@@ -119,6 +212,13 @@ export async function pullEmployeeDataFromDevice(mode = 'preview', syncMode = 'd
             setStage('emp-stage-done');
 
             lastPulledEmployeeData = data.data?.users || [];
+            
+            // Save state to storage for persistence across refreshes
+            if (mode === 'preview' && lastPulledEmployeeData.length > 0) {
+                saveStateToStorage();
+            } else if (mode === 'sync') {
+                clearSavedState();
+            }
             
             if (mode === 'sync') {
                 const syncLabel = syncMode === 'device-to-server' ? 'Device → Server' : 'Server → Device';
