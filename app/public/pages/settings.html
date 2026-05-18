@@ -1,0 +1,177 @@
+<div id="page-settings" class="page" style="display: none; padding-bottom: 2rem;">
+                    <!-- User Management Section -->
+                    <div
+                        style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 2rem;">
+
+                        <!-- Add User Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 400px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-user-plus" style="color: var(--primary);"></i> Add New User
+                            </h3>
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" id="new-user-username" placeholder="e.g. operator1"
+                                    autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label>Password <span style="font-size:0.75rem;color:var(--text-muted);">(min. 6
+                                        characters)</span></label>
+                                <div style="position:relative;">
+                                    <input type="password" id="new-user-password" placeholder="••••••••"
+                                        style="padding-right:3rem;" autocomplete="new-password">
+                                    <button type="button" onclick="toggleNewUserPassword()"
+                                        style="position:absolute;right:0.875rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:0;display:flex;align-items:center;">
+                                        <i class="fas fa-eye" id="new-user-pass-icon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Role</label>
+                                <select id="new-user-role">
+                                    <option value="admin">admin</option>
+                                    <option value="viewer">viewer</option>
+                                </select>
+                            </div>
+                            <button class="btn-primary" style="margin-top:0.5rem;" onclick="addNewUser()">
+                                <i class="fas fa-user-plus"></i> Add User
+                            </button>
+                        </div>
+
+                        <!-- User List Card -->
+                        <div class="stat-card" style="flex: 2; min-width: 300px;">
+                            <h3
+                                style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <i class="fas fa-users-cog" style="color: var(--primary);"></i> Existing Users
+                                </div>
+                                <button class="icon-btn" onclick="loadUserList()" title="Refresh list"
+                                    style="font-size:0.85rem;">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </h3>
+                            <div id="user-list-container">
+                                <div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.9rem;">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+                        <!-- System Config Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 450px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-sliders-h" style="color: var(--primary);"></i> System Preferences
+                            </h3>
+                            <div class="form-group">
+                                <label>API Key</label>
+                                <input type="text" id="setting-api-key" placeholder="Enter API Key">
+                            </div>
+                            <div class="form-group">
+                                <label>Log Cleanup (Days)</label>
+                                <input type="number" id="setting-cleanup-days" value="30">
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveSystemSettings()">
+                                <i class="fas fa-save"></i> Save Config
+                            </button>
+                        </div>
+
+                        <!-- Attendance Rules Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 400px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-calendar-check" style="color: var(--warning);"></i> Attendance Rules
+                            </h3>
+                            <div class="form-group">
+                                <label>Late Tolerance (Minutes)</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="number" id="setting-late-tolerance" value="5" style="flex: 1;">
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">min</span>
+                                </div>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    Lateness within this limit will be considered "On Time".
+                                </p>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem; background: var(--warning);"
+                                onclick="saveAttendanceSettings()">
+                                <i class="fas fa-save"></i> Save Rules
+                            </button>
+                        </div>
+
+                        <!-- Admin Profile Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-user-shield" style="color: var(--secondary);"></i> Admin Account
+                            </h3>
+                            <div class="form-group">
+                                <label>New Username</label>
+                                <input type="text" id="profile-username" placeholder="Leave empty to keep current">
+                            </div>
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <input type="password" id="profile-password" placeholder="••••••••">
+                            </div>
+                            <button class="btn-primary" style="background: var(--secondary); margin-top: 1rem;"
+                                onclick="updateAccount()">
+                                <i class="fas fa-user-edit"></i> Update Profile
+                            </button>
+                            <!-- <p
+                                style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1.5rem; line-height: 1.4;">
+                                <i class="fas fa-info-circle"></i> Changes to admin credentials will take effect upon
+                                next login.
+                            </p> -->
+                        </div>
+
+                        <!-- Attendance Remarks Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-comment-dots" style="color: var(--primary);"></i> Attendance Remarks
+                            </h3>
+                            <div class="form-group">
+                                <label>Late Remark (use {diff} for minutes)</label>
+                                <input type="text" id="remark-late" placeholder="Terlambat {diff} menit">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Early Arrival</label>
+                                    <input type="text" id="remark-early-arrival" placeholder="Anomali (Terlalu Awal)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Early Departure</label>
+                                    <input type="text" id="remark-early-departure" placeholder="Pulang Mendahului">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Potential Overtime (Checkout > 60min)</label>
+                                <input type="text" id="remark-overtime" placeholder="Anomali (Lembur?)">
+                            </div>
+                            <div class="form-group">
+                                <label>Duplicate / Anomaly</label>
+                                <input type="text" id="remark-duplicate" placeholder="Duplikat Absensi">
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveRemarksSettings()">
+                                <i class="fas fa-save"></i> Save Remarks
+                            </button>
+                        </div>
+
+                        <!-- Shift Definitions Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-clock" style="color: var(--secondary);"></i> Shift Definitions
+                            </h3>
+                            <div class="form-group">
+                                <label>Shifts Config (JSON format)</label>
+                                <textarea id="setting-shift-types"
+                                    style="width: 100%; height: 280px; font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.2); color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.75rem;"></textarea>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    Support single shift (start/end) & multi-shift (shifts: [[start, end], ...]).
+                                </p>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem; background: var(--secondary);"
+                                onclick="saveShiftSettings()">
+                                <i class="fas fa-save"></i> Save Shift Config
+                            </button>
+                        </div>
+                    </div>
+
+                </div>

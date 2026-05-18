@@ -1,0 +1,103 @@
+<div id="page-overview" class="page">
+                    <div class="header" style="justify-content: flex-end; margin-bottom: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <small id="overview-last-update"
+                                style="color: var(--text-muted); font-size: 0.75rem;"></small>
+                            <button class="btn-primary" style="width: auto; padding: 0.5rem 1rem;" onclick="syncAll()">
+                                <i class="fas fa-sync-alt"></i> Sync All Devices
+                            </button>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card" style="border-left: 4px solid #63d390;">
+                            <div class="stat-label">Connected Devices</div>
+                            <div class="stat-value" id="stat-devices">-</div>
+                        </div>
+                        <div class="stat-card" style="border-left: 4px solid #60a5fa;">
+                            <div class="stat-label">Total Employees</div>
+                            <div class="stat-value" id="stat-employees">-</div>
+                        </div>
+                        <div class="stat-card" style="border-left: 4px solid #fbbf24;">
+                            <div class="stat-label">Logs Today</div>
+                            <div class="stat-value" id="stat-logs">-</div>
+                        </div>
+                        <!-- <div class="stat-card" style="border-left: 4px solid #fbbf24;">
+                            <div class="stat-label">Active Sync</div>
+                            <div class="stat-value" id="stat-active-sync">Auto</div>
+                        </div> -->
+                    </div>
+
+                    <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
+                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-clock" style="color: var(--error);"></i>
+                            Late Today
+                            <span id="late-today-count"
+                                style="font-size: 0.8rem; font-weight: 600; background: rgba(248,113,113,0.15); color: var(--error); padding: 0.15rem 0.6rem; border-radius: 9999px;">0</span>
+                            <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Staff
+                                Only</span>
+                        </h3>
+                    </div>
+                    <div class="table-container" style="margin-bottom: 2rem; border-left: 3px solid var(--error);">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>NAME</th>
+                                    <th>DEPT</th>
+                                    <th>POSITION</th>
+                                    <th>TIME</th>
+                                    <th>REMARK</th>
+                                </tr>
+                            </thead>
+                            <tbody id="late-today-body">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
+                        <h3>Recent Activity</h3>
+                    </div> -->
+                    <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
+                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-wave-square" style="color: var(--warning);"></i>
+                            Recent Activity
+                            <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Today
+                                Only</span>
+                        </h3>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>User ID</th>
+                                    <th>Type</th>
+                                    <th>Device SN</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-logs-body">
+                                <tr>
+                                    <td colspan="4" style="text-align: center;">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="overview-info">Showing 0 of 0 logs</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('overview', this.value)">
+                                    <option value="10">10 per page</option>
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                </select>
+                                <button onclick="prevPage('overview')" id="overview-prev-btn">Prev</button>
+                                <div class="pagination-numbers" id="overview-pagination-numbers"></div>
+                                <button onclick="nextPage('overview')" id="overview-next-btn">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>

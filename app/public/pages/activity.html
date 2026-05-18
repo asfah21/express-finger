@@ -1,0 +1,89 @@
+<div id="page-activity" class="page" style="display: none;">
+
+                    <!-- Filter section -->
+                    <div
+                        style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+
+                        <div style="flex: 2; min-width: 200px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">SEARCH</label>
+                            <div style="position: relative;">
+                                <i class="fas fa-search"
+                                    style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                                <input type="text" id="activity-search" placeholder="Search user, action, detail..."
+                                    style="padding-left: 2.8rem;" oninput="handleActivitySearch(this.value)">
+                            </div>
+                        </div>
+
+                        <div style="flex: 1; min-width: 130px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">CATEGORY</label>
+                            <select id="activity-category" onchange="applyActivityFilter()">
+                                <option value="">All Categories</option>
+                                <option value="auth">Auth (Login/Logout)</option>
+                                <option value="employee">Employee Data</option>
+                                <option value="device">Device</option>
+                                <option value="settings">Settings</option>
+                                <option value="export">Export</option>
+                                <option value="import">Import</option>
+                                <option value="sync">Sync</option>
+                            </select>
+                        </div>
+
+                        <div style="flex: 1; min-width: 130px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">FROM
+                                DATE</label>
+                            <input type="date" id="activity-date-from">
+                        </div>
+
+                        <div style="flex: 1; min-width: 130px;">
+                            <label
+                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">TO
+                                DATE</label>
+                            <input type="date" id="activity-date-to">
+                        </div>
+
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn-primary" style="width: auto; height: 42px; padding: 0 1.2rem;"
+                                onclick="applyActivityFilter()">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                            <button class="btn-primary admin-only"
+                                style="width: auto; height: 42px; padding: 0 1rem; background: #ef4444;"
+                                onclick="clearOldActivityLogs()">
+                                <i class="fas fa-trash-alt"></i> Clear Old
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>User</th>
+                                    <th>Category</th>
+                                    <th>Action</th>
+                                    <th>Detail</th>
+                                    <th>IP</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-body"></tbody>
+                        </table>
+                        <div class="table-footer">
+                            <div class="table-info" id="activity-info">Showing 0 of 0 logs</div>
+                            <div class="table-pagination">
+                                <select onchange="updatePageSize('activity', this.value)">
+                                    <option value="25">25 per page</option>
+                                    <option value="50">50 per page</option>
+                                    <option value="100">100 per page</option>
+                                </select>
+                                <button onclick="prevPage('activity')" id="activity-prev-btn">Prev</button>
+                                <div class="pagination-numbers" id="activity-pagination-numbers"></div>
+                                <button onclick="nextPage('activity')" id="activity-next-btn">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
