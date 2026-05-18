@@ -8,7 +8,7 @@ import {
   securityMiddleware,
   loggerMiddleware
 } from './middleware/index.js'
-import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes } from './routes/index.js'
+import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes, pullEmployeeRoutes } from './routes/index.js'
 import { ensureSchema, ensureRawDir, cleanupOldRawFiles } from './utils/index.js'
 import { startPullScheduler } from './utils/scheduler.js'
 
@@ -34,6 +34,7 @@ app.use('/iclock', deviceRoutes)
 app.use('/api', apiRoutes)
 app.use('/api/activity-logs', activityLogRoutes)
 app.use('/api/pull', pullRoutes)
+app.use('/api/pull-employee', pullEmployeeRoutes)
 
 // Health check
 app.get('/', (_req, res) =>

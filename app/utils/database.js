@@ -70,6 +70,8 @@ export async function ensureSchema() {
     -- Add divisi and type columns to existing employee table
     ALTER TABLE employee ADD COLUMN IF NOT EXISTS divisi TEXT;
     ALTER TABLE employee ADD COLUMN IF NOT EXISTS type TEXT;
+    -- Add fingerprint_count column
+    ALTER TABLE employee ADD COLUMN IF NOT EXISTS fingerprint_count INT DEFAULT 0;
   `)
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_user_time

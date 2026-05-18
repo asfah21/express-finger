@@ -113,6 +113,10 @@
                         <i class="fas fa-list-ul"></i>
                         <span>List</span>
                     </div>
+                    <div class="nav-item submenu-item" onclick="showPage('pull-employee')">
+                        <i class="fas fa-download"></i>
+                        <span>Pull Employee</span>
+                    </div>
                 </div>
 
                 <div class="nav-item" onclick="toggleSubMenu(this, 'submenu-attendance')">
@@ -126,10 +130,10 @@
                         <i class="fas fa-calendar-check"></i>
                         <span>Log</span>
                     </div>
-                </div>
-                <div class="nav-item" onclick="showPage('pull')">
-                    <i class="fas fa-download"></i>
-                    <span>Pull Data</span>
+                    <div class="nav-item submenu-item" onclick="showPage('pull')">
+                        <i class="fas fa-download"></i>
+                        <span>Pull</span>
+                    </div>
                 </div>
                 <div class="nav-item" onclick="showPage('activity')">
                     <i class="fas fa-shield-alt"></i>
@@ -185,6 +189,8 @@
                 <div data-include="pages/activity.html"></div>
 
                 <div data-include="pages/pull.html"></div>
+
+                <div data-include="pages/pull-employee.html"></div>
 
                 <div data-include="pages/settings.html"></div>
                 <footer class="app-footer">

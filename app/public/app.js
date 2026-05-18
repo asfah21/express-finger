@@ -8,6 +8,7 @@ import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, openSettingsAuth } from './js/pages/settings.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
+import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData } from './js/pages/pull-employee.js';
 
 // Expose to window for HTML onclick handlers
 window.toggleTheme = toggleTheme;
@@ -82,6 +83,17 @@ window.updatePullPageSize = updatePullPageSize;
 window.exportPulledData = exportPulledData;
 window.downloadRawData = downloadRawData;
 
+// Pull Employee Page Functions
+window.refreshPullEmployee = refreshPullEmployee;
+window.pullEmployeeDataFromDevice = pullEmployeeDataFromDevice;
+window.switchPullEmployeeView = switchPullEmployeeView;
+window.nextPullEmployeePage = nextPullEmployeePage;
+window.prevPullEmployeePage = prevPullEmployeePage;
+window.updatePullEmployeePageSize = updatePullEmployeePageSize;
+window.exportPulledEmployeeData = exportPulledEmployeeData;
+window.downloadRawEmployeeData = downloadRawEmployeeData;
+window.updateEmployeeDeviceStatus = function() {};
+
 
 
 
@@ -114,7 +126,7 @@ function showDashboard() {
     applyRoleRestrictions();
 
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pull', 'activity', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pull', 'pull-employee', 'activity', 'settings'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
@@ -151,6 +163,7 @@ function showPage(pageId) {
         'logs': 'Attendance Log',
         'activity': 'Activity Log',
         'pull': 'Pull Data',
+        'pull-employee': 'Pull Employee',
         'settings': 'System Settings'
     };
     const titleEl = document.getElementById('page-title');
@@ -194,6 +207,7 @@ function showPage(pageId) {
         if (pageId === 'logs') refreshLogs();
         if (pageId === 'activity') refreshActivityLogs();
         if (pageId === 'pull') refreshPull();
+        if (pageId === 'pull-employee') refreshPullEmployee();
         if (pageId === 'settings') {
             loadSettings();
             loadUserList();
@@ -385,7 +399,7 @@ window.addEventListener('resize', () => {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pull', 'activity', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pull', 'pull-employee', 'activity', 'settings'];
     if (hash && validPages.includes(hash) && hash !== state.currentPath) {
         showPage(hash);
     }
