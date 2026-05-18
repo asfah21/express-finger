@@ -167,48 +167,41 @@
         </div>
     </div>
 
-    <!-- Sync Mode Modal -->
-    <div id="sync-mode-modal-overlay" class="modal-overlay" style="display: none;" onclick="closeSyncModal(event)">
-        <div class="modal" onclick="event.stopPropagation()" style="max-width: 500px;">
-            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                <i class="fas fa-sync-alt" style="color: var(--primary);"></i>
-                Choose Sync Direction
-            </h3>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
-                Select how you want to synchronize employee data:
-            </p>
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <button onclick="pullEmployeeDataFromDevice('sync', 'device-to-server')" 
-                    style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border: 2px solid var(--glass-border); background: rgba(255,255,255,0.03); cursor: pointer; transition: all 0.2s; text-align: left; width: 100%;"
-                    onmouseover="this.style.borderColor='var(--primary)'; this.style.background='rgba(36,97,150,0.1)';"
-                    onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='rgba(255,255,255,0.03)';">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fas fa-cloud-download-alt" style="font-size: 1.3rem; color: #3b82f6;"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Sync Data Dari Mesin ke Server</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Tarik data karyawan dari mesin fingerprint dan simpan ke database server</div>
-                    </div>
-                    <i class="fas fa-chevron-right" style="margin-left: auto; color: var(--text-muted);"></i>
-                </button>
+    <!-- Sync Mode Modal (uses generic modal overlay from index.html) -->
+    <div id="sync-modal-content" style="display: none;">
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem; line-height: 1.5;">
+            Select how you want to synchronize employee data:
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <button onclick="pullEmployeeDataFromDevice('sync', 'device-to-server')" 
+                class="sync-option-btn"
+                style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border: 2px solid var(--glass-border); background: var(--card-bg); cursor: pointer; transition: all 0.2s; text-align: left; width: 100%; color: var(--text);"
+                onmouseover="this.style.borderColor='#3b82f6'; this.style.background='rgba(59,130,246,0.08)';"
+                onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='var(--card-bg)';">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="fas fa-cloud-download-alt" style="font-size: 1.3rem; color: #3b82f6;"></i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Device → Server</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Pull employee data from fingerprint device and save to server database</div>
+                </div>
+                <i class="fas fa-chevron-right" style="flex-shrink: 0; color: var(--text-muted);"></i>
+            </button>
 
-                <button onclick="pullEmployeeDataFromDevice('sync', 'server-to-device')" 
-                    style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border: 2px solid var(--glass-border); background: rgba(255,255,255,0.03); cursor: pointer; transition: all 0.2s; text-align: left; width: 100%;"
-                    onmouseover="this.style.borderColor='var(--secondary)'; this.style.background='rgba(16,185,129,0.1)';"
-                    onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='rgba(255,255,255,0.03)';">
-                    <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fas fa-cloud-upload-alt" style="font-size: 1.3rem; color: #10b981;"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Sync Data Dari Server ke Mesin</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Kirim data karyawan dari database server ke mesin fingerprint</div>
-                    </div>
-                    <i class="fas fa-chevron-right" style="margin-left: auto; color: var(--text-muted);"></i>
-                </button>
-            </div>
-            <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
-                <button class="btn-secondary" onclick="closeSyncModal()">Cancel</button>
-            </div>
+            <button onclick="pullEmployeeDataFromDevice('sync', 'server-to-device')" 
+                class="sync-option-btn"
+                style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border: 2px solid var(--glass-border); background: var(--card-bg); cursor: pointer; transition: all 0.2s; text-align: left; width: 100%; color: var(--text);"
+                onmouseover="this.style.borderColor='#10b981'; this.style.background='rgba(16,185,129,0.08)';"
+                onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='var(--card-bg)';">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 1.3rem; color: #10b981;"></i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Server → Device</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Push employee data from server database to fingerprint device</div>
+                </div>
+                <i class="fas fa-chevron-right" style="flex-shrink: 0; color: var(--text-muted);"></i>
+            </button>
         </div>
     </div>
 </div>

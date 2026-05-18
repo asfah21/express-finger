@@ -1,4 +1,4 @@
-import { showToast } from '../utils.js';
+import { showToast, toggleModal } from '../utils.js';
 
 // Pull Employee Page State
 export let lastPulledEmployeeData = [];
@@ -109,29 +109,33 @@ function renderPullEmployeeResultsAfterRefresh() {
     renderPullEmployeeResults();
 }
 
-// Show sync direction modal
+// Show sync direction modal using the app's standard modal
 export function showSyncModal() {
     const deviceId = document.getElementById('pull-employee-device-select').value;
     if (!deviceId) return showToast('Please select a device', 'warning');
     
-    const modal = document.getElementById('sync-mode-modal-overlay');
-    if (modal) {
-        modal.style.display = 'flex';
-        // Add active class to trigger CSS opacity/pointer-events transition
-        setTimeout(() => modal.classList.add('active'), 10);
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const saveBtn = document.getElementById('modal-save-btn');
+    
+    if (!modalTitle || !modalContent) return;
+    
+    modalTitle.innerHTML = '<i class="fas fa-sync-alt" style="margin-right: 0.5rem; color: var(--primary);"></i> Choose Sync Direction';
+    
+    // Get the sync modal content template and clone it
+    const syncContent = document.getElementById('sync-modal-content');
+    if (syncContent) {
+        modalContent.innerHTML = syncContent.innerHTML;
     }
+    
+    // Hide the save button since we use the option buttons directly
+    if (saveBtn) saveBtn.style.display = 'none';
+    
+    toggleModal(true);
 }
 
-export function closeSyncModal(e) {
-    if (e && e.target !== e.currentTarget) return;
-    const modal = document.getElementById('sync-mode-modal-overlay');
-    if (modal) {
-        modal.classList.remove('active');
-        // Wait for transition to finish before hiding
-        setTimeout(() => {
-            modal.style.display = 'none';
-        }, 300);
-    }
+export function closeSyncModal() {
+    toggleModal(false);
 }
 
 /**
