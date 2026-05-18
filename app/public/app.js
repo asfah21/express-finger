@@ -160,6 +160,26 @@ function showPage(pageId) {
         item.classList.remove('active');
         if (item.getAttribute('onclick')?.includes(`'${pageId}'`)) {
             item.classList.add('active');
+            
+            // Auto-expand parent submenu if it is a sub-menu item
+            const parentSubmenu = item.closest('.submenu-container');
+            if (parentSubmenu) {
+                parentSubmenu.classList.add('open');
+                parentSubmenu.style.maxHeight = parentSubmenu.scrollHeight + 'px';
+                const parentItem = parentSubmenu.previousElementSibling;
+                if (parentItem) parentItem.classList.add('open');
+            }
+        }
+    });
+
+    // Auto-collapse other submenus that don't contain the active child
+    document.querySelectorAll('.submenu-container').forEach(sub => {
+        const hasActiveChild = sub.querySelector('.nav-item.active');
+        if (!hasActiveChild) {
+            sub.classList.remove('open');
+            sub.style.maxHeight = '0';
+            const parentItem = sub.previousElementSibling;
+            if (parentItem) parentItem.classList.remove('open');
         }
     });
 

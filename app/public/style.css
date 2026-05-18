@@ -236,6 +236,37 @@ body {
     color: var(--primary);
 }
 
+/* Submenu Styles */
+.submenu-container {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s ease;
+    padding-left: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.submenu-container.open {
+    margin-bottom: 0.5rem;
+}
+
+.submenu-item {
+    font-size: 0.875rem !important;
+    padding: 0.6rem 1rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+.toggle-icon {
+    margin-left: auto;
+    font-size: 0.75rem;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--text-muted);
+}
+
+.nav-item.open .toggle-icon {
+    transform: rotate(180deg);
+}
+
 .nav-item.logout {
     margin-top: auto;
     color: #fca5a5;
