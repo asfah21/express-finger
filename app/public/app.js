@@ -8,7 +8,7 @@ import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, openSettingsAuth } from './js/pages/settings.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
-import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData } from './js/pages/pull-employee.js';
+import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
 
 // Expose to window for HTML onclick handlers
 window.toggleTheme = toggleTheme;
@@ -92,6 +92,8 @@ window.prevPullEmployeePage = prevPullEmployeePage;
 window.updatePullEmployeePageSize = updatePullEmployeePageSize;
 window.exportPulledEmployeeData = exportPulledEmployeeData;
 window.downloadRawEmployeeData = downloadRawEmployeeData;
+window.showSyncModal = showSyncModal;
+window.closeSyncModal = closeSyncModal;
 window.updateEmployeeDeviceStatus = function() {};
 
 

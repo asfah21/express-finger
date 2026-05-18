@@ -26,13 +26,32 @@ export async function refreshPullEmployee() {
     }
 }
 
+// Show sync direction modal
+export function showSyncModal() {
+    const deviceId = document.getElementById('pull-employee-device-select').value;
+    if (!deviceId) return showToast('Please select a device', 'warning');
+    
+    const modal = document.getElementById('sync-mode-modal-overlay');
+    if (modal) modal.style.display = 'flex';
+}
+
+export function closeSyncModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    const modal = document.getElementById('sync-mode-modal-overlay');
+    if (modal) modal.style.display = 'none';
+}
+
 /**
  * Main function for pulling employee data from device
  * @param {'preview'|'sync'} mode 
+ * @param {'device-to-server'|'server-to-device'} syncMode 
  */
-export async function pullEmployeeDataFromDevice(mode = 'preview') {
+export async function pullEmployeeDataFromDevice(mode = 'preview', syncMode = 'device-to-server') {
     const deviceId = document.getElementById('pull-employee-device-select').value;
     if (!deviceId) return showToast('Please select a device', 'warning');
+
+    // Close sync modal if open
+    closeSyncModal();
 
     const btnPreview = document.getElementById('btn-pull-employee-preview');
     const btnSync = document.getElementById('btn-pull-employee-sync');
@@ -87,7 +106,8 @@ export async function pullEmployeeDataFromDevice(mode = 'preview') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 deviceId: parseInt(deviceId),
-                preview: mode === 'preview'
+                preview: mode === 'preview',
+                syncMode: mode === 'sync' ? syncMode : undefined
             })
         });
         const data = await res.json();
@@ -101,14 +121,16 @@ export async function pullEmployeeDataFromDevice(mode = 'preview') {
             lastPulledEmployeeData = data.data?.users || [];
             
             if (mode === 'sync') {
-                showToast(data.message || `Successfully synced ${lastPulledEmployeeData.length} employees`, 'success');
+                const syncLabel = syncMode === 'device-to-server' ? 'Device → Server' : 'Server → Device';
+                showToast(data.message || `Successfully synced`, 'success');
                 statusDiv.style.display = 'block';
                 statusDiv.innerHTML = `
                     <div style="color: var(--success); font-weight: 600; margin-bottom: 0.5rem;">
                         <i class="fas fa-check-circle"></i> ${data.message || 'Sync Completed'}
                     </div>
                     <div style="font-size: 0.8rem; opacity: 0.8;">
-                        Total employees synced: ${lastPulledEmployeeData.length}
+                        <i class="fas fa-exchange-alt"></i> Direction: ${syncLabel}<br>
+                        Total employees: ${data.data?.total || 0}
                     </div>
                 `;
             } else {
@@ -236,12 +258,11 @@ export function renderPullEmployeeResults() {
                 return `<tr>
                     <td><strong>${user.userId}</strong></td>
                     <td>${user.name}</td>
-                    <td>${user.userId}</td>
                     <td>${fpBadge}</td>
                     <td>${cardBadge}</td>
                     <td><span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">${roleLabel}</span></td>
                 </tr>`;
-            }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
+            }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
         }
     } else {
         // Summary view - update stat cards
@@ -350,7 +371,6 @@ export function exportPulledEmployeeData() {
         const exportData = lastPulledEmployeeData.map(u => ({
             'User ID': u.userId,
             'Name': u.name,
-            'NIK': u.userId,
             'Fingerprint Count': u.fingerprintCount || 0,
             'Has Fingerprint': (u.fingerprintCount || 0) > 0 ? 'Yes' : 'No',
             'Card Number': u.cardno || 0,

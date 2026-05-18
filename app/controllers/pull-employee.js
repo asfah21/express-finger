@@ -1,10 +1,10 @@
 import { pool } from '../utils/database.js'
-import { fetchDeviceUsersFormatted, pullDeviceUsersSync } from '../utils/zklib-employee.js'
+import { fetchDeviceUsersFormatted, pullDeviceUsersSync, syncServerToDevice } from '../utils/zklib-employee.js'
 import { recordActivity } from './activity-log.js'
 
 export const pullEmployeeController = {
   async pullData(req, res) {
-    const { deviceId, preview = false } = req.body
+    const { deviceId, preview = false, syncMode = 'device-to-server' } = req.body
     if (!deviceId) return res.status(400).json({ status: 'error', message: 'Device ID is required' })
 
     const username = req.user?.username || 'api'
@@ -44,28 +44,56 @@ export const pullEmployeeController = {
           }
         })
       } else {
-        // --- SYNC MODE: pull + save to DB ---
-        const result = await pullDeviceUsersSync(device.ip, port)
+        // --- SYNC MODE ---
+        if (syncMode === 'device-to-server') {
+          // Sync from Device -> Server
+          const result = await pullDeviceUsersSync(device.ip, port)
 
-        await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
+          await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
 
-        await recordActivity({
-          username,
-          action: 'pull_employee',
-          category: 'sync',
-          detail: `Pull employee from ${device.name || device.sn} (${device.ip}). Users: ${result.count}`,
-          ip: clientIp
-        })
+          await recordActivity({
+            username,
+            action: 'pull_employee',
+            category: 'sync',
+            detail: `Sync Device->Server: Pull employee from ${device.name || device.sn} (${device.ip}). Users: ${result.count}`,
+            ip: clientIp
+          })
 
-        return res.json({
-          status: 'success',
-          message: `Successfully pulled and synced ${result.count} employees from device.`,
-          data: {
-            total: result.count,
-            saved: result.count,
-            users: []
-          }
-        })
+          return res.json({
+            status: 'success',
+            message: `Successfully synced ${result.count} employees from device to server.`,
+            data: {
+              total: result.count,
+              saved: result.count,
+              users: []
+            }
+          })
+        } else if (syncMode === 'server-to-device') {
+          // Sync from Server -> Device
+          const result = await syncServerToDevice(device.ip, port)
+
+          await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
+
+          await recordActivity({
+            username,
+            action: 'push_employee',
+            category: 'sync',
+            detail: `Sync Server->Device: Push employee to ${device.name || device.sn} (${device.ip}). Users: ${result.count}`,
+            ip: clientIp
+          })
+
+          return res.json({
+            status: 'success',
+            message: `Successfully synced ${result.count} employees from server to device.`,
+            data: {
+              total: result.count,
+              saved: result.count,
+              users: []
+            }
+          })
+        } else {
+          return res.status(400).json({ status: 'error', message: 'Invalid sync mode. Use "device-to-server" or "server-to-device"' })
+        }
       }
     } catch (error) {
       console.error('Pull Employee Error:', error)
