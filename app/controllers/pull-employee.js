@@ -97,6 +97,17 @@ export const pullEmployeeController = {
       }
     } catch (error) {
       console.error('Pull Employee Error:', error)
+
+      // Catat kegagalan ke activity log
+      await recordActivity({
+        username,
+        action: syncMode === 'server-to-device' ? 'push_employee' : (preview ? 'preview_pull_employee' : 'pull_employee'),
+        category: 'sync',
+        detail: `Failed: ${syncMode === 'server-to-device' ? 'Push employee to' : (preview ? 'Preview pull employee from' : 'Pull employee from')} ${device?.name || device?.sn || 'unknown'} (${device?.ip || 'unknown'}). Error: ${error.message}`,
+        ip: clientIp,
+        status: 'failed'
+      })
+
       res.status(500).json({ status: 'error', message: `Connection failed: ${error.message}` })
     }
   }

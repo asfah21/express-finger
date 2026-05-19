@@ -95,6 +95,17 @@ export const pullController = {
       }
     } catch (error) {
       console.error('Pull Data Error:', error)
+
+      // Catat kegagalan ke activity log
+      await recordActivity({
+        username,
+        action: preview ? 'preview_pull_data' : 'pull_data',
+        category: 'sync',
+        detail: `Failed: ${preview ? 'Preview pull from' : 'Force pull from'} ${device?.name || device?.sn || 'unknown'} (${device?.ip || 'unknown'}). Error: ${error.message}`,
+        ip: clientIp,
+        status: 'failed'
+      })
+
       res.status(500).json({ status: 'error', message: `Connection failed: ${error.message}` })
     }
   }
