@@ -101,10 +101,6 @@
                     style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: var(--primary); color: white; transition: all 0.2s;">
                     <i class="fas fa-list"></i> User List
                 </button>
-                <button onclick="switchPullEmployeeView('summary')" id="tab-emp-summary"
-                    style="padding: 0.4rem 1.2rem; border-radius: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); transition: all 0.2s;">
-                    <i class="fas fa-chart-pie"></i> Summary
-                </button>
             </div>
         </div>
 
@@ -126,29 +122,6 @@
                 </table>
             </div>
 
-            <!-- Summary view -->
-            <div id="view-emp-summary" style="display: none;">
-                <div style="padding: 1rem;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                        <div class="stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 0.75rem; padding: 1.25rem; text-align: center;">
-                            <div style="font-size: 2rem; font-weight: 700; color: #10b981;" id="emp-summary-total">0</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Total Users</div>
-                        </div>
-                        <div class="stat-card" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 0.75rem; padding: 1.25rem; text-align: center;">
-                            <div style="font-size: 2rem; font-weight: 700; color: #3b82f6;" id="emp-summary-with-fp">0</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">With Fingerprint</div>
-                        </div>
-                        <div class="stat-card" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 0.75rem; padding: 1.25rem; text-align: center;">
-                            <div style="font-size: 2rem; font-weight: 700; color: #ef4444;" id="emp-summary-no-fp">0</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">No Fingerprint</div>
-                        </div>
-                        <div class="stat-card" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 0.75rem; padding: 1.25rem; text-align: center;">
-                            <div style="font-size: 2rem; font-weight: 700; color: #a855f7;" id="emp-summary-total-fp">0</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Total Fingerprints</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Table Footer -->
             <div class="table-footer">

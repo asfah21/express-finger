@@ -7,7 +7,7 @@ export let pullEmployeePageState = {
     limit: 25,
     total: 0
 };
-export let _currentPullEmployeeView = 'list'; // 'list' or 'summary'
+export let _currentPullEmployeeView = 'list';
 
 // Storage key for persisting pull employee state across refreshes
 const STORAGE_KEY = 'pull_employee_state';
@@ -321,8 +321,6 @@ export function renderPullEmployeeResults() {
     const users = lastPulledEmployeeData;
     if (!users) return;
 
-    const isListView = _currentPullEmployeeView === 'list';
-    
     // Update pagination info
     const total = users.length;
     pullEmployeePageState.total = total;
@@ -345,45 +343,27 @@ export function renderPullEmployeeResults() {
     const startIdx = (pullEmployeePageState.page - 1) * pullEmployeePageState.limit;
     const paged = users.slice(startIdx, startIdx + pullEmployeePageState.limit);
 
-    if (isListView) {
-        const body = document.getElementById('pull-employee-list-body');
-        if (body) {
-            body.innerHTML = paged.map(user => {
-                const fpCount = user.fingerprintCount || 0;
-                const hasFp = fpCount > 0;
-                const fpBadge = hasFp 
-                    ? `<span class="badge badge-success">${fpCount} FP</span>` 
-                    : `<span class="badge badge-warning">No FP</span>`;
-                const cardBadge = user.cardno && user.cardno > 0 
-                    ? `<span class="badge badge-info">Card</span>` 
-                    : `<span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">-</span>`;
-                const roleLabel = user.role == 14 ? 'Admin' : (user.role == 0 ? 'User' : `Role ${user.role}`);
+    const body = document.getElementById('pull-employee-list-body');
+    if (body) {
+        body.innerHTML = paged.map(user => {
+            const fpCount = user.fingerprintCount || 0;
+            const hasFp = fpCount > 0;
+            const fpBadge = hasFp 
+                ? `<span class="badge badge-success">${fpCount} FP</span>` 
+                : `<span class="badge badge-warning">No FP</span>`;
+            const cardBadge = user.cardno && user.cardno > 0 
+                ? `<span class="badge badge-info">Card</span>` 
+                : `<span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">-</span>`;
+            const roleLabel = user.role == 14 ? 'Admin' : (user.role == 0 ? 'User' : `Role ${user.role}`);
 
-                return `<tr>
-                    <td><strong>${user.userId}</strong></td>
-                    <td>${user.name}</td>
-                    <td>${fpBadge}</td>
-                    <td>${cardBadge}</td>
-                    <td><span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">${roleLabel}</span></td>
-                </tr>`;
-            }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
-        }
-    } else {
-        // Summary view - update stat cards
-        const totalUsers = users.length;
-        const withFp = users.filter(u => (u.fingerprintCount || 0) > 0).length;
-        const noFp = totalUsers - withFp;
-        const totalFp = users.reduce((sum, u) => sum + (u.fingerprintCount || 0), 0);
-
-        const elTotal = document.getElementById('emp-summary-total');
-        const elWithFp = document.getElementById('emp-summary-with-fp');
-        const elNoFp = document.getElementById('emp-summary-no-fp');
-        const elTotalFp = document.getElementById('emp-summary-total-fp');
-
-        if (elTotal) elTotal.innerText = totalUsers;
-        if (elWithFp) elWithFp.innerText = withFp;
-        if (elNoFp) elNoFp.innerText = noFp;
-        if (elTotalFp) elTotalFp.innerText = totalFp;
+            return `<tr>
+                <td><strong>${user.userId}</strong></td>
+                <td>${user.name}</td>
+                <td>${fpBadge}</td>
+                <td>${cardBadge}</td>
+                <td><span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">${roleLabel}</span></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
     }
 }
 
@@ -415,31 +395,12 @@ export function switchPullEmployeeView(view) {
     _currentPullEmployeeView = view;
     
     const tabList = document.getElementById('tab-emp-list');
-    const tabSummary = document.getElementById('tab-emp-summary');
-    
-    if (view === 'list') {
-        if (tabList) {
-            tabList.style.background = 'var(--primary)';
-            tabList.style.color = 'white';
-        }
-        if (tabSummary) {
-            tabSummary.style.background = 'transparent';
-            tabSummary.style.color = 'var(--text-muted)';
-        }
-        document.getElementById('view-emp-list').style.display = 'block';
-        document.getElementById('view-emp-summary').style.display = 'none';
-    } else {
-        if (tabList) {
-            tabList.style.background = 'transparent';
-            tabList.style.color = 'var(--text-muted)';
-        }
-        if (tabSummary) {
-            tabSummary.style.background = 'var(--primary)';
-            tabSummary.style.color = 'white';
-        }
-        document.getElementById('view-emp-list').style.display = 'none';
-        document.getElementById('view-emp-summary').style.display = 'block';
+    if (tabList) {
+        tabList.style.background = 'var(--primary)';
+        tabList.style.color = 'white';
     }
+    
+    document.getElementById('view-emp-list').style.display = 'block';
     
     pullEmployeePageState.page = 1;
     renderPullEmployeeResults();

@@ -159,6 +159,13 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
 /**
  * Sync users from Server database TO Device
  * Writes employee data from database to fingerprint device
+ * 
+ * Menggunakan pendekatan yang lebih komprehensif:
+ *   1. Free data buffer
+ *   2. Disable device
+ *   3. Hapus semua user yang ada di device (CMD_CLEAR_DATA) agar tidak duplikat
+ *   4. Tulis users satu per satu via CMD_USER_WRQ
+ *   5. Refresh data & re-enable device
  */
 export async function syncServerToDevice(ip, port = 4370) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
@@ -174,66 +181,89 @@ export async function syncServerToDevice(ip, port = 4370) {
             return { success: true, count: 0, message: 'No employees in database' };
         }
 
-        // Disable device before writing
-        try { await zk.disableDevice(); } catch (e) { /* ignore */ }
+        // Step 1: Free any existing data buffer
+        try { await zk.freeData(); } catch (e) { /* ignore */ }
 
-        let successCount = 0;
-        for (const emp of employees) {
+        // Step 2: Disable device before writing
+        try { await zk.disableDevice(); } catch (e) { console.warn('⚠️ disableDevice warning:', e.message); }
+
+        // Step 3: Clear all existing users on device to avoid duplicates
+        // CMD_CLEAR_DATA = 14 - this clears all user data on the device
+        try {
+            console.log('🗑️ [Sync Server->Device] Clearing existing users on device...');
+            await zk.executeCmd(14, Buffer.from([]));
+            console.log('✅ [Sync Server->Device] Existing users cleared');
+        } catch (e) {
+            console.warn('⚠️ Could not clear existing users (may not be supported):', e.message);
+        }
+
+        // Small delay after clearing
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Step 4: Write all users to device using CMD_USER_WRQ (command 8)
+        // This is the standard ZKTeco command for writing a single user record
+        const USER_RECORD_SIZE = 72;
+        let totalWritten = 0;
+        
+        for (let i = 0; i < employees.length; i++) {
+            const emp = employees[i];
+            const userId = String(emp.user_id || '').trim();
+            const name = (emp.nama || '').trim() || 'Unknown';
+            
             try {
-                // Prepare user data to write to device
-                // Format: userId (string), name (string), password (optional), role, cardno
-                const userId = emp.user_id || '';
-                const name = emp.nama || 'Unknown';
-                
-                // Use executeCmd with CMD_USER_WRQ to write user to device
-                // Command 8 = CMD_USER_WRQ
-                const COMMAND_USER_WRQ = 8;
-                
-                // Build user data packet (72 bytes format)
-                const userData = Buffer.alloc(72);
+                // Build user data packet (72 bytes format) matching decodeUserData72 structure
+                const userData = Buffer.alloc(USER_RECORD_SIZE);
                 userData.fill(0);
                 
-                // uid (2 bytes) - use sequential ID
-                const uid = successCount + 1;
+                // uid (2 bytes at offset 0) - use sequential ID
+                const uid = i + 1;
                 userData.writeUInt16LE(uid, 0);
                 
-                // role (1 byte) - 0 = user, 14 = admin
+                // role (1 byte at offset 2) - 0 = user, 14 = admin
                 userData.writeUInt8(0, 2);
                 
-                // password (8 bytes)
+                // password (8 bytes at offset 3)
                 const pwBuf = Buffer.from('', 'ascii');
                 pwBuf.copy(userData, 3);
                 
-                // name (24 bytes starting at offset 11)
+                // name (24 bytes at offset 11)
                 const nameBuf = Buffer.from(name, 'ascii');
-                nameBuf.copy(userData, 11);
+                nameBuf.copy(userData, 11, 0, Math.min(nameBuf.length, 24));
                 
                 // cardno (4 bytes at offset 35)
                 userData.writeUInt32LE(0, 35);
                 
                 // userId (9 bytes at offset 48)
                 const userIdBuf = Buffer.from(userId, 'ascii');
-                userIdBuf.copy(userData, 48);
+                userIdBuf.copy(userData, 48, 0, Math.min(userIdBuf.length, 9));
                 
-                await zk.executeCmd(COMMAND_USER_WRQ, userData);
-                successCount++;
+                // Send CMD_USER_WRQ (command 8) to write user to device
+                await zk.executeCmd(8, userData);
+                totalWritten++;
                 
             } catch (e) {
                 console.warn(`⚠️ Failed to write user ${emp.user_id} to device:`, e.message);
             }
         }
+        console.log(`✅ [Sync Server->Device] ${totalWritten}/${employees.length} users written`);
 
-        // Re-enable device
-        try { await zk.enableDevice(); } catch (e) { /* ignore */ }
-
-        // Refresh device data
+        // Step 5: Refresh device data so it recognizes the new users
         try { await zk.executeCmd(1013, Buffer.from([])); } catch (e) { /* ignore */ } // CMD_REFRESHDATA
+        try { await zk.executeCmd(1014, Buffer.from([])); } catch (e) { /* ignore */ } // CMD_REFRESHOPTION
+
+        // Small delay to let device process the data
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Step 6: Re-enable device
+        try { await zk.enableDevice(); } catch (e) { console.warn('⚠️ enableDevice warning:', e.message); }
 
         await zk.disconnect();
-        return { success: true, count: successCount };
+        return { success: true, count: totalWritten };
     } catch (error) {
         console.error(`❌ Error syncing server to device ${ip}:`, error.message);
         try { await zk.disconnect(); } catch (e) { }
         throw error;
     }
 }
+
+
