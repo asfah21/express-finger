@@ -1,11 +1,126 @@
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
+import ZKLib from 'node-zklib'
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
 }
 
 export const employeeController = {
+    /**
+     * Sync a single employee (name + user_id) from server to a specific device
+     */
+    async syncEmployeeToDevice(req, res) {
+        const { id } = req.params
+        const { deviceId } = req.body
+        if (!deviceId) return res.status(400).json({ status: 'error', message: 'Device ID is required' })
+
+        const username = req.user?.username || 'api'
+        const ip = getClientIp(req)
+
+        try {
+            // 1. Get employee data
+            const { rows: empRows } = await pool.query('SELECT * FROM employee WHERE id = $1', [id])
+            if (empRows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            const emp = empRows[0]
+
+            // 2. Get device info
+            const { rows: devRows } = await pool.query('SELECT * FROM devices WHERE id = $1', [deviceId])
+            if (devRows.length === 0) return res.status(404).json({ status: 'error', message: 'Device not found' })
+            const device = devRows[0]
+
+            if (!device.ip) {
+                return res.status(400).json({ status: 'error', message: 'Device IP is not configured' })
+            }
+
+            const port = device.port || 4370
+            const userId = String(emp.user_id || '').trim()
+            const name = (emp.nama || '').trim() || 'Unknown'
+
+            // 3. Connect to device and write user
+            const zk = new ZKLib(device.ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000))
+            try {
+                await zk.createSocket()
+                console.log(`🔗 [Sync Single] Connected to ${device.ip}:${port}`)
+
+                // Disable device before writing
+                try { await zk.disableDevice() } catch (e) { /* ignore */ }
+
+                // Build user data packet (72 bytes format)
+                const USER_RECORD_SIZE = 72
+                const userData = Buffer.alloc(USER_RECORD_SIZE)
+                userData.fill(0)
+
+                // uid (2 bytes at offset 0) - use 1 as default since we're updating by userId
+                userData.writeUInt16LE(1, 0)
+
+                // role (1 byte at offset 2) - 0 = user
+                userData.writeUInt8(0, 2)
+
+                // password (8 bytes at offset 3) - empty
+                const pwBuf = Buffer.from('', 'ascii')
+                pwBuf.copy(userData, 3)
+
+                // name (24 bytes at offset 11)
+                const nameBuf = Buffer.from(name, 'ascii')
+                nameBuf.copy(userData, 11, 0, Math.min(nameBuf.length, 24))
+
+                // cardno (4 bytes at offset 35)
+                userData.writeUInt32LE(0, 35)
+
+                // userId (9 bytes at offset 48)
+                const userIdBuf = Buffer.from(userId, 'ascii')
+                userIdBuf.copy(userData, 48, 0, Math.min(userIdBuf.length, 9))
+
+                // Send CMD_USER_WRQ (command 8) to write user to device
+                await zk.executeCmd(8, userData)
+                console.log(`✅ [Sync Single] Written user ${userId} (${name}) to device ${device.ip}`)
+
+                // Refresh device data
+                try { await zk.executeCmd(1013, Buffer.from([])) } catch (e) { /* ignore */ }
+                try { await zk.executeCmd(1014, Buffer.from([])) } catch (e) { /* ignore */ }
+
+                // Small delay to let device process
+                await new Promise(resolve => setTimeout(resolve, 1000))
+
+                // Re-enable device
+                try { await zk.enableDevice() } catch (e) { /* ignore */ }
+
+                await zk.disconnect()
+            } catch (err) {
+                try { await zk.disconnect() } catch (e) { /* ignore */ }
+                throw new Error(`Device communication failed: ${err.message}`)
+            }
+
+            // 4. Update fingerprint_count in database
+            await pool.query(
+                `UPDATE employee SET updated_at = now() WHERE id = $1`,
+                [id]
+            )
+
+            await recordActivity({
+                username, action: 'sync_employee_to_device', category: 'sync',
+                detail: `Synced employee ${name} (User ID: ${userId}) to device ${device.name || device.sn} (${device.ip})`,
+                ip
+            })
+
+            res.json({
+                status: 'success',
+                message: `Employee ${name} (${userId}) synced to device ${device.name || device.ip}`
+            })
+        } catch (error) {
+            console.error('Sync Employee To Device Error:', error)
+
+            await recordActivity({
+                username, action: 'sync_employee_to_device', category: 'sync',
+                detail: `Failed to sync employee ID ${id} to device ID ${deviceId}. Error: ${error.message}`,
+                ip, status: 'failed'
+            })
+
+            res.status(500).json({ status: 'error', message: error.message })
+        }
+    },
+
     async listEmployees(req, res) {
         try {
             const { limit = 25, offset = 0, search = '' } = req.query

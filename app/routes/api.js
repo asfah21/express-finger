@@ -33,5 +33,6 @@ router.post('/employees', requireAdminPrivileges, employeeController.addEmployee
 router.post('/employees/bulk', requireAdminPrivileges, employeeController.bulkAddEmployees)
 router.put('/employees/:id', requireAdminPrivileges, employeeController.updateEmployee)
 router.delete('/employees/:id', requireAdminPrivileges, employeeController.deleteEmployee)
+router.post('/employees/:id/sync-to-device', requireAdminPrivileges, employeeController.syncEmployeeToDevice)
 
 export default router

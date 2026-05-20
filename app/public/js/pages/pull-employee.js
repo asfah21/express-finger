@@ -228,13 +228,15 @@ export async function pullEmployeeDataFromDevice(mode = 'preview', syncMode = 'd
                 const syncLabel = syncMode === 'device-to-server' ? 'Device → Server' : 'Server → Device';
                 showToast(data.message || `Successfully synced`, 'success');
                 statusDiv.style.display = 'block';
+                const skipped = data.data?.skipped || 0;
                 statusDiv.innerHTML = `
                     <div style="color: var(--success); font-weight: 600; margin-bottom: 0.5rem;">
                         <i class="fas fa-check-circle"></i> ${data.message || 'Sync Completed'}
                     </div>
                     <div style="font-size: 0.8rem; opacity: 0.8;">
                         <i class="fas fa-exchange-alt"></i> Direction: ${syncLabel}<br>
-                        Total employees: ${data.data?.total || 0}
+                        Total employees: ${data.data?.total || 0}<br>
+                        ${skipped > 0 ? `<span style="color: var(--text-muted);">Skipped (unchanged): ${skipped}</span>` : ''}
                     </div>
                 `;
             } else {
@@ -321,8 +323,15 @@ export function renderPullEmployeeResults() {
     const users = lastPulledEmployeeData;
     if (!users) return;
 
+    // Sort users by userId numerically (1,2,3,4... not 1,10,100,101)
+    const sorted = [...users].sort((a, b) => {
+        const numA = parseInt(a.userId) || 0;
+        const numB = parseInt(b.userId) || 0;
+        return numA - numB;
+    });
+
     // Update pagination info
-    const total = users.length;
+    const total = sorted.length;
     pullEmployeePageState.total = total;
     
     const totalPages = Math.ceil(total / pullEmployeePageState.limit);
@@ -341,29 +350,19 @@ export function renderPullEmployeeResults() {
     renderPullEmployeePaginationNumbers(totalPages);
 
     const startIdx = (pullEmployeePageState.page - 1) * pullEmployeePageState.limit;
-    const paged = users.slice(startIdx, startIdx + pullEmployeePageState.limit);
+    const paged = sorted.slice(startIdx, startIdx + pullEmployeePageState.limit);
 
     const body = document.getElementById('pull-employee-list-body');
     if (body) {
         body.innerHTML = paged.map(user => {
-            const fpCount = user.fingerprintCount || 0;
-            const hasFp = fpCount > 0;
-            const fpBadge = hasFp 
-                ? `<span class="badge badge-success">${fpCount} FP</span>` 
-                : `<span class="badge badge-warning">No FP</span>`;
-            const cardBadge = user.cardno && user.cardno > 0 
-                ? `<span class="badge badge-info">Card</span>` 
-                : `<span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">-</span>`;
             const roleLabel = user.role == 14 ? 'Admin' : (user.role == 0 ? 'User' : `Role ${user.role}`);
 
             return `<tr>
                 <td><strong>${user.userId}</strong></td>
                 <td>${user.name}</td>
-                <td>${fpBadge}</td>
-                <td>${cardBadge}</td>
                 <td><span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">${roleLabel}</span></td>
             </tr>`;
-        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
+        }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
     }
 }
 

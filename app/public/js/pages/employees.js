@@ -31,6 +31,7 @@ export async function refreshEmployees() {
                     </button>
                     <div class="action-menu">
                         <button class="action-item" onclick="editEmployee('${emp.id}')"><i class="fas fa-edit"></i> Edit Info</button>
+                        <button class="action-item" onclick="syncEmployeeToDevice('${emp.id}')"><i class="fas fa-cloud-upload-alt"></i> Sync to Device</button>
                         <button class="action-item delete" onclick="deleteEmployee('${emp.id}')"><i class="fas fa-trash"></i> Delete</button>
                     </div>
                 </div>
@@ -41,6 +42,84 @@ export async function refreshEmployees() {
 
     window.updatePaginationUI('employees');
 }
+
+/**
+ * Sync a single employee to a selected device
+ * Shows a device picker modal, then syncs name + user_id to the chosen device
+ */
+export async function syncEmployeeToDevice(id) {
+    // First, get the employee info
+    const res = await fetch('/api/employees/' + id);
+    const { data: emp } = await res.json();
+    if (!emp) return showToast('Employee not found', 'error');
+
+    // Get devices list
+    const devRes = await fetch('/api/devices');
+    const devData = await devRes.json();
+    const devices = devData.data?.list || [];
+    if (devices.length === 0) return showToast('No devices available', 'warning');
+
+    // Build device options
+    const deviceOptions = devices.map(d => 
+        `<option value="${d.id}">${d.name || d.ip} (${d.sn})</option>`
+    ).join('');
+
+    // Show modal with device picker
+    document.getElementById('modal-title').innerHTML = '<i class="fas fa-cloud-upload-alt" style="margin-right: 0.5rem; color: var(--primary);"></i> Sync to Device';
+    document.getElementById('modal-content').innerHTML = `
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+            Sync employee <strong>${emp.nama || 'Unknown'}</strong> (User ID: ${emp.user_id}) to device:
+        </p>
+        <div class="form-group">
+            <label>Select Device</label>
+            <select id="sync-device-select">
+                <option value="">-- Select Device --</option>
+                ${deviceOptions}
+            </select>
+        </div>
+        <div style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(255,255,255,0.04); border-radius: 0.5rem; border: 1px solid var(--glass-border);">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                <i class="fas fa-info-circle" style="color: var(--primary);"></i> 
+                This will write the employee's name and User ID to the selected fingerprint device.
+            </p>
+        </div>
+    `;
+
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Sync Now';
+    saveBtn.style.display = 'block';
+    saveBtn.onclick = async () => {
+        const deviceId = document.getElementById('sync-device-select').value;
+        if (!deviceId) return showToast('Please select a device', 'warning');
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+
+        try {
+            const syncRes = await fetch('/api/employees/' + id + '/sync-to-device', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId: parseInt(deviceId) })
+            });
+            const syncData = await syncRes.json();
+
+            if (syncRes.ok && syncData.status === 'success') {
+                showToast(syncData.message || 'Sync successful!', 'success');
+                toggleModal(false);
+            } else {
+                throw new Error(syncData.message || 'Sync failed');
+            }
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Sync Now';
+        }
+    };
+
+    toggleModal(true);
+}
+
 
 let empSearchTimer;
 export function handleEmployeeSearch(val) {

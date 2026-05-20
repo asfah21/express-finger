@@ -55,16 +55,17 @@ export const pullEmployeeController = {
             username,
             action: 'pull_employee',
             category: 'sync',
-            detail: `Sync Device->Server: Pull employee from ${device.name || device.sn} (${device.ip}). Users: ${result.count}`,
+            detail: `Sync Device->Server: Pull employee from ${device.name || device.sn} (${device.ip}). Written: ${result.count}, Skipped (unchanged): ${result.skipped || 0}`,
             ip: clientIp
           })
 
           return res.json({
             status: 'success',
-            message: `Successfully synced ${result.count} employees from device to server.`,
+            message: `Synced ${result.count} employees from device. ${result.skipped || 0} unchanged (skipped).`,
             data: {
               total: result.count,
               saved: result.count,
+              skipped: result.skipped || 0,
               users: []
             }
           })
@@ -78,16 +79,17 @@ export const pullEmployeeController = {
             username,
             action: 'push_employee',
             category: 'sync',
-            detail: `Sync Server->Device: Push employee to ${device.name || device.sn} (${device.ip}). Users: ${result.count}`,
+            detail: `Sync Server->Device: Push employee to ${device.name || device.sn} (${device.ip}). Written: ${result.count}, Skipped (unchanged): ${result.skipped || 0}`,
             ip: clientIp
           })
 
           return res.json({
             status: 'success',
-            message: `Successfully synced ${result.count} employees from server to device.`,
+            message: `Synced ${result.count} employees to device. ${result.skipped || 0} unchanged (skipped).`,
             data: {
               total: result.count,
               saved: result.count,
+              skipped: result.skipped || 0,
               users: []
             }
           })

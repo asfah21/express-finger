@@ -115,6 +115,7 @@ async function fetchFingerprintCounts(zk) {
 
 /**
  * Pull users from device and sync to employee table (SYNC mode: Device -> Server)
+ * Only updates employees whose data has CHANGED compared to the database.
  */
 export async function pullDeviceUsersSync(ip, port = 4370) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
@@ -128,12 +129,39 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
         // Get fingerprint counts
         const fpCounts = await fetchFingerprintCounts(zk);
 
+        // Get existing employees from database for comparison
+        const { rows: existingEmployees } = await pool.query('SELECT user_id, nama, fingerprint_count FROM employee');
+        const existingMap = {};
+        for (const emp of existingEmployees) {
+            existingMap[emp.user_id] = {
+                nama: (emp.nama || '').trim(),
+                fingerprint_count: emp.fingerprint_count || 0
+            };
+        }
+
+        let totalWritten = 0;
+        let totalSkipped = 0;
+
         if (userData.length > 0) {
             for (const u of userData) {
                 const userId = String(u.userId || '').trim();
                 const name = (u.name || '').trim() || 'Unknown';
                 const uid = u.uid || 0;
                 const fpCount = fpCounts[uid] || 0;
+                
+                // Check if data already exists and is the same
+                const existing = existingMap[userId];
+                if (existing) {
+                    const sameName = existing.nama.toLowerCase() === name.toLowerCase();
+                    const sameFp = existing.fingerprint_count === fpCount;
+                    if (sameName && sameFp) {
+                        totalSkipped++;
+                        continue;
+                    }
+                    console.log(`🔄 [Sync Device->Server] User ${userId} changed: "${existing.nama}" -> "${name}" (FP: ${existing.fingerprint_count} -> ${fpCount})`);
+                } else {
+                    console.log(`🆕 [Sync Device->Server] New user ${userId} (${name}) not found in database, adding...`);
+                }
                 
                 // Upsert to employee table with fingerprint count
                 await pool.query(`
@@ -144,11 +172,13 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
                         fingerprint_count = EXCLUDED.fingerprint_count,
                         updated_at = now()
                 `, [userId, name, fpCount]);
+                totalWritten++;
             }
         }
 
         await zk.disconnect();
-        return { success: true, count: userData.length };
+        console.log(`✅ [Sync Device->Server] Written: ${totalWritten}, Skipped (unchanged): ${totalSkipped}/${userData.length}`);
+        return { success: true, count: totalWritten, skipped: totalSkipped };
     } catch (error) {
         console.error(`❌ Error pulling users from ${ip}:`, error.message);
         try { await zk.disconnect(); } catch (e) { }
@@ -157,15 +187,14 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
 }
 
 /**
- * Sync users from Server database TO Device
- * Writes employee data from database to fingerprint device
+ * Sync users from Server database TO Device (Smart Sync)
+ * Only writes employees whose data has CHANGED compared to what's on the device.
  * 
- * Menggunakan pendekatan yang lebih komprehensif:
- *   1. Free data buffer
- *   2. Disable device
- *   3. Hapus semua user yang ada di device (CMD_CLEAR_DATA) agar tidak duplikat
- *   4. Tulis users satu per satu via CMD_USER_WRQ
- *   5. Refresh data & re-enable device
+ * Pendekatan baru:
+ *   1. Ambil data user dari device (getUsers)
+ *   2. Bandingkan dengan data di database server
+ *   3. Hanya kirim data yang berbeda/baru ke device (tanpa clear data)
+ *   4. Refresh data & re-enable device
  */
 export async function syncServerToDevice(ip, port = 4370) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
@@ -187,42 +216,69 @@ export async function syncServerToDevice(ip, port = 4370) {
         // Step 2: Disable device before writing
         try { await zk.disableDevice(); } catch (e) { console.warn('⚠️ disableDevice warning:', e.message); }
 
-        // Step 3: Clear all existing users on device to avoid duplicates
-        // CMD_CLEAR_DATA = 14 - this clears all user data on the device
+        // Step 3: Get existing users from device to compare
+        let deviceUsers = [];
         try {
-            console.log('🗑️ [Sync Server->Device] Clearing existing users on device...');
-            await zk.executeCmd(14, Buffer.from([]));
-            console.log('✅ [Sync Server->Device] Existing users cleared');
+            const users = await zk.getUsers();
+            deviceUsers = users?.data || [];
+            console.log(`📋 [Sync Server->Device] Found ${deviceUsers.length} users on device`);
         } catch (e) {
-            console.warn('⚠️ Could not clear existing users (may not be supported):', e.message);
+            console.warn('⚠️ Could not get users from device (may not be supported):', e.message);
         }
 
-        // Small delay after clearing
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Build a map of device users by userId for quick lookup
+        const deviceUserMap = {};
+        let maxUid = 0;
+        for (const du of deviceUsers) {
+            const duId = String(du.userId || '').trim();
+            const uid = du.uid || 0;
+            if (duId) {
+                deviceUserMap[duId] = {
+                    name: (du.name || '').trim(),
+                    uid: uid
+                };
+            }
+            if (uid > maxUid) maxUid = uid;
+        }
 
-        // Step 4: Write all users to device using CMD_USER_WRQ (command 8)
-        // This is the standard ZKTeco command for writing a single user record
+        // Step 4: Compare and only write users that are NEW or CHANGED
         const USER_RECORD_SIZE = 72;
         let totalWritten = 0;
+        let totalSkipped = 0;
+        let nextUid = maxUid + 1;
         
         for (let i = 0; i < employees.length; i++) {
             const emp = employees[i];
             const userId = String(emp.user_id || '').trim();
             const name = (emp.nama || '').trim() || 'Unknown';
             
+            // Check if user exists on device and data is the same
+            const existingUser = deviceUserMap[userId];
+            if (existingUser) {
+                const existingName = existingUser.name || '';
+                // Compare names (case-insensitive) - if same, skip writing
+                if (existingName.toLowerCase() === name.toLowerCase()) {
+                    totalSkipped++;
+                    continue;
+                }
+                console.log(`🔄 [Sync] User ${userId} name changed: "${existingName}" -> "${name}"`);
+            } else {
+                console.log(`🆕 [Sync] New user ${userId} (${name}) not found on device, adding...`);
+            }
+            
             try {
                 // Build user data packet (72 bytes format) matching decodeUserData72 structure
                 const userData = Buffer.alloc(USER_RECORD_SIZE);
                 userData.fill(0);
                 
-                // uid (2 bytes at offset 0) - use sequential ID
-                const uid = i + 1;
+                // uid (2 bytes at offset 0) - use existing UID if user already on device, otherwise new sequential
+                const uid = existingUser ? existingUser.uid : nextUid++;
                 userData.writeUInt16LE(uid, 0);
                 
                 // role (1 byte at offset 2) - 0 = user, 14 = admin
                 userData.writeUInt8(0, 2);
                 
-                // password (8 bytes at offset 3)
+                // password (8 bytes at offset 3) - keep empty to not disturb existing password
                 const pwBuf = Buffer.from('', 'ascii');
                 pwBuf.copy(userData, 3);
                 
@@ -230,7 +286,7 @@ export async function syncServerToDevice(ip, port = 4370) {
                 const nameBuf = Buffer.from(name, 'ascii');
                 nameBuf.copy(userData, 11, 0, Math.min(nameBuf.length, 24));
                 
-                // cardno (4 bytes at offset 35)
+                // cardno (4 bytes at offset 35) - set to 0 to not disturb existing card
                 userData.writeUInt32LE(0, 35);
                 
                 // userId (9 bytes at offset 48)
@@ -238,6 +294,7 @@ export async function syncServerToDevice(ip, port = 4370) {
                 userIdBuf.copy(userData, 48, 0, Math.min(userIdBuf.length, 9));
                 
                 // Send CMD_USER_WRQ (command 8) to write user to device
+                // This only updates the user record (name + userId), does NOT affect fingerprints
                 await zk.executeCmd(8, userData);
                 totalWritten++;
                 
@@ -245,7 +302,7 @@ export async function syncServerToDevice(ip, port = 4370) {
                 console.warn(`⚠️ Failed to write user ${emp.user_id} to device:`, e.message);
             }
         }
-        console.log(`✅ [Sync Server->Device] ${totalWritten}/${employees.length} users written`);
+        console.log(`✅ [Sync Server->Device] Written: ${totalWritten}, Skipped (unchanged): ${totalSkipped}/${employees.length}`);
 
         // Step 5: Refresh device data so it recognizes the new users
         try { await zk.executeCmd(1013, Buffer.from([])); } catch (e) { /* ignore */ } // CMD_REFRESHDATA
@@ -258,7 +315,7 @@ export async function syncServerToDevice(ip, port = 4370) {
         try { await zk.enableDevice(); } catch (e) { console.warn('⚠️ enableDevice warning:', e.message); }
 
         await zk.disconnect();
-        return { success: true, count: totalWritten };
+        return { success: true, count: totalWritten, skipped: totalSkipped };
     } catch (error) {
         console.error(`❌ Error syncing server to device ${ip}:`, error.message);
         try { await zk.disconnect(); } catch (e) { }

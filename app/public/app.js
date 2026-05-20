@@ -3,7 +3,7 @@ import { getWitaDateString, showToast, toggleModal, showConfirm } from './js/uti
 import { refreshOverview } from './js/pages/overview.js';
 import { checkAuth, handleLogin, logout, silentTokenCheck } from './js/auth.js';
 import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice } from './js/pages/devices.js';
-import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate } from './js/pages/employees.js';
+import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, openSettingsAuth } from './js/pages/settings.js';
@@ -45,6 +45,7 @@ window.exportEmployees = exportEmployees;
 window.showImportModal = showImportModal;
 window.handleImport = handleImport;
 window.downloadImportTemplate = downloadImportTemplate;
+window.syncEmployeeToDevice = syncEmployeeToDevice;
 
 // Logs Page Functions
 window.refreshLogs = refreshLogs;
