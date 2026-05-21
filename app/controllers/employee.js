@@ -1,6 +1,10 @@
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
 import ZKLib from 'node-zklib'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { createTCPHeader, removeTcpHeader } = require('node-zklib/utils.js')
+const COMMANDS = require('node-zklib/constants.js').COMMANDS
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -16,14 +20,12 @@ async function writeUserToDevice(zk, userData) {
         throw new Error('TCP socket not available');
     }
     
-    const { createTCPHeader, removeTcpHeader } = require('node-zklib/utils.js');
-    const COMMANDS = require('node-zklib/constants.js').COMMANDS;
-    
     // Increment replyId manually
     zkTcp.replyId++;
     
     // Build the TCP packet: CMD_USER_WRQ (8) with user data as payload
     const buf = createTCPHeader(COMMANDS.CMD_USER_WRQ, zkTcp.sessionId, zkTcp.replyId, userData);
+
     
     // Send and wait for reply
     const reply = await new Promise((resolve, reject) => {
@@ -57,6 +59,7 @@ async function writeUserToDevice(zk, userData) {
     
     return true; // Assume success if we got any reply
 }
+
 
 export const employeeController = {
     /**

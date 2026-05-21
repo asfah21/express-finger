@@ -1,5 +1,9 @@
 import ZKLib from 'node-zklib'
 import { pool } from './database.js'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { createTCPHeader, removeTcpHeader } = require('node-zklib/utils.js')
+const COMMANDS = require('node-zklib/constants.js').COMMANDS
 
 /**
  * Fetch users from device via port 4370 (ZKTeco protocol)
@@ -205,14 +209,12 @@ async function writeUserToDevice(zk, userData) {
         throw new Error('TCP socket not available');
     }
     
-    const { createTCPHeader, removeTcpHeader } = require('../node_modules/node-zklib/utils.js');
-    const COMMANDS = require('../node_modules/node-zklib/constants.js').COMMANDS;
-    
     // Increment replyId manually
     zkTcp.replyId++;
     
     // Build the TCP packet: CMD_USER_WRQ (8) with user data as payload
     const buf = createTCPHeader(COMMANDS.CMD_USER_WRQ, zkTcp.sessionId, zkTcp.replyId, userData);
+
     
     // Send and wait for reply
     const reply = await new Promise((resolve, reject) => {
