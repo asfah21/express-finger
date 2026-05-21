@@ -156,7 +156,7 @@ body {
     background: var(--card-bg);
     backdrop-filter: blur(10px);
     border-right: 1px solid var(--glass-border);
-    padding: 2rem 1.5rem;
+    padding: 0 1.5rem 2rem 1.5rem;
     display: flex;
     flex-direction: column;
     position: fixed;
@@ -205,6 +205,12 @@ body {
     color: var(--text);
 }
 
+.sidebar .sidebar-logo {
+    height: var(--header-height);
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
 .sidebar-logo .icon {
     width: 32px;
     height: 32px;
@@ -229,6 +235,11 @@ body {
     font-weight: 500;
     cursor: pointer;
     font-size: 0.95rem;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
 }
 
 .nav-item:hover,
@@ -292,8 +303,8 @@ body {
 .top-header {
     position: fixed;
     top: 0;
+    left: var(--sidebar-width);
     right: 0;
-    width: calc(100vw - var(--sidebar-width));
     display: flex;
     justify-content: space-between;
     align-items: center;
