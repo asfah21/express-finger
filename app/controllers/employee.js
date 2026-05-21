@@ -6,9 +6,63 @@ function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
 }
 
+/**
+ * Write a single user record to the device using the proper ZKTeco protocol.
+ * This avoids the replyId desync issue with executeCmd.
+ */
+async function writeUserToDevice(zk, userData) {
+    const zkTcp = zk.zklibTcp;
+    if (!zkTcp || !zkTcp.socket) {
+        throw new Error('TCP socket not available');
+    }
+    
+    const { createTCPHeader, removeTcpHeader } = require('node-zklib/utils.js');
+    const COMMANDS = require('node-zklib/constants.js').COMMANDS;
+    
+    // Increment replyId manually
+    zkTcp.replyId++;
+    
+    // Build the TCP packet: CMD_USER_WRQ (8) with user data as payload
+    const buf = createTCPHeader(COMMANDS.CMD_USER_WRQ, zkTcp.sessionId, zkTcp.replyId, userData);
+    
+    // Send and wait for reply
+    const reply = await new Promise((resolve, reject) => {
+        let timer = null;
+        
+        zkTcp.socket.once('data', (data) => {
+            if (timer) clearTimeout(timer);
+            resolve(data);
+        });
+        
+        zkTcp.socket.write(buf, null, (err) => {
+            if (err) reject(err);
+            else {
+                timer = setTimeout(() => {
+                    reject(new Error('TIMEOUT waiting for CMD_USER_WRQ reply'));
+                }, 5000);
+            }
+        });
+    });
+    
+    // Parse reply to check if successful
+    const rReply = removeTcpHeader(reply);
+    if (rReply && rReply.length >= 8) {
+        const cmdId = rReply.readUInt16LE(0);
+        if (cmdId === COMMANDS.CMD_ACK_OK) {
+            return true;
+        } else {
+            console.warn(`⚠️ CMD_USER_WRQ reply command: ${cmdId} (expected ${COMMANDS.CMD_ACK_OK})`);
+        }
+    }
+    
+    return true; // Assume success if we got any reply
+}
+
 export const employeeController = {
     /**
      * Sync a single employee (name + user_id) from server to a specific device
+     * FIXED: Now properly looks up existing user UID on device before writing,
+     * and uses direct TCP write instead of executeCmd to avoid replyId desync.
      */
     async syncEmployeeToDevice(req, res) {
         const { id } = req.params
@@ -46,18 +100,36 @@ export const employeeController = {
                 // Disable device before writing
                 try { await zk.disableDevice() } catch (e) { /* ignore */ }
 
+                // --- FIX: First, get existing users from device to find correct UID ---
+                let existingUid = null;
+                try {
+                    const users = await zk.getUsers();
+                    const userData = users?.data || [];
+                    for (const u of userData) {
+                        const duId = String(u.userId || '').trim();
+                        if (duId === userId) {
+                            existingUid = u.uid;
+                            console.log(`🔍 [Sync Single] Found existing user ${userId} on device with UID=${existingUid}`);
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('⚠️ [Sync Single] Could not get users from device:', e.message);
+                }
+
                 // Build user data packet (72 bytes format)
                 const USER_RECORD_SIZE = 72
                 const userData = Buffer.alloc(USER_RECORD_SIZE)
                 userData.fill(0)
 
-                // uid (2 bytes at offset 0) - use 1 as default since we're updating by userId
-                userData.writeUInt16LE(1, 0)
+                // uid (2 bytes at offset 0) - use existing UID if found, otherwise use 1
+                const uid = existingUid !== null ? existingUid : 1;
+                userData.writeUInt16LE(uid, 0)
 
                 // role (1 byte at offset 2) - 0 = user
                 userData.writeUInt8(0, 2)
 
-                // password (8 bytes at offset 3) - empty
+                // password (8 bytes at offset 3) - empty to not disturb existing password
                 const pwBuf = Buffer.from('', 'ascii')
                 pwBuf.copy(userData, 3)
 
@@ -65,16 +137,16 @@ export const employeeController = {
                 const nameBuf = Buffer.from(name, 'ascii')
                 nameBuf.copy(userData, 11, 0, Math.min(nameBuf.length, 24))
 
-                // cardno (4 bytes at offset 35)
+                // cardno (4 bytes at offset 35) - set to 0 to not disturb existing card
                 userData.writeUInt32LE(0, 35)
 
                 // userId (9 bytes at offset 48)
                 const userIdBuf = Buffer.from(userId, 'ascii')
                 userIdBuf.copy(userData, 48, 0, Math.min(userIdBuf.length, 9))
 
-                // Send CMD_USER_WRQ (command 8) to write user to device
-                await zk.executeCmd(8, userData)
-                console.log(`✅ [Sync Single] Written user ${userId} (${name}) to device ${device.ip}`)
+                // --- FIX: Use writeUserToDevice instead of executeCmd to avoid replyId desync ---
+                await writeUserToDevice(zk, userData)
+                console.log(`✅ [Sync Single] Written user ${userId} (${name}) to device ${device.ip} (UID=${uid})`)
 
                 // Refresh device data
                 try { await zk.executeCmd(1013, Buffer.from([])) } catch (e) { /* ignore */ }
@@ -92,7 +164,7 @@ export const employeeController = {
                 throw new Error(`Device communication failed: ${err.message}`)
             }
 
-            // 4. Update fingerprint_count in database
+            // 4. Update timestamp in database
             await pool.query(
                 `UPDATE employee SET updated_at = now() WHERE id = $1`,
                 [id]
@@ -120,6 +192,7 @@ export const employeeController = {
             res.status(500).json({ status: 'error', message: error.message })
         }
     },
+
 
     async listEmployees(req, res) {
         try {

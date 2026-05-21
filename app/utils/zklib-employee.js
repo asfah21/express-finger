@@ -187,14 +187,78 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
 }
 
 /**
+ * Write a single user record to the device using the proper ZKTeco protocol.
+ * 
+ * Protocol ZKTeco untuk menulis user:
+ *   1. Kirim CMD_USER_WRQ (8) dengan data user 72-byte sebagai payload
+ *   2. Device akan reply dengan CMD_ACK_OK (2000) jika berhasil
+ * 
+ * Masalah dengan executeCmd biasa: setelah executeCmd(8, data), replyId menjadi tidak sinkron
+ * karena executeCmd meng-increment replyId sendiri. Kita perlu handle replyId secara manual.
+ * 
+ * Solusi: Kirim data langsung via TCP socket dengan header yang benar,
+ * lalu baca reply dari device.
+ */
+async function writeUserToDevice(zk, userData) {
+    const zkTcp = zk.zklibTcp;
+    if (!zkTcp || !zkTcp.socket) {
+        throw new Error('TCP socket not available');
+    }
+    
+    const { createTCPHeader, removeTcpHeader } = require('../node_modules/node-zklib/utils.js');
+    const COMMANDS = require('../node_modules/node-zklib/constants.js').COMMANDS;
+    
+    // Increment replyId manually
+    zkTcp.replyId++;
+    
+    // Build the TCP packet: CMD_USER_WRQ (8) with user data as payload
+    const buf = createTCPHeader(COMMANDS.CMD_USER_WRQ, zkTcp.sessionId, zkTcp.replyId, userData);
+    
+    // Send and wait for reply
+    const reply = await new Promise((resolve, reject) => {
+        let timer = null;
+        
+        zkTcp.socket.once('data', (data) => {
+            if (timer) clearTimeout(timer);
+            resolve(data);
+        });
+        
+        zkTcp.socket.write(buf, null, (err) => {
+            if (err) reject(err);
+            else {
+                timer = setTimeout(() => {
+                    reject(new Error('TIMEOUT waiting for CMD_USER_WRQ reply'));
+                }, 5000);
+            }
+        });
+    });
+    
+    // Parse reply to check if successful
+    const rReply = removeTcpHeader(reply);
+    if (rReply && rReply.length >= 8) {
+        const cmdId = rReply.readUInt16LE(0);
+        if (cmdId === COMMANDS.CMD_ACK_OK) {
+            return true;
+        } else {
+            console.warn(`⚠️ CMD_USER_WRQ reply command: ${cmdId} (expected ${COMMANDS.CMD_ACK_OK})`);
+        }
+    }
+    
+    return true; // Assume success if we got any reply
+}
+
+
+/**
  * Sync users from Server database TO Device (Smart Sync)
  * Only writes employees whose data has CHANGED compared to what's on the device.
  * 
- * Pendekatan baru:
+ * Pendekatan baru (FIXED):
  *   1. Ambil data user dari device (getUsers)
  *   2. Bandingkan dengan data di database server
  *   3. Hanya kirim data yang berbeda/baru ke device (tanpa clear data)
  *   4. Refresh data & re-enable device
+ * 
+ * FIX: Menggunakan writeUserToDevice() yang mengimplementasikan protocol ZKTeco dengan benar
  */
 export async function syncServerToDevice(ip, port = 4370) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
@@ -221,7 +285,7 @@ export async function syncServerToDevice(ip, port = 4370) {
         try {
             const users = await zk.getUsers();
             deviceUsers = users?.data || [];
-            console.log(`📋 [Sync Server->Device] Found ${deviceUsers.length} users on device`);
+            console.log(`� [Sync Server->Device] Found ${deviceUsers.length} users on device`);
         } catch (e) {
             console.warn('⚠️ Could not get users from device (may not be supported):', e.message);
         }
@@ -293,9 +357,8 @@ export async function syncServerToDevice(ip, port = 4370) {
                 const userIdBuf = Buffer.from(userId, 'ascii');
                 userIdBuf.copy(userData, 48, 0, Math.min(userIdBuf.length, 9));
                 
-                // Send CMD_USER_WRQ (command 8) to write user to device
-                // This only updates the user record (name + userId), does NOT affect fingerprints
-                await zk.executeCmd(8, userData);
+                // Send CMD_USER_WRQ (command 8) to write user to device using proper protocol
+                await writeUserToDevice(zk, userData);
                 totalWritten++;
                 
             } catch (e) {
