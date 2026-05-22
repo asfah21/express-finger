@@ -191,6 +191,7 @@ async function performPairExport(range) {
     try {
         let fromDate = '';
         let toDate = '';
+        let search = '';
         const today = getWitaDateString();
 
         if (range === 'today') {
@@ -205,6 +206,7 @@ async function performPairExport(range) {
         } else if (range === 'filtered') {
             fromDate = document.getElementById('pair-date-from').value;
             toDate = document.getElementById('pair-date-to').value;
+            search = document.getElementById('pair-search').value;
         }
 
         toggleModal(false);
@@ -213,6 +215,7 @@ async function performPairExport(range) {
         let url = `/api/pair?limit=50000`;
         if (fromDate) url += `&from_date=${fromDate}`;
         if (toDate) url += `&to_date=${toDate}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
 
         const res = await fetch(url);
         const data = await res.json();
