@@ -436,7 +436,7 @@ setInterval(() => {
     }
 }, 120000);
 
-// Handle window resize for pagination
+// Handle window resize for pagination and sidebar collapse
 let resizeTimer;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -445,6 +445,18 @@ window.addEventListener('resize', () => {
         if (state.currentPath === 'employees') updatePaginationUI('employees');
         if (state.currentPath === 'logs') updatePaginationUI('logs');
         if (state.currentPath === 'activity') updatePaginationUI('activity');
+        
+        // Remove collapsed class when entering mobile view
+        if (window.innerWidth < 1024) {
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar && sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                const btn = document.querySelector('.sidebar-collapse-btn');
+                const icon = btn ? btn.querySelector('i') : null;
+                if (icon) icon.className = 'fas fa-bars';
+                if (btn) btn.title = 'Collapse Sidebar';
+            }
+        }
     }, 250);
 });
 

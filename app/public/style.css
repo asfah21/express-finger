@@ -203,7 +203,30 @@ body {
 }
 
 .sidebar.collapsed .submenu-container {
+    max-height: 0;
+    overflow: hidden;
+    padding-left: 0;
+}
+
+.sidebar.collapsed .submenu-container.open {
+    max-height: 300px;
+    padding-left: 0;
+}
+
+.sidebar.collapsed .submenu-item {
+    justify-content: center;
+    padding: 0.5rem 0 !important;
+    gap: 0 !important;
+}
+
+.sidebar.collapsed .submenu-item span {
     display: none;
+}
+
+.sidebar.collapsed .submenu-item i {
+    margin: 0;
+    width: auto;
+    font-size: 1rem;
 }
 
 .sidebar.collapsed .nav-item.logout {
@@ -458,10 +481,67 @@ body {
     .sidebar {
         left: -100%;
         width: 280px;
+        padding: 0 1.5rem 2rem 1.5rem;
+    }
+
+    /* Override collapsed styles on mobile - always show full sidebar when active */
+    .sidebar.collapsed {
+        width: 280px;
+        padding: 0 1.5rem 2rem 1.5rem;
     }
 
     .sidebar.active {
         left: 0;
+    }
+
+    .sidebar.collapsed.active {
+        left: 0;
+    }
+
+    .sidebar.collapsed .sidebar-logo span,
+    .sidebar.collapsed .nav-item span,
+    .sidebar.collapsed .submenu-item span {
+        display: inline;
+    }
+
+    .sidebar.collapsed .sidebar-logo {
+        justify-content: flex-start;
+    }
+
+    .sidebar.collapsed .nav-item {
+        justify-content: flex-start;
+        padding: 0.6rem 0.875rem;
+        gap: 0.75rem;
+    }
+
+    .sidebar.collapsed .nav-item i {
+        width: 20px;
+        font-size: 0.95rem;
+    }
+
+    .sidebar.collapsed .toggle-icon {
+        display: inline;
+    }
+
+    .sidebar.collapsed .submenu-container {
+        max-height: 0;
+        padding-left: 0.875rem;
+    }
+
+    .sidebar.collapsed .submenu-container.open {
+        max-height: none;
+        padding-left: 0.875rem;
+    }
+
+    .sidebar.collapsed .submenu-item {
+        justify-content: flex-start;
+        padding: 0.5rem 0.875rem !important;
+        gap: 0.6rem !important;
+    }
+
+    .sidebar.collapsed .submenu-item i {
+        width: 20px;
+        font-size: 0.95rem;
     }
 
     .mobile-only-item {
