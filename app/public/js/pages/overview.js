@@ -45,33 +45,77 @@ export async function refreshOverview() {
 }
 
 /**
- * Fetch weekly attendance data and render the chart
+ * Fetch attendance data and render the chart
+ * Supports dynamic range (7, 14, 30 days) and mobile responsive layout
  */
 async function refreshChart() {
     try {
-        // Generate last 7 days
-        const days = [];
+        const rangeSelect = document.getElementById('chart-range');
+        const daysCount = rangeSelect ? parseInt(rangeSelect.value) : 7;
+        
+        const labels = [];
         const checkinData = [];
         const checkoutData = [];
+        const isMobile = window.innerWidth < 640;
         
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-            days.push(dayName);
-            
-            // Fetch check-in (type=0) and check-out (type=1) counts for each day
-            const [checkinRes, checkoutRes] = await Promise.all([
-                fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=0&limit=1`),
-                fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=1&limit=1`)
-            ]);
-            
-            const checkinData_ = checkinRes.ok ? await checkinRes.json() : { data: { total: 0 } };
-            const checkoutData_ = checkoutRes.ok ? await checkoutRes.json() : { data: { total: 0 } };
-            
-            checkinData.push(checkinData_.data?.total || 0);
-            checkoutData.push(checkoutData_.data?.total || 0);
+        // For mobile with 30 days, use weekly aggregation to avoid clutter
+        const useWeekly = isMobile && daysCount > 14;
+        
+        if (useWeekly) {
+            // Aggregate by week for mobile 30-day view
+            const weeks = Math.ceil(daysCount / 7);
+            for (let w = 0; w < weeks; w++) {
+                let checkinTotal = 0;
+                let checkoutTotal = 0;
+                const weekStart = new Date();
+                weekStart.setDate(weekStart.getDate() - (daysCount - w * 7));
+                
+                for (let d = 0; d < 7; d++) {
+                    const day = new Date(weekStart);
+                    day.setDate(day.getDate() + d);
+                    if (day > new Date()) break;
+                    
+                    const dateStr = day.toISOString().split('T')[0];
+                    const [checkinRes, checkoutRes] = await Promise.all([
+                        fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=0&limit=1`),
+                        fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=1&limit=1`)
+                    ]);
+                    
+                    const ci = checkinRes.ok ? await checkinRes.json() : { data: { total: 0 } };
+                    const co = checkoutRes.ok ? await checkoutRes.json() : { data: { total: 0 } };
+                    checkinTotal += ci.data?.total || 0;
+                    checkoutTotal += co.data?.total || 0;
+                }
+                
+                labels.push(`W${w + 1}`);
+                checkinData.push(checkinTotal);
+                checkoutData.push(checkoutTotal);
+            }
+        } else {
+            // Daily granularity
+            for (let i = daysCount - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                
+                // On mobile with 14 days, show day+month; otherwise show weekday
+                const label = isMobile 
+                    ? `${d.getDate()}/${d.getMonth() + 1}`
+                    : d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+                labels.push(label);
+                
+                // Fetch check-in (type=0) and check-out (type=1) counts for each day
+                const [checkinRes, checkoutRes] = await Promise.all([
+                    fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=0&limit=1`),
+                    fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=1&limit=1`)
+                ]);
+                
+                const checkinData_ = checkinRes.ok ? await checkinRes.json() : { data: { total: 0 } };
+                const checkoutData_ = checkoutRes.ok ? await checkoutRes.json() : { data: { total: 0 } };
+                
+                checkinData.push(checkinData_.data?.total || 0);
+                checkoutData.push(checkoutData_.data?.total || 0);
+            }
         }
 
         const canvas = document.getElementById('attendance-chart');
@@ -88,10 +132,13 @@ async function refreshChart() {
         const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
         const textColor = isLight ? '#64748b' : '#94a3b8';
 
+        // Adjust bar percentage for mobile
+        const barPct = isMobile ? 0.6 : 0.4;
+
         attendanceChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: days,
+                labels: labels,
                 datasets: [
                     {
                         label: 'Check In',
@@ -100,7 +147,7 @@ async function refreshChart() {
                         borderColor: '#246196',
                         borderWidth: 1,
                         borderRadius: 4,
-                        barPercentage: 0.4
+                        barPercentage: barPct
                     },
                     {
                         label: 'Check Out',
@@ -109,7 +156,7 @@ async function refreshChart() {
                         borderColor: '#77a044',
                         borderWidth: 1,
                         borderRadius: 4,
-                        barPercentage: 0.4
+                        barPercentage: barPct
                     }
                 ]
             },
@@ -120,21 +167,26 @@ async function refreshChart() {
                     legend: {
                         labels: {
                             color: textColor,
-                            font: { size: 12 }
+                            font: { size: isMobile ? 10 : 12 }
                         }
                     }
                 },
                 scales: {
                     x: {
                         grid: { color: gridColor },
-                        ticks: { color: textColor }
+                        ticks: { 
+                            color: textColor,
+                            maxRotation: isMobile ? 45 : 0,
+                            font: { size: isMobile ? 9 : 11 }
+                        }
                     },
                     y: {
                         beginAtZero: true,
                         grid: { color: gridColor },
                         ticks: { 
                             color: textColor,
-                            stepSize: 1
+                            stepSize: 1,
+                            font: { size: isMobile ? 9 : 11 }
                         }
                     }
                 }
@@ -144,6 +196,9 @@ async function refreshChart() {
         console.error('Failed to refresh chart:', err);
     }
 }
+
+// Expose refreshChart to window for the range selector onChange
+window.refreshChart = refreshChart;
 
 function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');

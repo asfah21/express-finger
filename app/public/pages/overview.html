@@ -27,18 +27,24 @@
                         </div> -->
                     </div>
 
-                    <!-- Weekly Attendance Chart -->
+                    <!-- Attendance Chart -->
                     <div class="stats-grid" style="margin-top: 1.5rem;">
-                        <div class="stat-card" style="grid-column: 1 / -1; padding: 1.5rem;">
-                            <div class="flex justify-between items-center mb-4">
+                        <div class="stat-card chart-card" style="grid-column: 1 / -1; padding: 1.5rem;">
+                            <div class="flex justify-between items-center mb-4 chart-header">
                                 <h3 style="display: flex; align-items: center; gap: 0.75rem;">
                                     <i class="fas fa-chart-bar" style="color: var(--primary);"></i>
-                                    Weekly Attendance Overview
+                                    Attendance Overview
                                 </h3>
-                                <span class="text-muted text-xs">Last 7 days</span>
+                                <select id="chart-range" class="chart-range-select" onchange="window.refreshChart()">
+                                    <option value="7">Last 7 days</option>
+                                    <option value="14">Last 14 days</option>
+                                    <option value="30">Last 30 days</option>
+                                </select>
                             </div>
-                            <div style="position: relative; height: 250px;">
-                                <canvas id="attendance-chart"></canvas>
+                            <div class="chart-wrapper">
+                                <div style="position: relative; height: 250px; min-width: 300px;">
+                                    <canvas id="attendance-chart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
