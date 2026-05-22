@@ -358,11 +358,27 @@ async function generatePairPDFSlip() {
     try {
         showToast('Fetching attendance data...');
         const [year, month] = monthStr.split('-');
-        const lastDay = new Date(year, month, 0).getDate();
-        const fromDate = `${monthStr}-01`;
-        const toDate = `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
 
-        // Fetch pair data for this employee and month
+        // Period: 26th of previous month to 25th of selected month
+        // Example: April → March 26 to April 25
+        let fromDate, toDate, periodLabel;
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        if (monthNum === 1) {
+            // January: Dec 26 last year to Jan 25 this year
+            fromDate = `${yearNum - 1}-12-26`;
+            toDate = `${yearNum}-01-25`;
+            periodLabel = `26 Dec ${yearNum - 1} - 25 Jan ${yearNum}`;
+        } else {
+            const prevMonth = monthNum - 1;
+            fromDate = `${yearNum}-${String(prevMonth).padStart(2, '0')}-26`;
+            toDate = `${yearNum}-${String(monthNum).padStart(2, '0')}-25`;
+            periodLabel = `26 ${monthNames[prevMonth - 1]} - 25 ${monthNames[monthNum - 1]} ${yearNum}`;
+        }
+
+        // Fetch pair data for this employee and period
         const res = await fetch(`/api/pair?user_id=${employeeId}&from_date=${fromDate}&to_date=${toDate}&limit=31`);
         const data = await res.json();
         const summary = data.data?.summary || [];
@@ -380,71 +396,97 @@ async function generatePairPDFSlip() {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
+        // ===== COLOR PALETTE =====
+        const PRIMARY = [0, 102, 204];
+        const PRIMARY_DARK = [0, 70, 150];
+        const ACCENT = [119, 160, 68];
+        const TEXT_DARK = [40, 40, 50];
+        const TEXT_MUTED = [100, 110, 130];
+        const BG_LIGHT = [245, 248, 252];
+        const BG_WHITE = [255, 255, 255];
+        const GREEN = [16, 185, 129];
+        const AMBER = [245, 158, 11];
+        const RED = [239, 68, 68];
+
         // ===== HEADER SECTION =====
-        // Top accent line
-        doc.setFillColor(0, 102, 204);
-        doc.rect(0, 0, pageWidth, 4, 'F');
+        // Top accent bar
+        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.rect(0, 0, pageWidth, 5, 'F');
+
+        // Secondary accent bar below
+        doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+        doc.rect(0, 5, pageWidth, 1.5, 'F');
 
         // Company name
-        doc.setFontSize(18);
-        doc.setTextColor(0, 102, 204);
+        doc.setFontSize(16);
+        doc.setTextColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
         doc.setFont(undefined, 'bold');
-        doc.text('PT. GLOBAL SUKSES INDONESIA', pageWidth / 2, 16, { align: 'center' });
+        doc.text('PT. GUNUNG SAMUDERA INTERNASIONAL', pageWidth / 2, 18, { align: 'center' });
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.setFont(undefined, 'normal');
-        doc.text('MONTHLY ATTENDANCE PAIR REPORT', pageWidth / 2, 22, { align: 'center' });
+        // Report title with background pill
+        const titleText = 'MONTHLY ATTENDANCE PAIR REPORT';
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        const titleW = doc.getTextWidth(titleText) + 12;
+        doc.setFillColor(PRIMARY_DARK[0], PRIMARY_DARK[1], PRIMARY_DARK[2]);
+        doc.roundedRect((pageWidth - titleW) / 2, 22, titleW, 6, 3, 3, 'F');
+        doc.text(titleText, pageWidth / 2, 26.5, { align: 'center' });
 
-        // Divider
-        doc.setDrawColor(0, 102, 204);
+        // Divider line
+        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
         doc.setLineWidth(0.3);
-        doc.line(10, 26, pageWidth - 10, 26);
+        doc.line(12, 32, pageWidth - 12, 32);
 
-        // ===== EMPLOYEE INFO SECTION (compact 2-column) =====
-        doc.setFontSize(8);
-        doc.setTextColor(80);
-        doc.setFont(undefined, 'bold');
-        
-        const infoX = 14;
-        const infoY = 32;
-        const col1X = infoX;
-        const col2X = pageWidth / 2 + 10;
-        const lineH = 4.5;
+        // ===== EMPLOYEE INFO SECTION =====
+        const infoY = 38;
+        const col1X = 16;
+        const col2X = pageWidth / 2 + 8;
+        const lineH = 5;
 
+        // Info box background
+        doc.setFillColor(BG_LIGHT[0], BG_LIGHT[1], BG_LIGHT[2]);
+        doc.roundedRect(12, infoY - 4, pageWidth - 24, lineH * 4 + 6, 3, 3, 'F');
+        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(12, infoY - 4, pageWidth - 24, lineH * 4 + 6, 3, 3, 'S');
+
+        doc.setFontSize(7.5);
+        doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
         doc.setFont(undefined, 'normal');
+
+        // Left column
         doc.text(`Employee Name  :  ${emp.nama || 'N/A'}`, col1X, infoY);
         doc.text(`NIK                    :  ${emp.nik || '-'}`, col1X, infoY + lineH);
         doc.text(`Department       :  ${emp.department || '-'}`, col1X, infoY + lineH * 2);
         doc.text(`Position            :  ${emp.jabatan || '-'}`, col1X, infoY + lineH * 3);
 
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        doc.text(`Period                :  ${monthNames[parseInt(month) - 1]} ${year}`, col2X, infoY);
-        doc.text(`User ID              :  ${emp.user_id}`, col2X, infoY + lineH);
-        doc.text(`Total Days         :  ${summary.length} days`, col2X, infoY + lineH * 2);
-        
+        // Right column
+        doc.text(`Period               :  ${periodLabel}`, col2X, infoY);
+        doc.text(`User ID             :  ${emp.user_id}`, col2X, infoY + lineH);
+        doc.text(`Total Days        :  ${summary.length} days`, col2X, infoY + lineH * 2);
+
         // Calculate stats
         const hadirPenuh = summary.filter(s => s.check_in && s.check_out).length;
         const belumPulang = summary.filter(s => s.check_in && !s.check_out).length;
         const tidakHadir = summary.filter(s => !s.check_in && !s.check_out).length;
-        doc.text(`Hadir Penuh      :  ${hadirPenuh} days`, col2X, infoY + lineH * 3);
+        doc.text(`Hadir Penuh     :  ${hadirPenuh} days`, col2X, infoY + lineH * 3);
 
         // ===== TABLE HEADER =====
-        const tableTop = 48;
-        const colWidths = [18, 50, 22, 22, 22, 22, 22, 22, 22, 22, 22];
+        const tableTop = 58;
+        const colWidths = [16, 48, 20, 20, 20, 20, 18, 20, 18, 18, 18];
         const headers = ['Date', 'Name', 'NIK', 'Dept', 'Check In', 'Check Out', 'Work Hrs', 'Status', 'Late', 'Early', 'Overtime'];
         
-        // Calculate total width
         const totalTableWidth = colWidths.reduce((a, b) => a + b, 0);
         const startX = (pageWidth - totalTableWidth) / 2;
 
-        // Header background
-        doc.setFillColor(0, 102, 204);
-        doc.rect(startX, tableTop, totalTableWidth, 7, 'F');
+        // Header background with gradient effect
+        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.roundedRect(startX, tableTop, totalTableWidth, 7, 2, 2, 'F');
 
         // Header text
-        doc.setFontSize(7);
-        doc.setTextColor(255);
+        doc.setFontSize(6.5);
+        doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
         let xPos = startX;
         headers.forEach((h, i) => {
@@ -456,22 +498,22 @@ async function generatePairPDFSlip() {
         let yPos = tableTop + 7;
         let rowNum = 0;
 
-        summary.forEach((item, idx) => {
+        summary.forEach((item) => {
             // Check if we need a new page
-            if (yPos > pageHeight - 20) {
+            if (yPos > pageHeight - 22) {
                 // Footer on current page
                 doc.setFontSize(6);
-                doc.setTextColor(150);
-                doc.text(`Page ${doc.internal.getNumberOfPages()} | Generated by AZRA System`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+                doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
+                doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
                 
                 doc.addPage();
                 yPos = 15;
                 
                 // Re-draw header on new page
-                doc.setFillColor(0, 102, 204);
-                doc.rect(startX, yPos, totalTableWidth, 7, 'F');
-                doc.setFontSize(7);
-                doc.setTextColor(255);
+                doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+                doc.roundedRect(startX, yPos, totalTableWidth, 7, 2, 2, 'F');
+                doc.setFontSize(6.5);
+                doc.setTextColor(255, 255, 255);
                 doc.setFont(undefined, 'bold');
                 xPos = startX;
                 headers.forEach((h, i) => {
@@ -483,11 +525,11 @@ async function generatePairPDFSlip() {
 
             // Row background (alternating)
             if (rowNum % 2 === 0) {
-                doc.setFillColor(245, 248, 252);
+                doc.setFillColor(BG_LIGHT[0], BG_LIGHT[1], BG_LIGHT[2]);
             } else {
-                doc.setFillColor(255, 255, 255);
+                doc.setFillColor(BG_WHITE[0], BG_WHITE[1], BG_WHITE[2]);
             }
-            doc.rect(startX, yPos, totalTableWidth, 6, 'F');
+            doc.rect(startX, yPos, totalTableWidth, 5.5, 'F');
 
             // Date
             let dateFormatted = item.date || '-';
@@ -496,103 +538,124 @@ async function generatePairPDFSlip() {
                 dateFormatted = `${parseInt(parts[2])}/${parseInt(parts[1])}`;
             }
 
-            // Status
+            // Status with color
             const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Blm Plg' : 'Tdk Hdr'));
-
-            // Work hours
             const workHours = item.work_hours || '-';
-
-            // Late / Early / Overtime (placeholder - could be enhanced with actual data)
-            const late = item.late || '-';
-            const early = item.early || '-';
-            const overtime = item.overtime || '-';
 
             const rowData = [
                 dateFormatted,
-                (item.nama || '').substring(0, 20),
+                (item.nama || '').substring(0, 22),
                 item.nik || '-',
                 (item.department || '').substring(0, 8),
                 item.check_in || '-',
                 item.check_out || '-',
                 workHours,
                 status,
-                late,
-                early,
-                overtime
+                '-', // late
+                '-', // early
+                '-'  // overtime
             ];
 
-            doc.setFontSize(6.5);
-            doc.setTextColor(60);
+            doc.setFontSize(6);
+            doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
             doc.setFont(undefined, 'normal');
             xPos = startX;
             rowData.forEach((val, i) => {
-                doc.text(val, xPos + colWidths[i] / 2, yPos + 4, { align: 'center' });
+                // Color the status cell
+                if (i === 7) {
+                    if (val === 'Hadir Penuh') doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
+                    else if (val === 'Blm Plg') doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
+                    else if (val === 'Tdk Hdr') doc.setTextColor(RED[0], RED[1], RED[2]);
+                    else doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
+                    doc.setFont(undefined, 'bold');
+                } else {
+                    doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
+                    doc.setFont(undefined, 'normal');
+                }
+                doc.text(val, xPos + colWidths[i] / 2, yPos + 3.8, { align: 'center' });
                 xPos += colWidths[i];
             });
 
-            yPos += 6;
+            yPos += 5.5;
             rowNum++;
         });
 
         // ===== SUMMARY SECTION =====
-        yPos += 4;
-        doc.setDrawColor(0, 102, 204);
-        doc.setLineWidth(0.3);
+        yPos += 3;
+        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.setLineWidth(0.5);
         doc.line(startX, yPos, startX + totalTableWidth, yPos);
-        yPos += 5;
+        yPos += 6;
 
-        doc.setFontSize(8);
-        doc.setTextColor(0, 102, 204);
-        doc.setFont(undefined, 'bold');
-        doc.text('ATTENDANCE SUMMARY', startX, yPos);
-        yPos += 5;
-
+        // Summary title
+        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.roundedRect(startX, yPos - 3, 60, 6, 2, 2, 'F');
         doc.setFontSize(7);
-        doc.setTextColor(80);
-        doc.setFont(undefined, 'normal');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('ATTENDANCE SUMMARY', startX + 30, yPos + 1.5, { align: 'center' });
+        yPos += 7;
 
+        // Summary cards
         const summaryItems = [
-            { label: 'Total Working Days', value: summary.length },
-            { label: 'Hadir Penuh (Full Day)', value: hadirPenuh, color: [16, 185, 129] },
-            { label: 'Belum Pulang (No Check-out)', value: belumPulang, color: [245, 158, 11] },
-            { label: 'Tidak Hadir (Absent)', value: tidakHadir, color: [239, 68, 68] },
+            { label: 'Total Days', value: summary.length, color: PRIMARY },
+            { label: 'Hadir Penuh', value: hadirPenuh, color: GREEN },
+            { label: 'Belum Pulang', value: belumPulang, color: AMBER },
+            { label: 'Tidak Hadir', value: tidakHadir, color: RED },
         ];
 
-        const summaryStartX = startX;
+        const cardW = (totalTableWidth - 12) / 4;
         summaryItems.forEach((item, i) => {
-            const sx = summaryStartX + (i % 4) * (totalTableWidth / 4);
-            const sy = yPos + Math.floor(i / 4) * 6;
+            const cx = startX + i * (cardW + 4);
+            const cy = yPos;
             
-            if (item.color) {
-                doc.setTextColor(item.color[0], item.color[1], item.color[2]);
-            } else {
-                doc.setTextColor(60);
-            }
+            // Card background
+            doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+            doc.setGlobalAlpha(0.1);
+            doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'F');
+            doc.setGlobalAlpha(1);
+            
+            // Card border
+            doc.setDrawColor(item.color[0], item.color[1], item.color[2]);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'S');
+            
+            // Value
+            doc.setFontSize(10);
+            doc.setTextColor(item.color[0], item.color[1], item.color[2]);
             doc.setFont(undefined, 'bold');
-            doc.text(item.value.toString(), sx + 15, sy);
+            doc.text(item.value.toString(), cx + cardW / 2, cy + 5, { align: 'center' });
+            
+            // Label
+            doc.setFontSize(5.5);
+            doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
             doc.setFont(undefined, 'normal');
-            doc.setTextColor(100);
-            doc.text(item.label, sx + 22, sy);
+            doc.text(item.label, cx + cardW / 2, cy + 10, { align: 'center' });
         });
 
         // ===== FOOTER =====
+        const footerY = pageHeight - 12;
+        doc.setDrawColor(200, 210, 220);
+        doc.setLineWidth(0.2);
+        doc.line(12, footerY - 2, pageWidth - 12, footerY - 2);
+
         doc.setFontSize(6);
-        doc.setTextColor(150);
-        doc.text(`Page ${doc.internal.getNumberOfPages()} | Generated by AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+        doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
+        doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, footerY + 2, { align: 'center' });
 
-        // Signature line
-        doc.setFontSize(7);
-        doc.setTextColor(80);
-        doc.text('Printed by AZRA System', startX, pageHeight - 16);
-        doc.text('Manager / Supervisor,', startX + totalTableWidth - 50, pageHeight - 16);
-        doc.text('( ____________________ )', startX + totalTableWidth - 50, pageHeight - 10);
+        // Signature
+        doc.setFontSize(6.5);
+        doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
+        doc.text('Printed by AZRA System', startX, footerY + 2);
+        doc.text('Manager / Supervisor,', startX + totalTableWidth - 55, footerY + 2);
+        doc.text('( ____________________ )', startX + totalTableWidth - 55, footerY + 8);
 
-        doc.save(`Monthly_Pair_${emp.nama}_${monthStr}.pdf`);
+        doc.save(`Monthly_Pair_${emp.nama}_${periodLabel.replace(/ /g, '_')}.pdf`);
         showToast('PDF Generated successfully', 'success');
         toggleModal(false);
 
         if (window.recordClientActivity) {
-            await window.recordClientActivity('export_monthly_pair_pdf', 'export', `Generated monthly pair PDF for ${emp.nama} (${monthStr})`);
+            await window.recordClientActivity('export_monthly_pair_pdf', 'export', `Generated monthly pair PDF for ${emp.nama} (${periodLabel})`);
         }
     } catch (err) {
         console.error(err);

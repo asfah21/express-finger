@@ -202,11 +202,22 @@ async function generatePDFSlip() {
     try {
         showToast('Fetching data for PDF...');
         const [year, month] = monthStr.split('-');
-        
-        // Fetch specific employee logs for that month
-        const fromDate = `${monthStr}-01T00:00:00%2B08:00`;
-        const lastDay = new Date(year, month, 0).getDate();
-        const toDate = `${monthStr}-${lastDay}T23:59:59%2B08:00`;
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        // Period: 26th of previous month to 25th of selected month
+        let fromDate, toDate, periodLabel;
+        if (monthNum === 1) {
+            fromDate = `${yearNum - 1}-12-26T00:00:00%2B08:00`;
+            toDate = `${yearNum}-01-25T23:59:59%2B08:00`;
+            periodLabel = `26 Dec ${yearNum - 1} - 25 Jan ${yearNum}`;
+        } else {
+            const prevMonth = monthNum - 1;
+            fromDate = `${yearNum}-${String(prevMonth).padStart(2, '0')}-26T00:00:00%2B08:00`;
+            toDate = `${yearNum}-${String(monthNum).padStart(2, '0')}-25T23:59:59%2B08:00`;
+            periodLabel = `26 ${monthNames[prevMonth - 1]} - 25 ${monthNames[monthNum - 1]} ${yearNum}`;
+        }
 
         const res = await fetch(`/api/logs?user_id=${employeeId}&from=${fromDate}&to=${toDate}&limit=1000`);
         const data = await res.json();
@@ -218,72 +229,252 @@ async function generatePDFSlip() {
 
         const employee = logs[0]; // Info employee dari log pertama
         
-        // Generate PDF using jsPDF
+        // Generate PDF in landscape
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
 
-        // --- Header ---
-        doc.setFontSize(22);
-        doc.setTextColor(40, 44, 52);
-        doc.text("MONTHLY ATTENDANCE SLIP", 105, 20, null, null, "center");
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 26, null, null, "center");
+        // ===== COLOR PALETTE =====
+        const PRIMARY = [0, 102, 204];
+        const PRIMARY_DARK = [0, 70, 150];
+        const ACCENT = [119, 160, 68];
+        const TEXT_DARK = [40, 40, 50];
+        const TEXT_MUTED = [100, 110, 130];
+        const BG_LIGHT = [245, 248, 252];
+        const BG_WHITE = [255, 255, 255];
+        const GREEN = [16, 185, 129];
+        const AMBER = [245, 158, 11];
+        const RED = [239, 68, 68];
 
-        doc.setDrawColor(0, 102, 204);
-        doc.setLineWidth(0.5);
-        doc.line(14, 30, 196, 30);
+        // ===== HEADER =====
+        // Top accent bar
+        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.rect(0, 0, pageWidth, 5, 'F');
+        doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+        doc.rect(0, 5, pageWidth, 1.5, 'F');
 
-        // --- Info Section ---
-        doc.setFontSize(11);
-        doc.setTextColor(0);
+        // Company name
+        doc.setFontSize(16);
+        doc.setTextColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
         doc.setFont(undefined, 'bold');
-        doc.text("EMPLOYEE INFORMATION", 14, 40);
-        
+        doc.text('PT. GUNUNG SAMUDERA INTERNASIONAL', pageWidth / 2, 18, { align: 'center' });
+
+        // Report title pill
+        const titleText = 'MONTHLY ATTENDANCE SLIP';
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        const titleW = doc.getTextWidth(titleText) + 12;
+        doc.setFillColor(PRIMARY_DARK[0], PRIMARY_DARK[1], PRIMARY_DARK[2]);
+        doc.roundedRect((pageWidth - titleW) / 2, 22, titleW, 6, 3, 3, 'F');
+        doc.text(titleText, pageWidth / 2, 26.5, { align: 'center' });
+
+        // Divider
+        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.setLineWidth(0.3);
+        doc.line(12, 32, pageWidth - 12, 32);
+
+        // ===== EMPLOYEE INFO =====
+        const infoY = 38;
+        const col1X = 16;
+        const col2X = pageWidth / 2 + 8;
+        const lineH = 5;
+
+        // Info box
+        doc.setFillColor(BG_LIGHT[0], BG_LIGHT[1], BG_LIGHT[2]);
+        doc.roundedRect(12, infoY - 4, pageWidth - 24, lineH * 4 + 6, 3, 3, 'F');
+        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(12, infoY - 4, pageWidth - 24, lineH * 4 + 6, 3, 3, 'S');
+
+        doc.setFontSize(7.5);
+        doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(`Name: ${employee.nama || 'N/A'}`, 14, 48);
-        doc.text(`NIK: ${employee.nik || '-'}`, 14, 54);
-        doc.text(`Dept: ${employee.department || '-'}`, 14, 60);
-        
-        doc.text(`Period: ${new Date(year, month-1).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}`, 130, 48);
-        doc.text(`ID Device: ${employee.user_id}`, 130, 54);
-        doc.text(`Jabatan: ${employee.jabatan || '-'}`, 130, 60);
 
-        // --- Table ---
-        const tableData = logs.map(log => {
+        doc.text(`Employee Name  :  ${employee.nama || 'N/A'}`, col1X, infoY);
+        doc.text(`NIK                    :  ${employee.nik || '-'}`, col1X, infoY + lineH);
+        doc.text(`Department       :  ${employee.department || '-'}`, col1X, infoY + lineH * 2);
+        doc.text(`Position            :  ${employee.jabatan || '-'}`, col1X, infoY + lineH * 3);
+
+        doc.text(`Period               :  ${periodLabel}`, col2X, infoY);
+        doc.text(`User ID             :  ${employee.user_id}`, col2X, infoY + lineH);
+        doc.text(`Total Logs         :  ${logs.length} entries`, col2X, infoY + lineH * 2);
+        
+        // Count check-in vs check-out
+        const checkIn = logs.filter(l => l.type == 0).length;
+        const checkOut = logs.filter(l => l.type == 1).length;
+        doc.text(`Check In/Out    :  ${checkIn} / ${checkOut}`, col2X, infoY + lineH * 3);
+
+        // ===== TABLE =====
+        const tableTop = 58;
+        const colWidths = [16, 48, 20, 20, 20, 20, 18, 20, 22, 22];
+        const headers = ['Date', 'Name', 'NIK', 'Dept', 'Time', 'Status', 'Device', 'Type', 'Remarks'];
+        
+        const totalTableWidth = colWidths.reduce((a, b) => a + b, 0);
+        const startX = (pageWidth - totalTableWidth) / 2;
+
+        // Header
+        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.roundedRect(startX, tableTop, totalTableWidth, 7, 2, 2, 'F');
+        doc.setFontSize(6.5);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        let xPos = startX;
+        headers.forEach((h, i) => {
+            doc.text(h, xPos + colWidths[i] / 2, tableTop + 4.5, { align: 'center' });
+            xPos += colWidths[i];
+        });
+
+        // Body
+        let yPos = tableTop + 7;
+        let rowNum = 0;
+
+        logs.forEach((log) => {
+            if (yPos > pageHeight - 22) {
+                doc.setFontSize(6);
+                doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
+                doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+                doc.addPage();
+                yPos = 15;
+                
+                doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+                doc.roundedRect(startX, yPos, totalTableWidth, 7, 2, 2, 'F');
+                doc.setFontSize(6.5);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont(undefined, 'bold');
+                xPos = startX;
+                headers.forEach((h, i) => {
+                    doc.text(h, xPos + colWidths[i] / 2, yPos + 4.5, { align: 'center' });
+                    xPos += colWidths[i];
+                });
+                yPos += 7;
+            }
+
+            // Alternating row
+            if (rowNum % 2 === 0) {
+                doc.setFillColor(BG_LIGHT[0], BG_LIGHT[1], BG_LIGHT[2]);
+            } else {
+                doc.setFillColor(BG_WHITE[0], BG_WHITE[1], BG_WHITE[2]);
+            }
+            doc.rect(startX, yPos, totalTableWidth, 5.5, 'F');
+
             const dt = new Date(log.timestamp);
-            return [
-                `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`,
-                dt.toISOString().split('T')[1].substring(0, 8),
-                log.absensi,
-                log.ket || '-'
+            const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}`;
+            const timeStr = dt.toISOString().split('T')[1].substring(0, 8);
+            const typeLabel = log.type == 0 ? 'Masuk' : (log.type == 1 ? 'Pulang' : log.absensi || '-');
+            const deviceName = (log.device_name || log.device_sn || '-').substring(0, 10);
+
+            const rowData = [
+                dateStr,
+                (log.nama || '').substring(0, 22),
+                log.nik || '-',
+                (log.department || '').substring(0, 8),
+                timeStr,
+                typeLabel,
+                deviceName,
+                log.type == 0 ? 'IN' : 'OUT',
+                (log.ket || '-').substring(0, 14)
             ];
+
+            doc.setFontSize(6);
+            doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
+            doc.setFont(undefined, 'normal');
+            xPos = startX;
+            rowData.forEach((val, i) => {
+                // Color the type cell
+                if (i === 7) {
+                    if (val === 'IN') doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
+                    else doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
+                    doc.setFont(undefined, 'bold');
+                } else if (i === 5) {
+                    if (log.type == 0) doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
+                    else doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
+                    doc.setFont(undefined, 'bold');
+                } else {
+                    doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
+                    doc.setFont(undefined, 'normal');
+                }
+                doc.text(val, xPos + colWidths[i] / 2, yPos + 3.8, { align: 'center' });
+                xPos += colWidths[i];
+            });
+
+            yPos += 5.5;
+            rowNum++;
         });
 
-        doc.autoTable({
-            startY: 70,
-            head: [['Date', 'Time', 'Status', 'Remarks']],
-            body: tableData,
-            theme: 'striped',
-            headStyles: { fillColor: [0, 102, 204], textColor: 255 },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-            margin: { top: 70 },
+        // ===== SUMMARY =====
+        yPos += 3;
+        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.setLineWidth(0.5);
+        doc.line(startX, yPos, startX + totalTableWidth, yPos);
+        yPos += 6;
+
+        // Summary title
+        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
+        doc.roundedRect(startX, yPos - 3, 60, 6, 2, 2, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('ATTENDANCE SUMMARY', startX + 30, yPos + 1.5, { align: 'center' });
+        yPos += 7;
+
+        // Summary cards
+        const summaryItems = [
+            { label: 'Total Logs', value: logs.length, color: PRIMARY },
+            { label: 'Check In', value: checkIn, color: GREEN },
+            { label: 'Check Out', value: checkOut, color: AMBER },
+            { label: 'Devices', value: [...new Set(logs.map(l => l.device_sn))].length, color: RED },
+        ];
+
+        const cardW = (totalTableWidth - 12) / 4;
+        summaryItems.forEach((item, i) => {
+            const cx = startX + i * (cardW + 4);
+            const cy = yPos;
+            
+            doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+            doc.setGlobalAlpha(0.1);
+            doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'F');
+            doc.setGlobalAlpha(1);
+            
+            doc.setDrawColor(item.color[0], item.color[1], item.color[2]);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'S');
+            
+            doc.setFontSize(10);
+            doc.setTextColor(item.color[0], item.color[1], item.color[2]);
+            doc.setFont(undefined, 'bold');
+            doc.text(item.value.toString(), cx + cardW / 2, cy + 5, { align: 'center' });
+            
+            doc.setFontSize(5.5);
+            doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
+            doc.setFont(undefined, 'normal');
+            doc.text(item.label, cx + cardW / 2, cy + 10, { align: 'center' });
         });
 
-        // --- Footer / Signature ---
-        const finalY = doc.lastAutoTable.finalY + 20;
-        doc.setFontSize(10);
-        doc.text("Printed by AZRA System", 14, 285);
-        
-        doc.text("Manager / Supervisor,", 150, finalY);
-        doc.text("( ____________________ )", 150, finalY + 25);
+        // ===== FOOTER =====
+        const footerY = pageHeight - 12;
+        doc.setDrawColor(200, 210, 220);
+        doc.setLineWidth(0.2);
+        doc.line(12, footerY - 2, pageWidth - 12, footerY - 2);
 
-        doc.save(`Slip_${employee.nama}_${monthStr}.pdf`);
+        doc.setFontSize(6);
+        doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
+        doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, footerY + 2, { align: 'center' });
+
+        doc.setFontSize(6.5);
+        doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
+        doc.text('Printed by AZRA System', startX, footerY + 2);
+        doc.text('Manager / Supervisor,', startX + totalTableWidth - 55, footerY + 2);
+        doc.text('( ____________________ )', startX + totalTableWidth - 55, footerY + 8);
+
+        doc.save(`Slip_${employee.nama}_${periodLabel.replace(/ /g, '_')}.pdf`);
         showToast('PDF Generated successfully', 'success');
         toggleModal(false);
 
+        if (window.recordClientActivity) {
+            await window.recordClientActivity('export_monthly_slip_pdf', 'export', `Generated monthly slip PDF for ${employee.nama} (${periodLabel})`);
+        }
     } catch (err) {
         console.error(err);
         showToast('Failed to generate PDF', 'error');
