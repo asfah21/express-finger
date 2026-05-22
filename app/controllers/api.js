@@ -356,6 +356,7 @@ export const apiController = {
         from_date = todayWita, 
         to_date = todayWita, 
         search, 
+        user_id,
         limit = 25, 
         offset = 0 
       } = req.query;
@@ -383,6 +384,13 @@ export const apiController = {
       if (search) {
         whereLogs += ` AND (e.nama ILIKE $${i} OR e.nik ILIKE $${i} OR al.user_id::text ILIKE $${i})`;
         params.push(`%${search}%`);
+        i++;
+      }
+
+      // Filter by specific user_id
+      if (user_id) {
+        whereLogs += ` AND al.user_id = $${i}`;
+        params.push(String(user_id));
         i++;
       }
 
