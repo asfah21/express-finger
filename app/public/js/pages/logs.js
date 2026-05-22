@@ -276,79 +276,117 @@ async function generatePDFSlip() {
         doc.line(12, 32, pageWidth - 12, 32);
 
         // ===== EMPLOYEE INFO =====
-        const infoY = 38;
+        const infoY = 36;
         const col1X = 16;
         const col2X = pageWidth / 2 + 8;
-        const lineH = 5;
+        const lineH = 4.5;
 
         // Info box
         doc.setFillColor(BG_LIGHT[0], BG_LIGHT[1], BG_LIGHT[2]);
-        doc.roundedRect(12, infoY - 4, pageWidth - 24, lineH * 4 + 6, 3, 3, 'F');
+        doc.roundedRect(12, infoY - 3, pageWidth - 24, lineH * 4 + 4, 2, 2, 'F');
         doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
         doc.setLineWidth(0.2);
-        doc.roundedRect(12, infoY - 4, pageWidth - 24, lineH * 4 + 6, 3, 3, 'S');
+        doc.roundedRect(12, infoY - 3, pageWidth - 24, lineH * 4 + 4, 2, 2, 'S');
 
-        doc.setFontSize(7.5);
+        doc.setFontSize(7);
         doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
         doc.setFont(undefined, 'normal');
 
-        doc.text(`Employee Name  :  ${employee.nama || 'N/A'}`, col1X, infoY);
-        doc.text(`NIK                    :  ${employee.nik || '-'}`, col1X, infoY + lineH);
-        doc.text(`Department       :  ${employee.department || '-'}`, col1X, infoY + lineH * 2);
-        doc.text(`Position            :  ${employee.jabatan || '-'}`, col1X, infoY + lineH * 3);
+        doc.text(`Employee  :  ${employee.nama || 'N/A'}`, col1X, infoY);
+        doc.text(`NIK           :  ${employee.nik || '-'}`, col1X, infoY + lineH);
+        doc.text(`Department :  ${employee.department || '-'}`, col1X, infoY + lineH * 2);
+        doc.text(`Position     :  ${employee.jabatan || '-'}`, col1X, infoY + lineH * 3);
 
-        doc.text(`Period               :  ${periodLabel}`, col2X, infoY);
-        doc.text(`User ID             :  ${employee.user_id}`, col2X, infoY + lineH);
-        doc.text(`Total Logs         :  ${logs.length} entries`, col2X, infoY + lineH * 2);
+        doc.text(`Period        :  ${periodLabel}`, col2X, infoY);
+        doc.text(`User ID      :  ${employee.user_id}`, col2X, infoY + lineH);
+        doc.text(`Total Logs  :  ${logs.length} entries`, col2X, infoY + lineH * 2);
         
         // Count check-in vs check-out
         const checkIn = logs.filter(l => l.type == 0).length;
         const checkOut = logs.filter(l => l.type == 1).length;
-        doc.text(`Check In/Out    :  ${checkIn} / ${checkOut}`, col2X, infoY + lineH * 3);
+        doc.text(`Check In/Out :  ${checkIn} / ${checkOut}`, col2X, infoY + lineH * 3);
+
+        // ===== SUMMARY CARDS (above table) =====
+        const summaryY = infoY + lineH * 4 + 8;
+        const totalTableWidth = pageWidth - 24;
+        const startX = 12;
+        const alphaBlend = (c, alpha) => [
+            Math.round(255 + (c[0] - 255) * alpha),
+            Math.round(255 + (c[1] - 255) * alpha),
+            Math.round(255 + (c[2] - 255) * alpha)
+        ];
+
+        const summaryItems = [
+            { label: 'Total Logs', value: logs.length, color: PRIMARY },
+            { label: 'Check In', value: checkIn, color: GREEN },
+            { label: 'Check Out', value: checkOut, color: AMBER },
+            { label: 'Devices', value: [...new Set(logs.map(l => l.device_sn))].length, color: RED },
+        ];
+
+        const cardW = (totalTableWidth - 9) / 4;
+        summaryItems.forEach((item, i) => {
+            const cx = startX + i * (cardW + 3);
+            const cy = summaryY;
+            
+            // Card background
+            doc.setFillColor(...alphaBlend(item.color, 0.08));
+            doc.roundedRect(cx, cy, cardW, 10, 2, 2, 'F');
+            
+            doc.setDrawColor(item.color[0], item.color[1], item.color[2]);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(cx, cy, cardW, 10, 2, 2, 'S');
+            
+            doc.setFontSize(9);
+            doc.setTextColor(item.color[0], item.color[1], item.color[2]);
+            doc.setFont(undefined, 'bold');
+            doc.text(item.value.toString(), cx + cardW / 2, cy + 4, { align: 'center' });
+            
+            doc.setFontSize(5);
+            doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
+            doc.setFont(undefined, 'normal');
+            doc.text(item.label, cx + cardW / 2, cy + 8, { align: 'center' });
+        });
 
         // ===== TABLE =====
-        const tableTop = 58;
-        const colWidths = [16, 48, 20, 20, 20, 20, 18, 20, 22, 22];
+        const tableTop = summaryY + 14;
+        const colWidths = [14, 44, 18, 18, 18, 18, 16, 18, 22, 22];
         const headers = ['Date', 'Name', 'NIK', 'Dept', 'Time', 'Status', 'Device', 'Type', 'Remarks'];
-        
-        const totalTableWidth = colWidths.reduce((a, b) => a + b, 0);
-        const startX = (pageWidth - totalTableWidth) / 2;
 
         // Header
         doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
-        doc.roundedRect(startX, tableTop, totalTableWidth, 7, 2, 2, 'F');
-        doc.setFontSize(6.5);
+        doc.roundedRect(startX, tableTop, totalTableWidth, 6, 2, 2, 'F');
+        doc.setFontSize(6);
         doc.setTextColor(255, 255, 255);
         doc.setFont(undefined, 'bold');
         let xPos = startX;
         headers.forEach((h, i) => {
-            doc.text(h, xPos + colWidths[i] / 2, tableTop + 4.5, { align: 'center' });
+            doc.text(h, xPos + colWidths[i] / 2, tableTop + 4, { align: 'center' });
             xPos += colWidths[i];
         });
 
         // Body
-        let yPos = tableTop + 7;
+        let yPos = tableTop + 6;
         let rowNum = 0;
 
         logs.forEach((log) => {
-            if (yPos > pageHeight - 22) {
-                doc.setFontSize(6);
+            if (yPos > pageHeight - 18) {
+                doc.setFontSize(5.5);
                 doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
-                doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+                doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
                 doc.addPage();
-                yPos = 15;
+                yPos = 12;
                 
                 doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
-                doc.roundedRect(startX, yPos, totalTableWidth, 7, 2, 2, 'F');
-                doc.setFontSize(6.5);
+                doc.roundedRect(startX, yPos, totalTableWidth, 6, 2, 2, 'F');
+                doc.setFontSize(6);
                 doc.setTextColor(255, 255, 255);
                 doc.setFont(undefined, 'bold');
                 xPos = startX;
                 headers.forEach((h, i) => {
-                    doc.text(h, xPos + colWidths[i] / 2, yPos + 4.5, { align: 'center' });
+                    doc.text(h, xPos + colWidths[i] / 2, yPos + 4, { align: 'center' });
                     xPos += colWidths[i];
                 });
-                yPos += 7;
+                yPos += 6;
             }
 
             // Alternating row
@@ -357,7 +395,7 @@ async function generatePDFSlip() {
             } else {
                 doc.setFillColor(BG_WHITE[0], BG_WHITE[1], BG_WHITE[2]);
             }
-            doc.rect(startX, yPos, totalTableWidth, 5.5, 'F');
+            doc.rect(startX, yPos, totalTableWidth, 5, 'F');
 
             const dt = new Date(log.timestamp);
             const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}`;
@@ -367,9 +405,9 @@ async function generatePDFSlip() {
 
             const rowData = [
                 dateStr,
-                (log.nama || '').substring(0, 22),
+                (log.nama || '').substring(0, 20),
                 log.nik || '-',
-                (log.department || '').substring(0, 8),
+                (log.department || '').substring(0, 7),
                 timeStr,
                 typeLabel,
                 deviceName,
@@ -377,7 +415,7 @@ async function generatePDFSlip() {
                 (log.ket || '-').substring(0, 14)
             ];
 
-            doc.setFontSize(6);
+            doc.setFontSize(5.5);
             doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
             doc.setFont(undefined, 'normal');
             xPos = startX;
@@ -395,82 +433,23 @@ async function generatePDFSlip() {
                     doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
                     doc.setFont(undefined, 'normal');
                 }
-                doc.text(val, xPos + colWidths[i] / 2, yPos + 3.8, { align: 'center' });
+                doc.text(val, xPos + colWidths[i] / 2, yPos + 3.5, { align: 'center' });
                 xPos += colWidths[i];
             });
 
-            yPos += 5.5;
+            yPos += 5;
             rowNum++;
         });
 
-        // ===== SUMMARY =====
-        yPos += 3;
-        doc.setDrawColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
-        doc.setLineWidth(0.5);
-        doc.line(startX, yPos, startX + totalTableWidth, yPos);
-        yPos += 6;
-
-        // Summary title
-        doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
-        doc.roundedRect(startX, yPos - 3, 60, 6, 2, 2, 'F');
-        doc.setFontSize(7);
-        doc.setTextColor(255, 255, 255);
-        doc.setFont(undefined, 'bold');
-        doc.text('ATTENDANCE SUMMARY', startX + 30, yPos + 1.5, { align: 'center' });
-        yPos += 7;
-
-        // Summary cards
-        const summaryItems = [
-            { label: 'Total Logs', value: logs.length, color: PRIMARY },
-            { label: 'Check In', value: checkIn, color: GREEN },
-            { label: 'Check Out', value: checkOut, color: AMBER },
-            { label: 'Devices', value: [...new Set(logs.map(l => l.device_sn))].length, color: RED },
-        ];
-
-        const cardW = (totalTableWidth - 12) / 4;
-        summaryItems.forEach((item, i) => {
-            const cx = startX + i * (cardW + 4);
-            const cy = yPos;
-            
-            // Card background (alpha blended with white)
-            const alphaBlend = (c, alpha) => [
-                Math.round(255 + (c[0] - 255) * alpha),
-                Math.round(255 + (c[1] - 255) * alpha),
-                Math.round(255 + (c[2] - 255) * alpha)
-            ];
-            doc.setFillColor(...alphaBlend(item.color, 0.1));
-            doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'F');
-            
-            doc.setDrawColor(item.color[0], item.color[1], item.color[2]);
-            doc.setLineWidth(0.3);
-            doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'S');
-            
-            doc.setFontSize(10);
-            doc.setTextColor(item.color[0], item.color[1], item.color[2]);
-            doc.setFont(undefined, 'bold');
-            doc.text(item.value.toString(), cx + cardW / 2, cy + 5, { align: 'center' });
-            
-            doc.setFontSize(5.5);
-            doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
-            doc.setFont(undefined, 'normal');
-            doc.text(item.label, cx + cardW / 2, cy + 10, { align: 'center' });
-        });
-
         // ===== FOOTER =====
-        const footerY = pageHeight - 12;
+        const footerY = pageHeight - 10;
         doc.setDrawColor(200, 210, 220);
         doc.setLineWidth(0.2);
-        doc.line(12, footerY - 2, pageWidth - 12, footerY - 2);
+        doc.line(12, footerY - 1, pageWidth - 12, footerY - 1);
 
-        doc.setFontSize(6);
+        doc.setFontSize(5.5);
         doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
         doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, footerY + 2, { align: 'center' });
-
-        doc.setFontSize(6.5);
-        doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
-        doc.text('Printed by AZRA System', startX, footerY + 2);
-        doc.text('Manager / Supervisor,', startX + totalTableWidth - 55, footerY + 2);
-        doc.text('( ____________________ )', startX + totalTableWidth - 55, footerY + 8);
 
         doc.save(`Slip_${employee.nama}_${periodLabel.replace(/ /g, '_')}.pdf`);
         showToast('PDF Generated successfully', 'success');
