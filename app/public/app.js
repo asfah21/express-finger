@@ -136,8 +136,10 @@ function showDashboard() {
         const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
         if (sidebar && isCollapsed) {
             sidebar.classList.add('collapsed');
-            const btn = document.querySelector('.sidebar-collapse-btn i');
-            if (btn) btn.className = 'fas fa-chevron-right';
+            const btn = document.querySelector('.sidebar-collapse-btn');
+            const icon = btn ? btn.querySelector('i') : null;
+            if (icon) icon.className = 'fas fa-chevron-right';
+            if (btn) btn.title = 'Expand Sidebar';
         }
     }
 
@@ -295,13 +297,16 @@ function toggleSidebarCollapse() {
     
     sidebar.classList.toggle('collapsed');
     
-    // Update button icon
-    const btn = document.querySelector('.sidebar-collapse-btn i');
-    if (btn) {
+    // Update button icon and title
+    const btn = document.querySelector('.sidebar-collapse-btn');
+    const icon = btn ? btn.querySelector('i') : null;
+    if (btn && icon) {
         if (sidebar.classList.contains('collapsed')) {
-            btn.className = 'fas fa-chevron-right';
+            icon.className = 'fas fa-chevron-right';
+            btn.title = 'Expand Sidebar';
         } else {
-            btn.className = 'fas fa-bars';
+            icon.className = 'fas fa-bars';
+            btn.title = 'Collapse Sidebar';
         }
     }
     

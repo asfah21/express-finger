@@ -39,6 +39,20 @@
         window.toggleSubMenu = function (menuEl, submenuId) {
             const submenu = document.getElementById(submenuId);
             if (!submenu) return;
+
+            // When sidebar is collapsed on desktop, navigate to first child page instead
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar && sidebar.classList.contains('collapsed') && window.innerWidth >= 1024) {
+                const firstChild = submenu.querySelector('.nav-item');
+                if (firstChild && firstChild.getAttribute('onclick')) {
+                    const match = firstChild.getAttribute('onclick').match(/'([^']+)'/);
+                    if (match && match[1]) {
+                        showPage(match[1]);
+                        return;
+                    }
+                }
+            }
+
             const isOpen = submenu.classList.contains('open');
 
             // Close all other submenus first (accordion style)
