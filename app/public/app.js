@@ -23,6 +23,7 @@ window.logout = logout;
 window.handleLogin = handleLogin;
 window.toggleLoginPassword = toggleLoginPassword;
 window.toggleSidebar = toggleSidebar;
+window.toggleSidebarCollapse = toggleSidebarCollapse;
 window.closeModal = () => toggleModal(false);
 window.updatePaginationUI = updatePaginationUI;
 window.showDashboard = showDashboard;
@@ -128,6 +129,17 @@ function showDashboard() {
     }
 
     applyRoleRestrictions();
+
+    // Restore sidebar collapsed state from localStorage
+    if (window.innerWidth >= 1024) {
+        const sidebar = document.querySelector('.sidebar');
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (sidebar && isCollapsed) {
+            sidebar.classList.add('collapsed');
+            const btn = document.querySelector('.sidebar-collapse-btn i');
+            if (btn) btn.className = 'fas fa-chevron-right';
+        }
+    }
 
     const hash = window.location.hash.replace('#', '');
     const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings'];
@@ -272,6 +284,30 @@ function toggleSidebar() {
     const overlay = document.querySelector('.sidebar-overlay');
     if (sidebar) sidebar.classList.toggle('active');
     if (overlay) overlay.classList.toggle('active');
+}
+
+function toggleSidebarCollapse() {
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+    
+    // Only works on desktop (>= 1024px)
+    if (window.innerWidth < 1024) return;
+    
+    sidebar.classList.toggle('collapsed');
+    
+    // Update button icon
+    const btn = document.querySelector('.sidebar-collapse-btn i');
+    if (btn) {
+        if (sidebar.classList.contains('collapsed')) {
+            btn.className = 'fas fa-chevron-right';
+        } else {
+            btn.className = 'fas fa-bars';
+        }
+    }
+    
+    // Persist state
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
 }
 
 function toggleActions(e, btn) {

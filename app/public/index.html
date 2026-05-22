@@ -122,7 +122,6 @@
 
                 <div class="nav-item" onclick="toggleSubMenu(this, 'submenu-attendance')">
                     <i class="fas fa-user-clock"></i>
-                    <!-- <i class="fas fa-list"></i> -->
                     <span>Attendance</span>
                     <i class="fas fa-chevron-down toggle-icon"></i>
                 </div>
@@ -159,6 +158,9 @@
                 <!-- Top Navbar / Header -->
                 <div class="top-header">
                     <div class="top-header-left">
+                        <button class="icon-btn sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse Sidebar">
+                            <i class="fas fa-bars"></i>
+                        </button>
                         <div class="header-title" id="page-title">System Overview</div>
                     </div>
                     <div class="top-header-right">
@@ -170,16 +172,6 @@
                         <button class="icon-btn logout-btn-compact" onclick="logout()" title="Logout">
                             <i class="fas fa-sign-out-alt"></i>
                         </button>
-
-                        <!-- <div class="user-profile-menu">
-                            <div class="user-avatar" title="Account Settings" onclick="showPage('settings')"
-                                style="cursor: pointer;">
-                                <i class="fas fa-user-circle"></i>
-                            </div>
-                            <div class="user-name" id="nav-username" style="display: none;">Admin</div>
-
-
-                        </div> -->
                     </div>
                 </div>
 

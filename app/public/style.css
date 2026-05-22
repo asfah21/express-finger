@@ -15,6 +15,7 @@
     --input-bg: rgba(255, 255, 255, 0.05);
     --hover-bg: rgba(255, 255, 255, 0.08);
     --sidebar-width: 260px;
+    --sidebar-collapsed-width: 72px;
     --header-height: 70px;
 }
 
@@ -163,6 +164,71 @@ body {
     height: 100vh;
     z-index: 900;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-x: hidden;
+}
+
+/* Collapsed Sidebar */
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
+    padding: 0 0.75rem 2rem 0.75rem;
+}
+
+.sidebar.collapsed .sidebar-logo span {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-logo {
+    justify-content: center;
+    padding: 0;
+}
+
+.sidebar.collapsed .nav-item span {
+    display: none;
+}
+
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 0.6rem 0;
+    gap: 0;
+}
+
+.sidebar.collapsed .nav-item i {
+    margin: 0;
+    width: auto;
+    font-size: 1.1rem;
+}
+
+.sidebar.collapsed .toggle-icon {
+    display: none;
+}
+
+.sidebar.collapsed .submenu-container {
+    display: none;
+}
+
+.sidebar.collapsed .nav-item.logout {
+    margin-top: auto;
+}
+
+/* Sidebar collapse button in top header */
+.top-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.sidebar-collapse-btn {
+    flex-shrink: 0;
+}
+
+/* When sidebar is collapsed, adjust main content and top-header */
+.sidebar.collapsed ~ .main-content {
+    margin-left: var(--sidebar-collapsed-width);
+    max-width: calc(100vw - var(--sidebar-collapsed-width));
+}
+
+.sidebar.collapsed ~ .main-content .top-header {
+    left: var(--sidebar-collapsed-width);
 }
 
 /* Mobile Nav Toggle */
