@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { showToast, toggleModal, getWitaDateString } from '../utils.js';
+import { showSkeleton } from '../skeleton.js';
 
 // Pair pagination state (managed locally since it's not in the global state)
 const pairPagination = {
@@ -12,6 +13,9 @@ export async function refreshPair() {
     const fromDate = document.getElementById('pair-date-from').value;
     const toDate = document.getElementById('pair-date-to').value;
     const search = document.getElementById('pair-search').value;
+
+    // Show skeleton loading
+    showSkeleton('pair-body', pairPagination.size);
 
     let url = `/api/pair?limit=${pairPagination.size}&offset=${pairPagination.page * pairPagination.size}`;
     if (fromDate) url += `&from_date=${fromDate}`;

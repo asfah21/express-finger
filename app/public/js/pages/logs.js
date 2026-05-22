@@ -1,11 +1,15 @@
 import { state } from '../state.js';
 import { showToast, toggleModal, getWitaDateString } from '../utils.js';
+import { showSkeleton } from '../skeleton.js';
 
 export async function refreshLogs() {
     const s = state.pagination.logs;
     const fromDate = document.getElementById('log-date-from').value;
     const toDate = document.getElementById('log-date-to').value;
     const search = document.getElementById('log-search').value;
+
+    // Show skeleton loading
+    showSkeleton('logs-body', s.size);
 
     let url = `/api/logs?limit=${s.size}&offset=${s.page * s.size}`;
     if (fromDate) url += `&from=${fromDate}T00:00:00%2B08:00`;

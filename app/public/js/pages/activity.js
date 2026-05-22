@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { showToast, showConfirm } from '../utils.js';
+import { showSkeleton } from '../skeleton.js';
 
 export async function refreshActivityLogs() {
     const s = state.pagination.activity;
@@ -7,6 +8,9 @@ export async function refreshActivityLogs() {
     const category = document.getElementById('activity-category')?.value || '';
     const from = document.getElementById('activity-date-from')?.value || '';
     const to = document.getElementById('activity-date-to')?.value || '';
+
+    // Show skeleton loading
+    showSkeleton('activity-body', s.size);
 
     let url = `/api/activity-logs?limit=${s.size}&offset=${s.page * s.size}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;

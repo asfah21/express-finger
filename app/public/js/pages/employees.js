@@ -1,9 +1,13 @@
 import { state } from '../state.js';
 import { showToast, toggleModal, showConfirm, getWitaDateString } from '../utils.js';
+import { showSkeleton } from '../skeleton.js';
 
 export async function refreshEmployees() {
     const s = state.pagination.employees;
     const search = document.getElementById('employee-search').value;
+
+    // Show skeleton loading
+    showSkeleton('employees-body', s.size);
 
     let url = `/api/employees?limit=${s.size}&offset=${s.page * s.size}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
