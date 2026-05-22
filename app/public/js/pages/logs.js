@@ -432,10 +432,14 @@ async function generatePDFSlip() {
             const cx = startX + i * (cardW + 4);
             const cy = yPos;
             
-            doc.setFillColor(item.color[0], item.color[1], item.color[2]);
-            doc.setGlobalAlpha(0.1);
+            // Card background (alpha blended with white)
+            const alphaBlend = (c, alpha) => [
+                Math.round(255 + (c[0] - 255) * alpha),
+                Math.round(255 + (c[1] - 255) * alpha),
+                Math.round(255 + (c[2] - 255) * alpha)
+            ];
+            doc.setFillColor(...alphaBlend(item.color, 0.1));
             doc.roundedRect(cx, cy, cardW, 12, 2, 2, 'F');
-            doc.setGlobalAlpha(1);
             
             doc.setDrawColor(item.color[0], item.color[1], item.color[2]);
             doc.setLineWidth(0.3);
