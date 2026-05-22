@@ -43,41 +43,41 @@ export async function refreshPair() {
                 <tr>
                     <td>${item.nik || '-'}</td>
                     <td>
-                        <div style="font-weight: 600;">${item.nama || 'Unknown'}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${item.user_id}</div>
+                        <div class="emp-info">${item.nama || 'Unknown'}</div>
+                        <div class="emp-sub">ID: ${item.user_id}</div>
                     </td>
-                    <td style="font-size: 0.8125rem;">
+                    <td class="text-sm">
                         <div>${item.department || '-'}</div>
-                        <div style="opacity: 0.7;">${item.jabatan || '-'}</div>
+                        <div class="opacity-70">${item.jabatan || '-'}</div>
                     </td>
-                    <td style="white-space: nowrap;">${dateFormatted}</td>
+                    <td class="nowrap">${dateFormatted}</td>
                     <td>
                         ${item.check_in
-                            ? `<strong style="color: var(--primary); font-size: 1.1rem;">${item.check_in}</strong>`
-                            : '<span style="color: var(--text-muted);">-</span>'
+                            ? `<strong class="text-primary text-lg">${item.check_in}</strong>`
+                            : '<span class="text-muted">-</span>'
                         }
                     </td>
                     <td>
                         ${item.check_out
-                            ? `<strong style="color: var(--primary); font-size: 1.1rem;">${item.check_out}</strong>`
-                            : '<span style="color: var(--text-muted);">-</span>'
+                            ? `<strong class="text-primary text-lg">${item.check_out}</strong>`
+                            : '<span class="text-muted">-</span>'
                         }
                     </td>
                     <td>
                         ${item.work_hours
-                            ? `<span style="font-weight: 600;">${item.work_hours}</span>`
-                            : '<span style="color: var(--text-muted);">-</span>'
+                            ? `<span class="font-semibold">${item.work_hours}</span>`
+                            : '<span class="text-muted">-</span>'
                         }
                     </td>
                     <td><span class="badge ${statusBadge}">${status}</span></td>
                 </tr>
             `;
-        }).join('') || '<tr><td colspan="8" style="text-align: center;">No data found</td></tr>';
+        }).join('') || '<tr><td colspan="8" class="empty-state">No data found</td></tr>';
 
         updatePairPaginationUI();
     } catch (err) {
         console.error('Failed to fetch pair data:', err);
-        document.getElementById('pair-body').innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--error);">Failed to load data</td></tr>';
+        document.getElementById('pair-body').innerHTML = '<tr><td colspan="8" class="empty-state text-error">Failed to load data</td></tr>';
     }
 }
 
@@ -158,12 +158,12 @@ window.showPairExportMenu = function() {
     toggleModal(true);
     document.getElementById('modal-title').innerText = 'Export Attendance Pair';
     document.getElementById('modal-content').innerHTML = `
-        <div style="text-align: center; margin-bottom: 2rem;">
+        <div class="text-center mb-4">
             <i class="fas fa-file-excel" style="font-size: 3.5rem; color: var(--secondary); margin-bottom: 1rem;"></i>
-            <p style="color: var(--text-muted);">Select the time range for your Excel export.</p>
+            <p class="text-muted">Select the time range for your Excel export.</p>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button class="btn-primary" id="btn-pair-export-filtered" style="background: var(--primary);">
+        <div class="flex flex-col gap-3">
+            <button class="btn-primary" id="btn-pair-export-filtered">
                 <i class="fas fa-globe"></i> Export Data (Based on Current Filters)
             </button>
             <button class="btn-primary" id="btn-pair-export-today" style="background: #4a5568;">
@@ -212,7 +212,7 @@ async function performPairExport(range) {
         toggleModal(false);
         showToast('Preparing export data...');
 
-        let url = `/api/pair?limit=50000`;
+        let url = `/api/pair?limit=${state.EXPORT_LIMIT}`;
         if (fromDate) url += `&from_date=${fromDate}`;
         if (toDate) url += `&to_date=${toDate}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;

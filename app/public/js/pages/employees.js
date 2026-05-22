@@ -317,7 +317,7 @@ async function saveNewEmployee() {
 
 export async function exportEmployees() {
     try {
-        const res = await fetch('/api/employees?limit=5000');
+        const res = await fetch(`/api/employees?limit=${state.EXPORT_LIMIT}`);
         const data = await res.json();
         const employees = data.data?.list || [];
 

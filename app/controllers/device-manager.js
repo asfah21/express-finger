@@ -5,6 +5,21 @@ function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
 }
 
+/**
+ * Validates an IPv4 address format
+ * @param {string} ip - The IP address to validate
+ * @returns {boolean}
+ */
+function isValidIPv4(ip) {
+    if (!ip || typeof ip !== 'string') return false
+    const parts = ip.trim().split('.')
+    if (parts.length !== 4) return false
+    return parts.every(part => {
+        const num = Number(part)
+        return !isNaN(num) && num >= 0 && num <= 255 && String(num) === part
+    })
+}
+
 export const deviceManagerController = {
     async listDevices(req, res) {
         try {
@@ -23,6 +38,8 @@ export const deviceManagerController = {
     async addDevice(req, res) {
         const { sn, name, ip, port = 4370, is_active = true } = req.body
         if (!ip) return res.status(400).json({ status: 'error', message: 'IP address is required' })
+        if (!isValidIPv4(ip)) return res.status(400).json({ status: 'error', message: 'Invalid IP address format' })
+        if (port && (port < 1 || port > 65535)) return res.status(400).json({ status: 'error', message: 'Port must be between 1 and 65535' })
 
         const username = req.user?.username || 'api'
         const clientIp = getClientIp(req)

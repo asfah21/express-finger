@@ -1,10 +1,14 @@
 import { state } from '../state.js';
 import { getWitaDateString } from '../utils.js';
 
+let attendanceChart = null;
+
 export async function refreshOverview() {
     try {
         const s = state.pagination.overview;
         const today = getWitaDateString();
+        
+        // Fetch all data in parallel - total counts come from limit=1 requests
         const [devicesRes, empRes, logsRes] = await Promise.all([
             fetch('/api/devices?limit=1'),
             fetch('/api/employees?limit=1'),
@@ -22,22 +26,14 @@ export async function refreshOverview() {
 
         document.getElementById('stat-devices').innerText = devicesData.data?.total || 0;
         document.getElementById('stat-employees').innerText = employeesData.data?.total || 0;
-
-        // Logs stats (today)
-        document.getElementById('stat-logs').innerText = '...';
-        fetch(`/api/logs?from=${today}T00:00:00%2B08:00`).then(r => {
-            if (!r.ok) return null;
-            return r.json();
-        }).then(d => {
-            if (d) document.getElementById('stat-logs').innerText = d.data?.total || 0;
-        }).catch(() => { });
+        document.getElementById('stat-logs').innerText = logsData.data?.total || 0;
 
         s.total = logsData.data?.total || 0;
         renderRecentLogs(logsData.data?.logs || []);
-        // updatePaginationUI is global for now, will be called from main
         window.updatePaginationUI('overview');
 
         refreshLateToday(today);
+        refreshChart();
 
         const lastUpdateEl = document.getElementById('overview-last-update');
         if (lastUpdateEl) {
@@ -45,6 +41,107 @@ export async function refreshOverview() {
         }
     } catch (err) {
         console.error('Failed to refresh overview', err);
+    }
+}
+
+/**
+ * Fetch weekly attendance data and render the chart
+ */
+async function refreshChart() {
+    try {
+        // Generate last 7 days
+        const days = [];
+        const checkinData = [];
+        const checkoutData = [];
+        
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+            days.push(dayName);
+            
+            // Fetch check-in (type=0) and check-out (type=1) counts for each day
+            const [checkinRes, checkoutRes] = await Promise.all([
+                fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=0&limit=1`),
+                fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&type=1&limit=1`)
+            ]);
+            
+            const checkinData_ = checkinRes.ok ? await checkinRes.json() : { data: { total: 0 } };
+            const checkoutData_ = checkoutRes.ok ? await checkoutRes.json() : { data: { total: 0 } };
+            
+            checkinData.push(checkinData_.data?.total || 0);
+            checkoutData.push(checkoutData_.data?.total || 0);
+        }
+
+        const canvas = document.getElementById('attendance-chart');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (attendanceChart) {
+            attendanceChart.destroy();
+        }
+
+        const isLight = document.documentElement.classList.contains('theme-light');
+        const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+        const textColor = isLight ? '#64748b' : '#94a3b8';
+
+        attendanceChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: days,
+                datasets: [
+                    {
+                        label: 'Check In',
+                        data: checkinData,
+                        backgroundColor: 'rgba(36, 97, 150, 0.7)',
+                        borderColor: '#246196',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        barPercentage: 0.4
+                    },
+                    {
+                        label: 'Check Out',
+                        data: checkoutData,
+                        backgroundColor: 'rgba(119, 160, 68, 0.7)',
+                        borderColor: '#77a044',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        barPercentage: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor,
+                            font: { size: 12 }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { 
+                            color: textColor,
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Failed to refresh chart:', err);
     }
 }
 
@@ -58,24 +155,24 @@ function renderRecentLogs(logs) {
         return `
             <tr>
                 <td>
-                    <i class="fas fa-history" style="color: var(--warning); margin-right: 0.5rem; font-size: 0.8rem;"></i>
-                    <strong style="color: var(--warning); font-size: 1.05rem;">${timeStr}</strong>
-                    <small style="opacity: 0.5; font-size: 0.7rem;">:${secondsStr}</small>
+                    <i class="fas fa-history text-warning mr-2" style="font-size: 0.8rem;"></i>
+                    <strong class="text-warning text-lg">${timeStr}</strong>
+                    <small class="opacity-50 text-xs">:${secondsStr}</small>
                 </td>
                 <td>
-                    <div style="font-weight: 600;">${log.nama || log.user_id}</div>
-                    <div style="font-size: 0.7rem; color: var(--text-muted);">ID: ${log.user_id}</div>
+                    <div class="emp-info">${log.nama || log.user_id}</div>
+                    <div class="emp-sub">ID: ${log.user_id}</div>
                 </td>
                 <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
                 <td>
-                    <div style="font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 0.4rem;">
-                        <i class="fas fa-wifi" style="font-size: 0.75rem; color: var(--primary); opacity: 0.7;"></i>
+                    <div class="device-info">
+                        <i class="fas fa-wifi"></i>
                         ${log.device_name || log.device_sn || '-'}
                     </div>
                 </td>
             </tr>
         `;
-    }).join('') || '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem;"><i class="fas fa-info-circle" style="margin-right:0.5rem"></i>No activity recorded today.</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="empty-state"><i class="fas fa-info-circle mr-2"></i>No activity recorded today.</td></tr>';
 }
 
 async function refreshLateToday(today) {
@@ -106,20 +203,20 @@ async function refreshLateToday(today) {
             const timeStr = dt.toISOString().split('T')[1].substring(0, 5);
             return `
                 <tr>
-                    <td style="color: var(--text-muted);">${idx + 1}</td>
+                    <td class="text-muted">${idx + 1}</td>
                     <td>
-                        <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">NIK: ${log.nik || '-'}</div>
+                        <div class="emp-info">${log.nama || 'Unknown'}</div>
+                        <div class="emp-sub">NIK: ${log.nik || '-'}</div>
                     </td>
                     <td>${log.department || '-'}</td>
                     <td>${log.jabatan || '-'}</td>
-                    <td><strong style="color: var(--error); font-size: 1.05rem;">${timeStr}</strong></td>
-                    <td><span style="color: var(--error); font-weight: 500;">${log.ket}</span></td>
+                    <td><strong class="text-error text-lg">${timeStr}</strong></td>
+                    <td><span class="text-error font-medium">${log.ket}</span></td>
                 </tr>
             `;
-        }).join('') || '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;"><i class="fas fa-check-circle" style="color: var(--success); margin-right: 0.5rem;"></i>No late staff today — great job!</td></tr>';
+        }).join('') || '<tr><td colspan="6" class="empty-state"><i class="fas fa-check-circle text-success mr-2"></i>No late staff today — great job!</td></tr>';
     } catch (err) {
         console.error('Failed to fetch late today', err);
-        document.getElementById('late-today-body').innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Failed to load data</td></tr>';
+        document.getElementById('late-today-body').innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load data</td></tr>';
     }
 }

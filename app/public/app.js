@@ -246,6 +246,11 @@ function toggleTheme() {
             icon.classList.add('fa-moon');
         });
     }
+    
+    // Refresh chart to update colors when theme changes
+    if (state.currentPath === 'overview' && typeof refreshOverview === 'function') {
+        refreshOverview();
+    }
 }
 
 function toggleLoginPassword() {

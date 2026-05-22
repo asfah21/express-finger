@@ -315,7 +315,7 @@ async function performExport(range) {
         toggleModal(false);
         showToast('Preparing export data...');
 
-        let url = `/api/logs?limit=50000`;
+        let url = `/api/logs?limit=${state.EXPORT_LIMIT}`;
         if (range === '3days') {
             url += `&from=${fromDate}&to=${toDate}`;
         } else {

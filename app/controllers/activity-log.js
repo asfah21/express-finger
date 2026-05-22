@@ -89,8 +89,10 @@ export const activityLogController = {
     async clearOldLogs(req, res) {
         try {
             const days = parseInt(req.query.days) || 90
+            // Use parameterized query to prevent SQL injection
             const { rowCount } = await pool.query(
-                `DELETE FROM activity_logs WHERE created_at < NOW() - INTERVAL '${days} days'`
+                `DELETE FROM activity_logs WHERE created_at < NOW() - ($1 || ' days')::interval`,
+                [days]
             )
             res.json({ status: 'success', message: `Deleted ${rowCount} old activity logs older than ${days} days` })
         } catch (err) {

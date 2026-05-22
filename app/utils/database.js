@@ -70,7 +70,7 @@ export async function ensureSchema() {
     -- Add divisi and type columns to existing employee table
     ALTER TABLE employee ADD COLUMN IF NOT EXISTS divisi TEXT;
     ALTER TABLE employee ADD COLUMN IF NOT EXISTS type TEXT;
-    -- Add fingerprint_count column
+    -- Add fingerprint_count column for existing installations
     ALTER TABLE employee ADD COLUMN IF NOT EXISTS fingerprint_count INT DEFAULT 0;
   `)
   await pool.query(`
@@ -105,6 +105,9 @@ export async function ensureSchema() {
       status TEXT DEFAULT 'success',
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    -- Ensure status column exists for existing installations
+    ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'success';
 
     CREATE INDEX IF NOT EXISTS idx_actlog_created ON activity_logs (created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_actlog_username ON activity_logs (username);

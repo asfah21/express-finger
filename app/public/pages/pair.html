@@ -1,74 +1,64 @@
 <div id="page-pair" class="page" style="display: none;">
 
-                    <!-- Filter and Search section -->
-                    <div
-                        style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
-                        <div style="flex: 2; min-width: 250px;">
-                            <label
-                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">SEARCH
-                                EMPLOYEE</label>
-                            <div style="position: relative;">
-                                <i class="fas fa-search"
-                                    style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                                <input type="text" id="pair-search" placeholder="Search name, NIK, or ID..."
-                                    style="padding-left: 2.8rem;" oninput="handlePairSearch(this.value)">
-                            </div>
-                        </div>
+    <!-- Filter and Search section -->
+    <div class="filter-bar">
+        <div class="filter-group" style="flex: 2; min-width: 250px;">
+            <label class="filter-label">SEARCH EMPLOYEE</label>
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="pair-search" placeholder="Search name, NIK, or ID..."
+                    class="search-input" oninput="handlePairSearch(this.value)">
+            </div>
+        </div>
 
-                        <div style="flex: 1; min-width: 140px;">
-                            <label
-                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">FROM
-                                DATE</label>
-                            <input type="date" id="pair-date-from">
-                        </div>
+        <div class="filter-group" style="flex: 1; min-width: 140px;">
+            <label class="filter-label">FROM DATE</label>
+            <input type="date" id="pair-date-from">
+        </div>
 
-                        <div style="flex: 1; min-width: 140px;">
-                            <label
-                                style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">TO
-                                DATE</label>
-                            <input type="date" id="pair-date-to">
-                        </div>
+        <div class="filter-group" style="flex: 1; min-width: 140px;">
+            <label class="filter-label">TO DATE</label>
+            <input type="date" id="pair-date-to">
+        </div>
 
-                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button class="btn-primary" style="width: auto; height: 42px; padding: 0 1.2rem;"
-                                onclick="applyPairFilter()">
-                                <i class="fas fa-filter"></i> Filter
-                            </button>
-                            <button class="btn-primary"
-                                style="width: auto; height: 42px; padding: 0 1.2rem; background: #10b981;"
-                                onclick="showPairExportMenu()">
-                                <i class="fas fa-file-export"></i> Export
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-container">
-                        <table id="pair-table">
-                            <thead>
-                                <tr>
-                                    <th>NIK</th>
-                                    <th>Name</th>
-                                    <th>Dept - Position</th>
-                                    <th>Date</th>
-                                    <th>IN</th>
-                                    <th>OUT</th>
-                                    <th>Work Hours</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="pair-body"></tbody>
-                        </table>
-                        <div class="table-footer">
-                            <div class="table-info" id="pair-info">Showing 0 of 0 items</div>
-                            <div class="table-pagination">
-                                <select onchange="updatePairPageSize(this.value)">
-                                    <option value="25">25 per page</option>
-                                    <option value="50">50 per page</option>
-                                    <option value="100">100 per page</option>
-                                </select>
-                                <button onclick="prevPairPage()" id="pair-prev-btn">Prev</button>
-                                <div class="pagination-numbers" id="pair-pagination-numbers"></div>
-                                <button onclick="nextPairPage()" id="pair-next-btn">Next</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div class="filter-actions">
+            <button class="btn-primary filter-btn" onclick="applyPairFilter()">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <button class="btn-primary filter-btn btn-export" onclick="showPairExportMenu()">
+                <i class="fas fa-file-export"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table id="pair-table">
+            <thead>
+                <tr>
+                    <th>NIK</th>
+                    <th>Name</th>
+                    <th>Dept - Position</th>
+                    <th>Date</th>
+                    <th>IN</th>
+                    <th>OUT</th>
+                    <th>Work Hours</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="pair-body"></tbody>
+        </table>
+        <div class="table-footer">
+            <div class="table-info" id="pair-info">Showing 0 of 0 items</div>
+            <div class="table-pagination">
+                <select onchange="updatePairPageSize(this.value)">
+                    <option value="25">25 per page</option>
+                    <option value="50">50 per page</option>
+                    <option value="100">100 per page</option>
+                </select>
+                <button onclick="prevPairPage()" id="pair-prev-btn">Prev</button>
+                <div class="pagination-numbers" id="pair-pagination-numbers"></div>
+                <button onclick="nextPairPage()" id="pair-next-btn">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
