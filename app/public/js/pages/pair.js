@@ -32,9 +32,15 @@ export async function refreshPair() {
             if (status === 'Hadir Penuh') statusBadge = 'badge-success';
             else if (status === 'Tidak Hadir') statusBadge = 'badge-error';
 
+            // Format date as D/M/YYYY like attendance logs
+            let dateFormatted = item.date || '-';
+            if (item.date && item.date.includes('-')) {
+                const parts = item.date.split('-');
+                dateFormatted = `${parseInt(parts[2])}/${parseInt(parts[1])}/${parts[0]}`;
+            }
+
             return `
                 <tr>
-                    <td style="white-space: nowrap;">${item.date || '-'}</td>
                     <td>${item.nik || '-'}</td>
                     <td>
                         <div style="font-weight: 600;">${item.nama || 'Unknown'}</div>
@@ -44,6 +50,7 @@ export async function refreshPair() {
                         <div>${item.department || '-'}</div>
                         <div style="opacity: 0.7;">${item.jabatan || '-'}</div>
                     </td>
+                    <td style="white-space: nowrap;">${dateFormatted}</td>
                     <td>
                         ${item.check_in
                             ? `<strong style="color: var(--primary); font-size: 1.1rem;">${item.check_in}</strong>`
@@ -149,7 +156,7 @@ window.handlePairSearch = function(val) {
 
 window.showPairExportMenu = function() {
     toggleModal(true);
-    document.getElementById('modal-title').innerText = 'Export Attendance Summary';
+    document.getElementById('modal-title').innerText = 'Export Attendance Pair';
     document.getElementById('modal-content').innerHTML = `
         <div style="text-align: center; margin-bottom: 2rem;">
             <i class="fas fa-file-excel" style="font-size: 3.5rem; color: var(--secondary); margin-bottom: 1rem;"></i>
@@ -226,13 +233,13 @@ async function performPairExport(range) {
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance Summary');
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance Pair');
 
-        XLSX.writeFile(workbook, `attendance_summary_${range}_${today}.xlsx`);
+        XLSX.writeFile(workbook, `attendance_pair_${range}_${today}.xlsx`);
         showToast('Export successful', 'success');
 
         if (window.recordClientActivity) {
-            await window.recordClientActivity('export_attendance_summary', 'export', `Exported attendance summary (range: ${range}, count: ${summary.length})`);
+            await window.recordClientActivity('export_attendance_pair', 'export', `Exported attendance pair (range: ${range}, count: ${summary.length})`);
         }
     } catch (err) {
         showToast('Export failed', 'error');
