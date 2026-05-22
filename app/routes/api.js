@@ -12,6 +12,7 @@ router.put('/settings', requireAdminPrivileges, settingsController.updateSetting
 
 router.get('/logs', apiController.getLogs)
 router.get('/logs/summary', apiController.getAttendanceSummary)
+router.get('/pair', apiController.getPairSummary)
 router.get('/stats/daily', apiController.getDailyStats)
 router.get('/raw', apiController.getRawFiles)
 router.get('/raw/:name', apiController.downloadRawFile)

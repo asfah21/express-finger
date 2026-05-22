@@ -349,6 +349,176 @@ export const apiController = {
     }
   },
 
+  async getPairSummary(req, res) {
+    try {
+      const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
+      const { 
+        from_date = todayWita, 
+        to_date = todayWita, 
+        search, 
+        limit = 25, 
+        offset = 0 
+      } = req.query;
+
+      const lim = Math.min(parseInt(limit) || 25, 500);
+      const off = Math.max(parseInt(offset) || 0, 0);
+
+      const from = new Date(`${from_date}T00:00:00Z`);
+      const to = new Date(`${to_date}T23:59:59Z`);
+
+      // Expand timestamp search by 1 day backward and forward to catch cross-midnight shifts
+      const fetchFrom = new Date(from);
+      fetchFrom.setDate(fetchFrom.getDate() - 1);
+      const fetchTo = new Date(to);
+      fetchTo.setDate(fetchTo.getDate() + 1);
+
+      const params = [];
+      let i = 1;
+
+      // Base WHERE for attendance_logs time range
+      let whereLogs = `al."timestamp" BETWEEN $${i++} AND $${i++}`;
+      params.push(fetchFrom, fetchTo);
+
+      // Search filter (by employee name, nik, or user_id)
+      if (search) {
+        whereLogs += ` AND (e.nama ILIKE $${i} OR e.nik ILIKE $${i} OR al.user_id::text ILIKE $${i})`;
+        params.push(`%${search}%`);
+        i++;
+      }
+
+      const dateFromStr = from.toISOString().split('T')[0];
+      const dateToStr = to.toISOString().split('T')[0];
+
+      // Optimized query: single CTE pipeline with accurate COUNT
+      const query = `
+        WITH raw_logs AS (
+          SELECT 
+            al.user_id,
+            al."timestamp" AT TIME ZONE 'UTC' as ts,
+            al.type,
+            LEAD(al."timestamp" AT TIME ZONE 'UTC') OVER (
+              PARTITION BY al.user_id ORDER BY al."timestamp"
+            ) as next_ts,
+            LEAD(al.type) OVER (
+              PARTITION BY al.user_id ORDER BY al."timestamp"
+            ) as next_type
+          FROM attendance_logs al
+          LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+          WHERE ${whereLogs}
+        ),
+        cleaned_logs AS (
+          SELECT * FROM raw_logs
+          WHERE COALESCE(
+            type = 0 AND next_type = 1 AND EXTRACT(EPOCH FROM (next_ts - ts)) <= 300, 
+            FALSE
+          ) = FALSE
+        ),
+        daily_logs AS (
+          SELECT 
+            user_id,
+            DATE(
+              ts - 
+              CASE 
+                WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9 
+                THEN INTERVAL '12 hours' 
+                ELSE INTERVAL '0 hours' 
+              END
+            ) as log_date,
+            MIN(ts) FILTER (WHERE type = 0) as check_in_time,
+            MAX(ts) FILTER (WHERE type = 1) as check_out_time
+          FROM cleaned_logs
+          GROUP BY user_id, DATE(
+            ts - 
+            CASE 
+              WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9 
+              THEN INTERVAL '12 hours' 
+              ELSE INTERVAL '0 hours' 
+            END
+          )
+        ),
+        filtered_daily AS (
+          SELECT * FROM daily_logs
+          WHERE (log_date >= $${i}::date AND log_date <= $${i+1}::date)
+             OR (DATE(check_out_time) >= $${i}::date AND DATE(check_out_time) <= $${i+1}::date)
+             OR (DATE(check_in_time) >= $${i}::date AND DATE(check_in_time) <= $${i+1}::date)
+        ),
+        counted AS (
+          SELECT COUNT(*)::bigint AS total FROM filtered_daily
+        ),
+        paginated AS (
+          SELECT * FROM filtered_daily
+          ORDER BY log_date DESC, check_in_time DESC NULLS LAST, check_out_time DESC NULLS LAST
+          LIMIT $${i+2} OFFSET $${i+3}
+        )
+        SELECT 
+          p.log_date,
+          p.user_id,
+          e.nik,
+          e.nama,
+          e.department,
+          e.jabatan,
+          TO_CHAR(p.check_in_time, 'HH24:MI:SS') as check_in,
+          TO_CHAR(p.check_out_time, 'HH24:MI:SS') as check_out,
+          EXTRACT(EPOCH FROM (p.check_out_time - p.check_in_time)) as diff_seconds,
+          c.total
+        FROM paginated p
+        LEFT JOIN employee e ON p.user_id::text = e.user_id::text
+        CROSS JOIN counted c
+        ORDER BY p.log_date DESC, p.check_in_time DESC NULLS LAST, p.check_out_time DESC NULLS LAST;
+      `;
+
+      params.push(dateFromStr, dateToStr, lim, off);
+
+      const { rows } = await pool.query({ text: query, values: params });
+
+      const total = rows.length > 0 ? Number(rows[0].total) : 0;
+
+      const formattedData = rows.map(row => {
+        let workHoursStr = null;
+        if (row.check_out && row.diff_seconds > 0) {
+          const diffHrs = Math.floor(row.diff_seconds / 3600);
+          const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
+          workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
+        }
+
+        const hasCheckIn = !!row.check_in;
+        const hasCheckOut = !!row.check_out;
+        let status = "Tidak Hadir";
+        if (hasCheckIn && hasCheckOut) status = "Hadir Penuh";
+        else if (hasCheckIn) status = "Belum Pulang";
+
+        return {
+          date: new Date(row.log_date).toISOString().split('T')[0],
+          user_id: row.user_id,
+          nik: row.nik || null,
+          nama: row.nama || null,
+          department: row.department || null,
+          jabatan: row.jabatan || null,
+          check_in: row.check_in,
+          check_out: row.check_out,
+          work_hours: workHoursStr,
+          status
+        };
+      });
+
+      res.json({
+        status: 'success',
+        data: {
+          from_date,
+          to_date,
+          total,
+          limit: lim,
+          offset: off,
+          has_more: off + formattedData.length < total,
+          summary: formattedData
+        }
+      });
+
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e.message });
+    }
+  },
+
   async getRawFiles(_req, res) {
     try {
       const files = await readdir(config.RAW_DIR)
