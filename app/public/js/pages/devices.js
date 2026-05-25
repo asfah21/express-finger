@@ -1,14 +1,19 @@
 import { state } from '../state.js';
 import { showToast, toggleModal, showConfirm } from '../utils.js';
+import { showSkeleton } from '../skeleton.js';
 
 export async function refreshDevices() {
     const s = state.pagination.devices;
+
+    // Show skeleton loading
+    showSkeleton('devices-body', s.size);
+
     const res = await fetch(`/api/devices?limit=${s.size}&offset=${s.page * s.size}`);
     const data = await res.json();
 
     s.total = data.data?.total || 0;
     const body = document.getElementById('devices-body');
-    const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+    const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
     
     body.innerHTML = (data.data?.list || []).map(dev => `
         <tr>
@@ -52,7 +57,7 @@ export async function refreshDevices() {
 
 export async function syncDevice(sn) {
     showToast('Syncing device ' + sn + '...');
-    const res = await fetch('/api/sync', {
+    const res = await fetch('/api/sync/device', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sn })

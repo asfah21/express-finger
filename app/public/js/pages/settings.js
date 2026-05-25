@@ -132,7 +132,8 @@ export async function loadUserList() {
         if (!res.ok) throw new Error('Failed to load users');
         const data = await res.json();
 
-        if (!data.data || data.data.length === 0) {
+        const users = data.data?.list || data.data || [];
+        if (!users || users.length === 0) {
             container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;">No users found</div>';
             return;
         }
@@ -148,7 +149,7 @@ export async function loadUserList() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.data.map(user => `
+                        ${users.map(user => `
                             <tr style="border-bottom:1px solid var(--glass-border);">
                                 <td style="padding:0.5rem;font-weight:600;">
                                     <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -158,7 +159,7 @@ export async function loadUserList() {
                                     </div>
                                 </td>
                                 <td style="padding:0.5rem;">
-                                    <span class="badge" style="background:${user.role === 'admin' ? 'var(--secondary)' : 'var(--glass-border)'};color:${user.role === 'admin' ? '#fff' : 'inherit'};white-space:nowrap;">
+                                    <span class="badge" style="background:${user.role === 'admin' || user.role === 'superadmin' ? 'var(--secondary)' : 'var(--glass-border)'};color:${user.role === 'admin' || user.role === 'superadmin' ? '#fff' : 'inherit'};white-space:nowrap;">
                                         ${user.role}
                                     </span>
                                 </td>

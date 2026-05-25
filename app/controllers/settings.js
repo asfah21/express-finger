@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { recordActivity } from './activity-log.js'
+import { sendSuccess, sendError } from '../utils/response.js'
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -54,9 +55,9 @@ export const settingsController = {
     async getSettings(req, res) {
         try {
             const settings = await getSettingsData()
-            res.json({ status: 'success', data: settings })
+            sendSuccess(res, settings)
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -70,16 +71,34 @@ export const settingsController = {
 
             const username = req.user?.username || 'api'
             const ip = getClientIp(req)
-            const changedKeys = Object.keys(req.body).join(', ')
+            
+            // Audit trail detail: catat perubahan spesifik (kecuali password)
+            const changes = []
+            for (const key of Object.keys(req.body)) {
+                const oldVal = currentSettings[key]
+                const newVal = req.body[key]
+                
+                // Sembunyikan nilai sensitif di log
+                if (key === 'api_key') {
+                    const oldHidden = oldVal ? oldVal.substring(0, 4) + '****' : '(empty)'
+                    const newHidden = newVal ? newVal.substring(0, 4) + '****' : '(empty)'
+                    changes.push(`api_key: ${oldHidden} → ${newHidden}`)
+                } else if (typeof oldVal === 'object' || typeof newVal === 'object') {
+                    changes.push(`${key}: updated`)
+                } else {
+                    changes.push(`${key}: "${oldVal}" → "${newVal}"`)
+                }
+            }
+            
             await recordActivity({
                 username, action: 'update_settings', category: 'settings',
-                detail: `Updated settings: ${changedKeys}`,
+                detail: `Settings updated: ${changes.join('; ')}`,
                 ip
             })
 
-            res.json({ status: 'success', message: 'Settings updated successfully', data: newSettings })
+            sendSuccess(res, newSettings, 'Settings updated successfully')
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     }
 }

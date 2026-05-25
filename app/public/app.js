@@ -6,7 +6,7 @@ import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, recordClientActivity } from './js/pages/activity.js';
-import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, openSettingsAuth } from './js/pages/settings.js';
+import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt } from './js/pages/settings.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
@@ -74,7 +74,6 @@ window.loadUserList = loadUserList;
 window.addNewUser = addNewUser;
 window.deleteUserPrompt = deleteUserPrompt;
 window.resetUserPasswordPrompt = resetUserPasswordPrompt;
-window.openSettingsAuth = openSettingsAuth;
 
 // Pull Data Page Functions
 window.refreshPull = refreshPull;
@@ -106,9 +105,19 @@ window.updateEmployeeDeviceStatus = function() {};
 const paginationState = state.pagination;
 
 
+// Dark mode persistence - restore saved theme and fix icon
 const savedTheme = localStorage.getItem('theme') || 'dark';
 if (savedTheme === 'light') {
     document.documentElement.classList.add('theme-light');
+    // Fix icon: in light mode, show moon icon (to switch back to dark)
+    document.querySelectorAll('.theme-toggle i').forEach(icon => {
+        icon.className = 'fas fa-moon';
+    });
+} else {
+    // In dark mode, show sun icon (to switch to light)
+    document.querySelectorAll('.theme-toggle i').forEach(icon => {
+        icon.className = 'fas fa-sun';
+    });
 }
 
 // UI Core Functions
@@ -154,23 +163,28 @@ function showDashboard() {
 
 function applyRoleRestrictions() {
     if (!state.currentUser) return;
-    const isAdmin = state.currentUser.role === 'admin';
+    const isAdmin = state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin';
+    const isSuperAdmin = state.currentUser.role === 'superadmin';
 
     document.querySelectorAll('.admin-only').forEach(el => {
         el.style.display = isAdmin ? '' : 'none';
     });
 
+    document.querySelectorAll('.superadmin-only').forEach(el => {
+        el.style.display = isSuperAdmin ? '' : 'none';
+    });
+
     if (!isAdmin && state.currentPath === 'settings') {
+        showPage('overview');
+    }
+
+    // Settings page hanya bisa diakses oleh superadmin
+    if (!isSuperAdmin && state.currentPath === 'settings') {
         showPage('overview');
     }
 }
 
 function showPage(pageId) {
-    if (pageId === 'settings' && !state.isSettingsUnlocked) {
-        openSettingsAuth();
-        return;
-    }
-
     state.currentPath = pageId;
     window.location.hash = pageId;
 
@@ -185,8 +199,11 @@ function showPage(pageId) {
         'pull-employee': 'Pull Employee',
         'settings': 'System Settings'
     };
+    const pageTitle = titles[pageId] || 'Dashboard';
     const titleEl = document.getElementById('page-title');
-    if (titleEl) titleEl.innerText = titles[pageId] || 'Dashboard';
+    if (titleEl) titleEl.innerText = pageTitle;
+    // Update browser tab title
+    document.title = `${pageTitle} - AZRA Fingerprint`;
 
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
@@ -412,17 +429,29 @@ function updatePaginationUI(type) {
 }
 
 async function syncAll() {
+    const btn = document.querySelector('[onclick="syncAll()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    }
     showToast('Starting sync for all devices...');
     try {
         const res = await fetch('/api/sync/all', { method: 'POST' });
         if (res.ok) {
-            showToast('Sync completed successfully!', 'success');
+            const data = await res.json();
+            showToast(data.message || 'Sync completed successfully!', 'success');
             refreshOverview();
         } else {
-            showToast('Sync failed', 'error');
+            const data = await res.json();
+            showToast(data.message || 'Sync failed', 'error');
         }
     } catch (err) {
         showToast('Network error during sync', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sync All';
+        }
     }
 }
 
@@ -430,11 +459,37 @@ async function syncAll() {
 // ============================================================
 
 // Auto refresh overview data setiap 2 menit (hanya saat di halaman overview)
-setInterval(() => {
-    if (state.currentUser && state.currentPath === 'overview') {
+let autoRefreshInterval = null;
+let autoRefreshCount = 0;
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    autoRefreshCount = 0;
+    
+    autoRefreshInterval = setInterval(() => {
+        if (state.currentUser && state.currentPath === 'overview') {
+            autoRefreshCount++;
+            refreshOverview();
+            
+            // Show subtle indicator that auto-refresh happened
+            const indicator = document.getElementById('auto-refresh-indicator');
+            if (indicator) {
+                indicator.innerText = `Auto-refreshed ${autoRefreshCount}x`;
+                indicator.classList.add('visible');
+                setTimeout(() => indicator.classList.remove('visible'), 2000);
+            }
+        }
+    }, 120000);
+}
+
+// Also refresh when user returns to the page (tab becomes visible)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && state.currentUser && state.currentPath === 'overview') {
         refreshOverview();
     }
-}, 120000);
+});
+
+startAutoRefresh();
 
 // Handle window resize for pagination and sidebar collapse
 let resizeTimer;

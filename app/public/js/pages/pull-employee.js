@@ -57,7 +57,7 @@ export async function refreshPullEmployee() {
         const select = document.getElementById('pull-employee-device-select');
         if (!select) return;
 
-        const devices = data.data?.list || [];
+        const devices = data.data?.list || data.data || [];
         
         // Check if we have saved state to restore
         const savedState = restoreStateFromStorage();
@@ -215,7 +215,7 @@ export async function pullEmployeeDataFromDevice(mode = 'preview', syncMode = 'd
             updateProgress(100, mode === 'sync' ? 'Sync completed!' : 'Preview ready!');
             setStage('emp-stage-done');
 
-            lastPulledEmployeeData = data.data?.users || [];
+            lastPulledEmployeeData = data.data?.list || data.data?.users || [];
             
             // Save state to storage for persistence across refreshes
             if (mode === 'preview' && lastPulledEmployeeData.length > 0) {

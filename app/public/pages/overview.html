@@ -1,6 +1,8 @@
 <div id="page-overview" class="page">
                     <div class="header" style="justify-content: flex-end; margin-bottom: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
+                            <small id="auto-refresh-indicator"
+                                style="color: var(--text-muted); font-size: 0.7rem; opacity: 0; transition: opacity 0.5s ease;"></small>
                             <small id="overview-last-update"
                                 style="color: var(--text-muted); font-size: 0.75rem;"></small>
                             <button class="btn-primary" style="width: auto; padding: 0.5rem 1rem;" onclick="syncAll()">

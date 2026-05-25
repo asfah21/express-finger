@@ -2,8 +2,14 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
+import { sendSuccess, sendError } from '../utils/response.js'
 
-const SECRET = process.env.JWT_SECRET || 'express-finger-secret-key-123'
+const SECRET = process.env.JWT_SECRET
+if (!SECRET) {
+    console.error('❌ JWT_SECRET is not set in environment variables!')
+    console.error('   Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"')
+    process.exit(1)
+}
 
 function getClientIp(req) {
     return (
@@ -18,7 +24,7 @@ export const login = async (req, res) => {
     const ip = getClientIp(req)
 
     if (!username || !password) {
-        return res.status(400).json({ status: 'error', message: 'Username and password are required' })
+        return sendError(res, 'Username and password are required', 400)
     }
 
     try {
@@ -27,7 +33,7 @@ export const login = async (req, res) => {
 
         if (!user) {
             await recordActivity({ username, action: 'login', category: 'auth', detail: 'Login failed: user not found', ip, status: 'failed' })
-            return res.status(401).json({ status: 'error', message: 'Invalid username or password' })
+            return sendError(res, 'Invalid username or password', 401)
         }
 
         // Support both bcrypt hashed passwords and plain text (migration compatibility)
@@ -47,7 +53,7 @@ export const login = async (req, res) => {
 
         if (!passwordMatch) {
             await recordActivity({ username, action: 'login', category: 'auth', detail: 'Login failed: wrong password', ip, status: 'failed' })
-            return res.status(401).json({ status: 'error', message: 'Invalid username or password' })
+            return sendError(res, 'Invalid username or password', 401)
         }
 
         const token = jwt.sign(
@@ -69,19 +75,16 @@ export const login = async (req, res) => {
 
         await recordActivity({ username: user.username, action: 'login', category: 'auth', detail: `Login successful (role: ${user.role})`, ip, status: 'success' })
 
-        res.json({
-            status: 'success',
-            data: {
-                token,
-                user: {
-                    username: user.username,
-                    role: user.role
-                }
+        sendSuccess(res, {
+            token,
+            user: {
+                username: user.username,
+                role: user.role
             }
         })
     } catch (err) {
         console.error('Login error:', err)
-        res.status(500).json({ status: 'error', message: 'Internal server error' })
+        sendError(res, 'Internal server error', 500)
     }
 }
 
@@ -100,16 +103,11 @@ export const logout = async (req, res) => {
     await recordActivity({ username, action: 'logout', category: 'auth', detail: 'User logged out', ip })
 
     res.clearCookie('token', { path: '/' })
-    res.json({ status: 'success', message: 'Logged out' })
+    sendSuccess(res, null, 'Logged out')
 }
 
 export const me = (req, res) => {
-    res.json({
-        status: 'success',
-        data: {
-            user: req.user
-        }
-    })
+    sendSuccess(res, { user: req.user })
 }
 
 export const verify = async (req, res) => {
@@ -118,14 +116,14 @@ export const verify = async (req, res) => {
     const ip = getClientIp(req)
 
     if (!password) {
-        return res.status(400).json({ status: 'error', message: 'Password is required' })
+        return sendError(res, 'Password is required', 400)
     }
 
     try {
         const { rows } = await pool.query('SELECT password FROM users WHERE id = $1', [userId])
         const user = rows[0]
 
-        if (!user) return res.status(404).json({ status: 'error', message: 'User not found' })
+        if (!user) return sendError(res, 'User not found', 404)
 
         const match = await bcrypt.compare(password, user.password)
         if (match) {
@@ -136,7 +134,7 @@ export const verify = async (req, res) => {
                 detail: 'Secondary authentication successful for settings access',
                 ip
             })
-            return res.json({ status: 'success', message: 'Verified' })
+            return sendSuccess(res, null, 'Verified')
         } else {
             await recordActivity({
                 username: req.user.username,
@@ -146,11 +144,11 @@ export const verify = async (req, res) => {
                 ip,
                 status: 'failed'
             })
-            return res.status(401).json({ status: 'error', message: 'Invalid password' })
+            return sendError(res, 'Invalid password', 401)
         }
     } catch (err) {
         console.error('Verify error:', err)
-        res.status(500).json({ status: 'error', message: 'Verification failed' })
+        sendError(res, 'Verification failed')
     }
 }
 
@@ -161,7 +159,7 @@ export const updateAccount = async (req, res) => {
 
     try {
         if (!username && !password) {
-            return res.status(400).json({ status: 'error', message: 'Nothing to update' })
+            return sendError(res, 'Nothing to update', 400)
         }
 
         let query = 'UPDATE users SET '
@@ -211,10 +209,10 @@ export const updateAccount = async (req, res) => {
             ip
         })
 
-        res.json({ status: 'success', message: 'Profile updated', data: { user } })
+        sendSuccess(res, { user }, 'Profile updated')
     } catch (err) {
         console.error('Update account error:', err)
-        res.status(500).json({ status: 'error', message: 'Failed to update account' })
+        sendError(res, 'Failed to update account')
     }
 }
 
@@ -227,9 +225,9 @@ export const listUsers = async (req, res) => {
         const { rows } = await pool.query(
             'SELECT id, username, role, created_at FROM users ORDER BY id ASC'
         )
-        res.json({ status: 'success', data: rows })
+        sendSuccess(res, rows)
     } catch (err) {
-        res.status(500).json({ status: 'error', message: err.message })
+        sendError(res, err.message)
     }
 }
 
@@ -238,10 +236,10 @@ export const addUser = async (req, res) => {
     const ip = getClientIp(req)
 
     if (!username || !password) {
-        return res.status(400).json({ status: 'error', message: 'Username and password are required' })
+        return sendError(res, 'Username and password are required', 400)
     }
     if (password.length < 6) {
-        return res.status(400).json({ status: 'error', message: 'Password must be at least 6 characters' })
+        return sendError(res, 'Password must be at least 6 characters', 400)
     }
 
     try {
@@ -259,12 +257,12 @@ export const addUser = async (req, res) => {
             ip
         })
 
-        res.status(201).json({ status: 'success', data: rows[0] })
+        sendSuccess(res, rows[0], '', 201)
     } catch (err) {
         if (err.code === '23505') {
-            return res.status(409).json({ status: 'error', message: 'Username already exists' })
+            return sendError(res, 'Username already exists', 409)
         }
-        res.status(500).json({ status: 'error', message: err.message })
+        sendError(res, err.message)
     }
 }
 
@@ -274,18 +272,18 @@ export const deleteUser = async (req, res) => {
 
     // Prevent self-deletion
     if (parseInt(id) === req.user.id) {
-        return res.status(400).json({ status: 'error', message: 'Cannot delete your own account' })
+        return sendError(res, 'Cannot delete your own account', 400)
     }
 
     try {
         const { rows: userRows } = await pool.query('SELECT username FROM users WHERE id = $1', [id])
         const targetUser = userRows[0]
-        if (!targetUser) return res.status(404).json({ status: 'error', message: 'User not found' })
+        if (!targetUser) return sendError(res, 'User not found', 404)
 
         // Prevent deleting the last user
         const { rows: countRows } = await pool.query('SELECT COUNT(*)::int as total FROM users')
         if (countRows[0].total <= 1) {
-            return res.status(400).json({ status: 'error', message: 'Cannot delete the last remaining user' })
+            return sendError(res, 'Cannot delete the last remaining user', 400)
         }
 
         await pool.query('DELETE FROM users WHERE id = $1', [id])
@@ -298,9 +296,9 @@ export const deleteUser = async (req, res) => {
             ip
         })
 
-        res.json({ status: 'success', message: `User "${targetUser.username}" deleted` })
+        sendSuccess(res, null, `User "${targetUser.username}" deleted`)
     } catch (err) {
-        res.status(500).json({ status: 'error', message: err.message })
+        sendError(res, err.message)
     }
 }
 
@@ -310,13 +308,13 @@ export const resetUserPassword = async (req, res) => {
     const ip = getClientIp(req)
 
     if (!password || password.length < 6) {
-        return res.status(400).json({ status: 'error', message: 'Password must be at least 6 characters' })
+        return sendError(res, 'Password must be at least 6 characters', 400)
     }
 
     try {
         const { rows: userRows } = await pool.query('SELECT username FROM users WHERE id = $1', [id])
         const targetUser = userRows[0]
-        if (!targetUser) return res.status(404).json({ status: 'error', message: 'User not found' })
+        if (!targetUser) return sendError(res, 'User not found', 404)
 
         const hashed = await bcrypt.hash(password, 10)
         await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, id])
@@ -329,8 +327,8 @@ export const resetUserPassword = async (req, res) => {
             ip
         })
 
-        res.json({ status: 'success', message: `Password for "${targetUser.username}" has been reset` })
+        sendSuccess(res, null, `Password for "${targetUser.username}" has been reset`)
     } catch (err) {
-        res.status(500).json({ status: 'error', message: err.message })
+        sendError(res, err.message)
     }
 }

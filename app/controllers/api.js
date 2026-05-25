@@ -4,6 +4,7 @@ import path from 'path'
 import { config } from '../config/index.js'
 import { pool } from '../utils/database.js'
 import { getSettingsData } from './settings.js'
+import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
 
 // API controller
 export const apiController = {
@@ -192,9 +193,9 @@ export const apiController = {
       })
 
       const total = Number(countRes.rows[0]?.total || 0)
-      res.json({ status: 'success', data: { total, limit: lim, offset: off, has_more: off + rows.length < total, logs: rows } })
+      sendPaginated(res, rows, total, lim, off)
     } catch (e) {
-      res.status(500).json({ status: 'error', message: e.message })
+      sendError(res, e.message)
     }
   },
 
@@ -221,9 +222,9 @@ export const apiController = {
         values: [from, to],
       })
       res.setHeader('Cache-Control', 'public, max-age=15')
-      res.json({ status: 'success', data: { date: dateStr, rows } })
+      sendSuccess(res, { date: dateStr, rows })
     } catch (e) {
-      res.status(500).json({ status: 'error', message: e.message })
+      sendError(res, e.message)
     }
   },
 
@@ -334,18 +335,15 @@ export const apiController = {
         };
       });
 
-      res.json({ 
-        status: 'success', 
-        data: { 
-          from_date, 
-          to_date,
-          count: formattedData.length,
-          summary: formattedData 
-        } 
+      sendSuccess(res, { 
+        from_date, 
+        to_date,
+        count: formattedData.length,
+        summary: formattedData 
       });
 
     } catch (e) {
-      res.status(500).json({ status: 'error', message: e.message });
+      sendError(res, e.message);
     }
   },
 
@@ -509,21 +507,20 @@ export const apiController = {
         };
       });
 
-      res.json({
-        status: 'success',
-        data: {
-          from_date,
-          to_date,
-          total,
-          limit: lim,
-          offset: off,
-          has_more: off + formattedData.length < total,
-          summary: formattedData
-        }
+      sendSuccess(res, {
+        from_date,
+        to_date,
+        total,
+        limit: lim,
+        offset: off,
+        has_more: off + formattedData.length < total,
+        summary: formattedData
       });
+      // Note: getPairSummary tetap menggunakan sendSuccess karena format response berbeda
+      // dari sendPaginated (ada from_date, to_date, summary)
 
     } catch (e) {
-      res.status(500).json({ status: 'error', message: e.message });
+      sendError(res, e.message);
     }
   },
 
@@ -534,9 +531,9 @@ export const apiController = {
         const st = await stat(path.join(config.RAW_DIR, f))
         return { file: f, size: st.size, mtime: st.mtime }
       }))
-      res.json({ status: 'success', data: { count: data.length, files: data } })
+      sendSuccess(res, { count: data.length, files: data })
     } catch (e) {
-      res.status(500).json({ status: 'error', message: e.message })
+      sendError(res, e.message)
     }
   },
 
@@ -547,7 +544,7 @@ export const apiController = {
     res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
     if (typeof res.flushHeaders === 'function') res.flushHeaders()
     createReadStream(fpath, { highWaterMark: 1 << 16 })
-      .on('error', () => res.status(404).json({ status: 'error', message: 'Not found' }))
+      .on('error', () => sendError(res, 'Not found', 404))
       .pipe(res)
   }
 }

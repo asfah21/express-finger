@@ -1,5 +1,5 @@
 import express from 'express'
-import { requireApiKey, requireAdminPrivileges } from '../middleware/index.js'
+import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
 import { apiController, syncController, deviceManagerController, employeeController, settingsController } from '../controllers/index.js'
 
 const router = express.Router()
@@ -7,8 +7,8 @@ const router = express.Router()
 // Semua route API memerlukan API key (atau JWT via Dashboard)
 router.use(requireApiKey)
 
-router.get('/settings', settingsController.getSettings)
-router.put('/settings', requireAdminPrivileges, settingsController.updateSettings)
+router.get('/settings', requireSuperAdminPrivileges, settingsController.getSettings)
+router.put('/settings', requireSuperAdminPrivileges, settingsController.updateSettings)
 
 router.get('/logs', apiController.getLogs)
 router.get('/logs/summary', apiController.getAttendanceSummary)

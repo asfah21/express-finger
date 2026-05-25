@@ -16,7 +16,6 @@ export const state = {
         logs: { page: 0, size: 25, total: 0 },
         activity: { page: 0, size: 25, total: 0 }
     },
-    isSettingsUnlocked: false,
     // Maximum export limit - centralized to avoid hardcoded values
     EXPORT_LIMIT: 50000
 };

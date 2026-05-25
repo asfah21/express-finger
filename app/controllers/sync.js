@@ -1,6 +1,7 @@
 import { pullDeviceLogs } from '../utils/zklib.js'
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
+import { sendSuccess, sendError } from '../utils/response.js'
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -14,7 +15,7 @@ export const syncController = {
         const { ip, sn, port = 4370 } = req.body || req.query
 
         if (!ip && !sn) {
-            return res.status(400).json({ status: 'error', message: 'IP or SN is required' })
+            return sendError(res, 'IP or SN is required', 400)
         }
 
         try {
@@ -25,7 +26,7 @@ export const syncController = {
             if (!ip && sn) {
                 const { rows } = await pool.query('SELECT ip, port FROM devices WHERE sn = $1', [sn])
                 if (rows.length === 0) {
-                    return res.status(404).json({ status: 'error', message: `Device with SN ${sn} not found in registry` })
+                    return sendError(res, `Device with SN ${sn} not found in registry`, 404)
                 }
                 targetIp = rows[0].ip
                 targetPort = rows[0].port || 4370
@@ -45,13 +46,9 @@ export const syncController = {
                 ip: getClientIp(req)
             })
 
-            res.json({
-                status: 'success',
-                message: 'Sync completed successfully',
-                data: result
-            })
+            sendSuccess(res, result, 'Sync completed successfully')
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -65,7 +62,7 @@ export const syncController = {
             const { rows: devices } = await pool.query('SELECT ip, port, sn FROM devices WHERE is_active = true')
 
             if (devices.length === 0) {
-                return res.json({ status: 'success', message: 'No active devices to sync', data: { results: [] } })
+                return sendSuccess(res, { results: [] }, 'No active devices to sync')
             }
 
             if (isStream) {
@@ -117,18 +114,14 @@ export const syncController = {
                     detail: `Sync all: ${successCount}/${devices.length} devices success`,
                     ip: getClientIp(req)
                 })
-                res.json({
-                    status: 'success',
-                    message: 'Sync process finished',
-                    data: { results }
-                })
+                sendSuccess(res, { results }, 'Sync process finished')
             }
         } catch (error) {
             if (isStream) {
                 res.write(`\n❌ Critical Error: ${error.message}\n`)
                 res.end()
             } else {
-                res.status(500).json({ status: 'error', message: error.message })
+                sendError(res, error.message)
             }
         }
     }

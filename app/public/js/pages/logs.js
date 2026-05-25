@@ -22,35 +22,45 @@ export async function refreshLogs() {
     s.total = data.data?.total || 0;
     const body = document.getElementById('logs-body');
 
-    body.innerHTML = (data.data?.logs || []).map(log => {
-        const dt = new Date(log.timestamp);
-        const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
-        const timeStr = dt.toISOString().split('T')[1].substring(0, 5); 
-        const secondsStr = dt.toISOString().split('T')[1].substring(6, 8); 
+    const logs = data.data?.list || data.data?.logs || [];
+    
+    if (logs.length === 0) {
+        body.innerHTML = `<tr><td colspan="7" class="empty-state">
+            <i class="fas fa-clipboard-list"></i>
+            <div class="empty-title">No Attendance Logs Found</div>
+            <div class="empty-subtitle">Try adjusting your search filters or date range, or pull data from devices first.</div>
+        </td></tr>`;
+    } else {
+        body.innerHTML = logs.map(log => {
+            const dt = new Date(log.timestamp);
+            const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
+            const timeStr = dt.toISOString().split('T')[1].substring(0, 5); 
+            const secondsStr = dt.toISOString().split('T')[1].substring(6, 8); 
 
-        return `
-            <tr>
-                <td>${log.nik || '-'}</td>
-                <td>
-                    <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
-                </td>
-                <td style="font-size: 0.8125rem;">
-                    <div>${log.department || '-'}</div>
-                    <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
-                </td>
-                <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-                <td>${dateStr}</td>
-                <td>
-                    <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
-                    <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
-                </td>
-                <td>
-                    <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
-                </td>
-            </tr>
-        `;
-    }).join('') || '<tr><td colspan="7" style="text-align: center;">No logs found</td></tr>';
+            return `
+                <tr>
+                    <td>${log.nik || '-'}</td>
+                    <td>
+                        <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
+                    </td>
+                    <td style="font-size: 0.8125rem;">
+                        <div>${log.department || '-'}</div>
+                        <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
+                    </td>
+                    <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+                    <td>${dateStr}</td>
+                    <td>
+                        <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
+                        <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
+                    </td>
+                    <td>
+                        <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
 
     window.updatePaginationUI('logs');
 }
@@ -221,7 +231,7 @@ async function generatePDFSlip() {
 
         const res = await fetch(`/api/logs?user_id=${employeeId}&from=${fromDate}&to=${toDate}&limit=1000`);
         const data = await res.json();
-        const logs = data.data?.logs || [];
+        const logs = data.data?.list || data.data?.logs || [];
 
         if (logs.length === 0) {
             return showToast('No data found for this period', 'warning');
@@ -504,7 +514,7 @@ async function performExport(range) {
 
         const res = await fetch(url);
         const data = await res.json();
-        const logs = data.data?.logs || [];
+        const logs = data.data?.list || data.data?.logs || [];
 
         const exportData = logs.map(log => {
             const dt = new Date(log.timestamp);

@@ -1,5 +1,6 @@
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
+import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -29,17 +30,17 @@ export const deviceManagerController = {
 
             const { rows } = await pool.query('SELECT *, COUNT(*) OVER()::int as total FROM devices ORDER BY id ASC LIMIT $1 OFFSET $2', [lim, off])
             const total = rows.length > 0 ? rows[0].total : 0
-            res.json({ status: 'success', data: { list: rows, total } })
+            sendPaginated(res, rows, total, lim, off)
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
     async addDevice(req, res) {
         const { sn, name, ip, port = 4370, is_active = true } = req.body
-        if (!ip) return res.status(400).json({ status: 'error', message: 'IP address is required' })
-        if (!isValidIPv4(ip)) return res.status(400).json({ status: 'error', message: 'Invalid IP address format' })
-        if (port && (port < 1 || port > 65535)) return res.status(400).json({ status: 'error', message: 'Port must be between 1 and 65535' })
+        if (!ip) return sendError(res, 'IP address is required', 400)
+        if (!isValidIPv4(ip)) return sendError(res, 'Invalid IP address format', 400)
+        if (port && (port < 1 || port > 65535)) return sendError(res, 'Port must be between 1 and 65535', 400)
 
         const username = req.user?.username || 'api'
         const clientIp = getClientIp(req)
@@ -56,9 +57,9 @@ export const deviceManagerController = {
                 ip: clientIp
             })
 
-            res.status(201).json({ status: 'success', data: rows[0] })
+            sendSuccess(res, rows[0], '', 201)
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -79,7 +80,7 @@ export const deviceManagerController = {
          WHERE id = $6 RETURNING *`,
                 [sn, name, ip, port, is_active, id]
             )
-            if (rows.length === 0) return res.status(404).json({ status: 'error', message: 'Device not found' })
+            if (rows.length === 0) return sendError(res, 'Device not found', 404)
 
             await recordActivity({
                 username, action: 'edit_device', category: 'device',
@@ -87,9 +88,9 @@ export const deviceManagerController = {
                 ip: clientIp
             })
 
-            res.json({ status: 'success', data: rows[0] })
+            sendSuccess(res, rows[0])
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -104,7 +105,7 @@ export const deviceManagerController = {
             const dev = devRows[0]
 
             const { rowCount } = await pool.query('DELETE FROM devices WHERE id = $1', [id])
-            if (rowCount === 0) return res.status(404).json({ status: 'error', message: 'Device not found' })
+            if (rowCount === 0) return sendError(res, 'Device not found', 404)
 
             await recordActivity({
                 username, action: 'delete_device', category: 'device',
@@ -112,9 +113,9 @@ export const deviceManagerController = {
                 ip: clientIp
             })
 
-            res.json({ status: 'success', message: 'Device deleted' })
+            sendSuccess(res, null, 'Device deleted')
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     }
 }

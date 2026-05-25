@@ -1,5 +1,6 @@
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
+import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
 import ZKLib from 'node-zklib'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
@@ -70,7 +71,7 @@ export const employeeController = {
     async syncEmployeeToDevice(req, res) {
         const { id } = req.params
         const { deviceId } = req.body
-        if (!deviceId) return res.status(400).json({ status: 'error', message: 'Device ID is required' })
+        if (!deviceId) return sendError(res, 'Device ID is required', 400)
 
         const username = req.user?.username || 'api'
         const ip = getClientIp(req)
@@ -78,16 +79,16 @@ export const employeeController = {
         try {
             // 1. Get employee data
             const { rows: empRows } = await pool.query('SELECT * FROM employee WHERE id = $1', [id])
-            if (empRows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            if (empRows.length === 0) return sendError(res, 'Employee not found', 404)
             const emp = empRows[0]
 
             // 2. Get device info
             const { rows: devRows } = await pool.query('SELECT * FROM devices WHERE id = $1', [deviceId])
-            if (devRows.length === 0) return res.status(404).json({ status: 'error', message: 'Device not found' })
+            if (devRows.length === 0) return sendError(res, 'Device not found', 404)
             const device = devRows[0]
 
             if (!device.ip) {
-                return res.status(400).json({ status: 'error', message: 'Device IP is not configured' })
+                return sendError(res, 'Device IP is not configured', 400)
             }
 
             const port = device.port || 4370
@@ -179,10 +180,7 @@ export const employeeController = {
                 ip
             })
 
-            res.json({
-                status: 'success',
-                message: `Employee ${name} (${userId}) synced to device ${device.name || device.ip}`
-            })
+            sendSuccess(res, null, `Employee ${name} (${userId}) synced to device ${device.name || device.ip}`)
         } catch (error) {
             console.error('Sync Employee To Device Error:', error)
 
@@ -192,7 +190,7 @@ export const employeeController = {
                 ip, status: 'failed'
             })
 
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -221,17 +219,9 @@ export const employeeController = {
             const { rows } = await pool.query(query, params)
             const { rows: countRes } = await pool.query(countQuery, countParams)
 
-            res.json({
-                status: 'success',
-                data: {
-                    list: rows,
-                    total: countRes[0].total,
-                    limit: lim,
-                    offset: off
-                }
-            })
+            sendPaginated(res, rows, countRes[0].total, lim, off)
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -239,16 +229,32 @@ export const employeeController = {
         const { id } = req.params
         try {
             const { rows } = await pool.query('SELECT * FROM employee WHERE id = $1', [id])
-            if (rows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
-            res.json({ status: 'success', data: rows[0] })
+            if (rows.length === 0) return sendError(res, 'Employee not found', 404)
+            sendSuccess(res, rows[0])
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
     async addEmployee(req, res) {
         const { user_id, nik, nama, jabatan, department, divisi, type } = req.body
-        if (!user_id) return res.status(400).json({ status: 'error', message: 'user_id is required' })
+        if (!user_id) return sendError(res, 'user_id is required', 400)
+
+        // Validasi: user_id harus alphanumeric (angka/huruf, max 20 karakter)
+        const userIdStr = String(user_id).trim()
+        if (!/^[a-zA-Z0-9_-]{1,20}$/.test(userIdStr)) {
+            return sendError(res, 'user_id must be alphanumeric (letters, numbers, hyphens, underscores), max 20 characters', 400)
+        }
+
+        // Validasi: nama tidak boleh terlalu panjang
+        if (nama && nama.length > 100) {
+            return sendError(res, 'Name is too long (max 100 characters)', 400)
+        }
+
+        // Validasi: NIK harus alphanumeric jika diisi
+        if (nik && !/^[a-zA-Z0-9_-]{0,30}$/.test(String(nik))) {
+            return sendError(res, 'NIK contains invalid characters', 400)
+        }
 
         const username = req.user?.username || 'api'
         const ip = getClientIp(req)
@@ -257,21 +263,21 @@ export const employeeController = {
             const { rows } = await pool.query(
                 `INSERT INTO employee (user_id, nik, nama, jabatan, department, divisi, type) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-                [String(user_id), nik, nama, jabatan, department, divisi, type]
+                [userIdStr, nik, nama, jabatan, department, divisi, type]
             )
 
             await recordActivity({
                 username, action: 'add_employee', category: 'employee',
-                detail: `Added employee: ${nama || 'N/A'} (User ID: ${user_id}, NIK: ${nik || '-'})`,
+                detail: `Added employee: ${nama || 'N/A'} (User ID: ${userIdStr}, NIK: ${nik || '-'})`,
                 ip
             })
 
-            res.status(201).json({ status: 'success', data: rows[0] })
+            sendSuccess(res, rows[0], '', 201)
         } catch (error) {
             if (error.code === '23505') {
-                return res.status(409).json({ status: 'error', message: 'user_id already exists' })
+                return sendError(res, 'user_id already exists', 409)
             }
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -294,7 +300,7 @@ export const employeeController = {
                  WHERE id = $8 RETURNING *`,
                 [user_id ? String(user_id) : null, nik, nama, jabatan, department, divisi, type, id]
             )
-            if (rows.length === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            if (rows.length === 0) return sendError(res, 'Employee not found', 404)
 
             await recordActivity({
                 username, action: 'edit_employee', category: 'employee',
@@ -302,12 +308,12 @@ export const employeeController = {
                 ip
             })
 
-            res.json({ status: 'success', data: rows[0] })
+            sendSuccess(res, rows[0])
         } catch (error) {
             if (error.code === '23505') {
-                return res.status(409).json({ status: 'error', message: 'user_id already exists' })
+                return sendError(res, 'user_id already exists', 409)
             }
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
@@ -322,7 +328,7 @@ export const employeeController = {
             const emp = empRows[0]
 
             const { rowCount } = await pool.query('DELETE FROM employee WHERE id = $1', [id])
-            if (rowCount === 0) return res.status(404).json({ status: 'error', message: 'Employee not found' })
+            if (rowCount === 0) return sendError(res, 'Employee not found', 404)
 
             await recordActivity({
                 username, action: 'delete_employee', category: 'employee',
@@ -330,15 +336,15 @@ export const employeeController = {
                 ip
             })
 
-            res.json({ status: 'success', message: 'Employee deleted' })
+            sendSuccess(res, null, 'Employee deleted')
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     },
 
     async bulkAddEmployees(req, res) {
         const { employees } = req.body
-        if (!Array.isArray(employees)) return res.status(400).json({ status: 'error', message: 'Invalid data format' })
+        if (!Array.isArray(employees)) return sendError(res, 'Invalid data format', 400)
 
         const username = req.user?.username || 'api'
         const ip = getClientIp(req)
@@ -372,9 +378,9 @@ export const employeeController = {
                 ip
             })
 
-            res.json({ status: 'success', message: `Imported ${results.length} employees`, data: results })
+            sendSuccess(res, results, `Imported ${results.length} employees`)
         } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message })
+            sendError(res, error.message)
         }
     }
 }

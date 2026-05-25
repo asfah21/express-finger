@@ -16,7 +16,7 @@ export async function refreshPull() {
         const select = document.getElementById('pull-device-select');
         if (!select) return;
 
-        const devices = data.data?.list || [];
+        const devices = data.data?.list || data.data || [];
         const currentId = select.value;
         
         select.innerHTML = '<option value="">-- Select Device --</option>' + 
@@ -99,7 +99,7 @@ export async function pullDataFromDevice(mode = 'preview') {
             updateProgress(100, mode === 'sync' ? 'Sync completed!' : 'Preview ready!');
             setStage('stage-done');
 
-            lastPulledData = data.data?.logs || [];
+            lastPulledData = data.data?.list || data.data?.logs || [];
             
             if (mode === 'sync') {
                 showToast(data.message || `Successfully synced ${lastPulledData.length} logs`, 'success');

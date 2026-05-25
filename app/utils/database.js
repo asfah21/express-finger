@@ -91,7 +91,7 @@ export async function ensureSchema() {
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      role TEXT DEFAULT 'admin',
+      role TEXT DEFAULT 'superadmin',
       created_at TIMESTAMPTZ DEFAULT now()
     );
 
@@ -114,13 +114,13 @@ export async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_actlog_category ON activity_logs (category);
   `)
 
-  // Create default admin if no users exist
+  // Create default superadmin if no users exist
   const { rowCount } = await pool.query('SELECT 1 FROM users LIMIT 1')
   if (rowCount === 0) {
-    // Default: admin / admin123 (bcrypt hashed)
+    // Default: superadmin / admin123 (bcrypt hashed)
     const hashedPassword = await bcrypt.hash('admin123', 10)
-    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', ['admin', hashedPassword])
-    console.log('✅ Default admin user created (username: admin, password: admin123)')
+    await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', ['superadmin', hashedPassword, 'superadmin'])
+    console.log('✅ Default superadmin user created (username: superadmin, password: admin123)')
   }
 }
 

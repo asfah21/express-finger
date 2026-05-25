@@ -26,7 +26,7 @@ export async function refreshPair() {
         const res = await fetch(url);
         const data = await res.json();
 
-        const summary = data.data?.summary || [];
+        const summary = data.data?.summary || data.data?.list || data.data || [];
         pairPagination.total = data.data?.total || 0;
 
         const body = document.getElementById('pair-body');
@@ -228,7 +228,7 @@ async function performPairExport(range) {
 
         const res = await fetch(url);
         const data = await res.json();
-        const summary = data.data?.summary || [];
+        const summary = data.data?.summary || data.data?.list || data.data || [];
 
         const exportData = summary.map(item => ({
             Date: item.date,
@@ -266,7 +266,7 @@ window.showPairPrintSlipModal = async function() {
     // Fetch all employees for the autocomplete
     const res = await fetch('/api/employees?limit=1000');
     const data = await res.json();
-    const employees = data.data?.list || [];
+    const employees = data.data?.list || data.data || [];
 
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -381,7 +381,7 @@ async function generatePairPDFSlip() {
         // Fetch pair data for this employee and period
         const res = await fetch(`/api/pair?user_id=${employeeId}&from_date=${fromDate}&to_date=${toDate}&limit=31`);
         const data = await res.json();
-        const summary = data.data?.summary || [];
+        const summary = data.data?.summary || data.data?.list || data.data || [];
 
         if (summary.length === 0) {
             return showToast('No data found for this period', 'warning');

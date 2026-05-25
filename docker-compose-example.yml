@@ -13,7 +13,9 @@ services:
       - PGDATABASE=your_database
       - PGPORT=5432
       - API_KEY=your_api_key
+      - JWT_SECRET=your-strong-random-secret-key-min-32-chars
       - RAW_DIR=/data/raw
+      - CORS_ORIGINS= # Daftar origin yang diizinkan, pisah koma. Contoh: https://app.example.com,https://admin.example.com
     volumes:
       - ./data/raw:/data/raw
     working_dir: /app

@@ -17,7 +17,7 @@ export async function refreshEmployees() {
 
     s.total = data.data?.total || 0;
     const body = document.getElementById('employees-body');
-    const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+    const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
     body.innerHTML = (data.data?.list || []).map(emp => `
         <tr>
             <td>${emp.user_id}</td>

@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { showToast } from './utils.js';
+import { showToast, showConfirm } from './utils.js';
 
 export async function checkAuth() {
     try {
@@ -9,11 +9,9 @@ export async function checkAuth() {
             state.currentUser = data.data.user;
             window.showDashboard();
         } else {
-            state.isSettingsUnlocked = false;
             window.showLogin();
         }
     } catch (err) {
-        state.isSettingsUnlocked = false;
         window.showLogin();
     }
 }
@@ -68,8 +66,18 @@ export async function handleLogin(e) {
 }
 
 export async function logout() {
-    await fetch('/auth/logout', { method: 'POST' });
-    state.currentUser = null;
-    state.isSettingsUnlocked = false;
-    window.showLogin();
+    showConfirm({
+        title: 'Logout',
+        message: 'Are you sure you want to logout?',
+        icon: 'fa-sign-out-alt',
+        confirmText: 'Logout',
+        confirmColor: 'var(--error)',
+        onConfirm: async () => {
+            try {
+                await fetch('/auth/logout', { method: 'POST' });
+            } catch (_) { /* ignore network errors on logout */ }
+            state.currentUser = null;
+            window.showLogin();
+        }
+    });
 }

@@ -1,4 +1,5 @@
 import { pool } from '../utils/database.js'
+import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
 
 /**
  * Record an activity log entry.
@@ -59,6 +60,21 @@ export const activityLogController = {
                 i++
             }
 
+            // Filter: non-superadmin tidak bisa melihat aktivitas superadmin
+            const userRole = req.user?.role
+            if (userRole !== 'superadmin') {
+                // Dapatkan daftar username superadmin
+                const superadminRes = await pool.query(
+                    `SELECT username FROM users WHERE role = 'superadmin'`
+                )
+                const superadminUsernames = superadminRes.rows.map(r => r.username)
+                if (superadminUsernames.length > 0) {
+                    const placeholders = superadminUsernames.map((_, idx) => `$${i++}`).join(', ')
+                    where.push(`username NOT IN (${placeholders})`)
+                    params.push(...superadminUsernames)
+                }
+            }
+
             const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
             const [dataRes, countRes] = await Promise.all([
@@ -72,31 +88,23 @@ export const activityLogController = {
                 )
             ])
 
-            res.json({
-                status: 'success',
-                data: {
-                    total: countRes.rows[0].total,
-                    limit: lim,
-                    offset: off,
-                    logs: dataRes.rows
-                }
-            })
+            sendPaginated(res, dataRes.rows, countRes.rows[0].total, lim, off)
         } catch (err) {
-            res.status(500).json({ status: 'error', message: err.message })
+            sendError(res, err.message)
         }
     },
 
     async clearOldLogs(req, res) {
         try {
             const days = parseInt(req.query.days) || 90
-            // Use parameterized query to prevent SQL injection
+            // Gunakan make_interval untuk keamanan dari SQL injection
             const { rowCount } = await pool.query(
-                `DELETE FROM activity_logs WHERE created_at < NOW() - ($1 || ' days')::interval`,
+                `DELETE FROM activity_logs WHERE created_at < NOW() - make_interval(days => $1)`,
                 [days]
             )
-            res.json({ status: 'success', message: `Deleted ${rowCount} old activity logs older than ${days} days` })
+            sendSuccess(res, null, `Deleted ${rowCount} old activity logs older than ${days} days`)
         } catch (err) {
-            res.status(500).json({ status: 'error', message: err.message })
+            sendError(res, err.message)
         }
     }
 }
