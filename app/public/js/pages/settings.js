@@ -178,6 +178,7 @@ export async function loadUserList() {
             </div>
         `;
     } catch (err) {
+        console.error('loadUserList error:', err);
         container.innerHTML = `<div style="text-align:center;color:var(--error);padding:1.5rem;"><i class="fas fa-exclamation-triangle"></i> Error loading users</div>`;
     }
 }

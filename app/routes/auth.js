@@ -12,9 +12,9 @@ router.post('/verify', requireAuth, verify)
 router.put('/account', requireAuth, updateAccount)
 
 // User management (requires Superadmin)
-router.get('/users', requireSuperAdminPrivileges, listUsers)
-router.post('/users', requireSuperAdminPrivileges, addUser)
-router.delete('/users/:id', requireSuperAdminPrivileges, deleteUser)
-router.put('/users/:id/password', requireSuperAdminPrivileges, resetUserPassword)
+router.get('/users', requireAuth, requireSuperAdminPrivileges, listUsers)
+router.post('/users', requireAuth, requireSuperAdminPrivileges, addUser)
+router.delete('/users/:id', requireAuth, requireSuperAdminPrivileges, deleteUser)
+router.put('/users/:id/password', requireAuth, requireSuperAdminPrivileges, resetUserPassword)
 
 export default router
