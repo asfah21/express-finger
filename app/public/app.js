@@ -249,7 +249,7 @@ function showPage(pageId) {
     if (activePage) {
         activePage.style.display = 'block';
 
-        if (pageId === 'overview') refreshOverview();
+        if (pageId === 'overview') refreshOverview(false); // Pakai cache agar tidak boros API
         if (pageId === 'devices') refreshDevices();
         if (pageId === 'employees') refreshEmployees();
         if (pageId === 'logs') refreshLogs();
@@ -481,7 +481,7 @@ function startAutoRefresh() {
     autoRefreshInterval = setInterval(() => {
         if (state.currentUser && state.currentPath === 'overview') {
             autoRefreshCount++;
-            refreshOverview();
+            refreshOverview(true); // Force refresh untuk auto-refresh
             
             // Show subtle indicator that auto-refresh happened
             const indicator = document.getElementById('auto-refresh-indicator');
@@ -494,10 +494,18 @@ function startAutoRefresh() {
     }, 120000);
 }
 
-// Also refresh when user returns to the page (tab becomes visible)
+// Cache timestamp untuk menghindari refresh berlebihan saat tab kembali aktif
+let lastOverviewRefresh = 0;
+const OVERVIEW_REFRESH_COOLDOWN = 60000; // 60 detik cooldown
+
+// Refresh data saat user kembali ke tab, tapi dengan cooldown agar tidak boros API
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && state.currentUser && state.currentPath === 'overview') {
-        refreshOverview();
+        const now = Date.now();
+        if (now - lastOverviewRefresh > OVERVIEW_REFRESH_COOLDOWN) {
+            lastOverviewRefresh = now;
+            refreshOverview();
+        }
     }
 });
 

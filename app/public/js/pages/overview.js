@@ -3,7 +3,55 @@ import { getWitaDateString } from '../utils.js';
 
 let attendanceChart = null;
 
-export async function refreshOverview() {
+// Cache sederhana untuk menghindari fetch ulang saat pindah page lalu balik
+let overviewCache = {
+    timestamp: 0,
+    data: null
+};
+const OVERVIEW_CACHE_TTL = 30000; // 30 detik
+
+export async function refreshOverview(force = false) {
+    const now = Date.now();
+    
+    // Jika tidak dipaksa refresh dan cache masih valid, skip fetch API
+    if (!force && overviewCache.data && (now - overviewCache.timestamp < OVERVIEW_CACHE_TTL)) {
+        // Tampilkan data dari cache
+        const cached = overviewCache.data;
+        if (cached.statDevices !== undefined) {
+            const el = document.getElementById('stat-devices');
+            if (el) el.innerText = cached.statDevices;
+        }
+        if (cached.statEmployees !== undefined) {
+            const el = document.getElementById('stat-employees');
+            if (el) el.innerText = cached.statEmployees;
+        }
+        if (cached.statLogs !== undefined) {
+            const el = document.getElementById('stat-logs');
+            if (el) el.innerText = cached.statLogs;
+        }
+        if (cached.recentLogsHtml) {
+            const body = document.getElementById('recent-logs-body');
+            if (body) body.innerHTML = cached.recentLogsHtml;
+        }
+        if (cached.lateCount !== undefined) {
+            const el = document.getElementById('late-today-count');
+            if (el) el.innerText = cached.lateCount;
+        }
+        if (cached.lateHtml) {
+            const body = document.getElementById('late-today-body');
+            if (body) body.innerHTML = cached.lateHtml;
+        }
+        if (cached.paginationTotal !== undefined) {
+            state.pagination.overview.total = cached.paginationTotal;
+            window.updatePaginationUI('overview');
+        }
+        if (cached.lastUpdate) {
+            const el = document.getElementById('overview-last-update');
+            if (el) el.innerText = cached.lastUpdate;
+        }
+        return; // Skip fetch API
+    }
+    
     try {
         const s = state.pagination.overview;
         const today = getWitaDateString();
