@@ -361,7 +361,7 @@ function updatePageSize(type, val) {
     state.pagination[type].size = parseInt(val);
     state.pagination[type].page = 0;
 
-    if (type === 'overview') refreshOverview();
+    if (type === 'overview') refreshOverview(true);
     if (type === 'devices') refreshDevices();
     if (type === 'employees') refreshEmployees();
     if (type === 'logs') refreshLogs();
@@ -372,7 +372,7 @@ function nextPage(type) {
     const s = state.pagination[type];
     if (s.page < Math.ceil(s.total / s.size) - 1) {
         s.page++;
-        if (type === 'overview') refreshOverview();
+        if (type === 'overview') refreshOverview(true);
         if (type === 'devices') refreshDevices();
         if (type === 'employees') refreshEmployees();
         if (type === 'logs') refreshLogs();
@@ -384,7 +384,7 @@ function prevPage(type) {
     const s = state.pagination[type];
     if (s.page > 0) {
         s.page--;
-        if (type === 'overview') refreshOverview();
+        if (type === 'overview') refreshOverview(true);
         if (type === 'devices') refreshDevices();
         if (type === 'employees') refreshEmployees();
         if (type === 'logs') refreshLogs();
@@ -395,7 +395,7 @@ function prevPage(type) {
 function goToPage(type, p) {
     if (!state.pagination[type]) return;
     state.pagination[type].page = p;
-    if (type === 'overview') refreshOverview();
+    if (type === 'overview') refreshOverview(true);
     if (type === 'devices') refreshDevices();
     if (type === 'employees') refreshEmployees();
     if (type === 'logs') refreshLogs();
