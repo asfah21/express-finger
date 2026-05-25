@@ -1,10 +1,10 @@
 import express from 'express'
 import { login, logout, me, verify, updateAccount, listUsers, addUser, deleteUser, resetUserPassword, checkDefaultUser } from '../controllers/auth.js'
-import { requireAuth, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
+import { requireAuth, requireSuperAdminPrivileges, optionalAuth, loginLimiter } from '../middleware/index.js'
 
 const router = express.Router()
 
-router.post('/login', login)
+router.post('/login', loginLimiter, login)
 router.post('/logout', logout)
 router.get('/me', requireAuth, me)
 router.get('/check-default', checkDefaultUser)

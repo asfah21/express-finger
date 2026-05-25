@@ -7,7 +7,6 @@ import {
   corsMiddleware,
   securityMiddleware,
   loggerMiddleware,
-  loginLimiter,
   apiLimiter,
   syncLimiter,
   activityLogLimiter,
@@ -35,7 +34,6 @@ app.use(loggerMiddleware)
 app.use(express.static('public'))
 
 // Routes
-app.use('/auth', loginLimiter) // Rate limit login attempts
 app.use('/auth', authRoutes)
 app.use('/iclock', deviceRoutes)
 app.use('/api', apiLimiter) // General API rate limit
