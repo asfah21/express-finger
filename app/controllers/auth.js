@@ -36,11 +36,21 @@ export const login = async (req, res) => {
             return sendError(res, 'Invalid username or password', 401)
         }
 
-        // Support both bcrypt hashed passwords and plain text (migration compatibility)
+        // Support bcrypt hashed passwords, plain text, and SHA256 (migration compatibility)
         let passwordMatch = false
         if (user.password.startsWith('$2')) {
             // bcrypt hash
             passwordMatch = await bcrypt.compare(password, user.password)
+        } else if (user.password.length === 64 && /^[a-f0-9]+$/.test(user.password)) {
+            // SHA256 hash (from reset-password.js utility)
+            const crypto = await import('crypto')
+            const shaHash = crypto.createHash('sha256').update(password).digest('hex')
+            passwordMatch = shaHash === user.password
+            if (passwordMatch) {
+                const hashed = await bcrypt.hash(password, 10)
+                await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, user.id])
+                console.log(`✅ Password for user "${username}" auto-upgraded from SHA256 to bcrypt hash`)
+            }
         } else {
             // Plain text (legacy) - auto-upgrade to bcrypt
             passwordMatch = user.password === password
