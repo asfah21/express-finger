@@ -746,6 +746,7 @@ tr:hover td {
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .badge-success {
