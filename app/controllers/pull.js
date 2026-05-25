@@ -1,6 +1,8 @@
 import { pool, saveManyLogs } from '../utils/database.js'
 import { pullDeviceLogs, fetchDeviceLogsFormatted, clearDeviceLogs } from '../utils/zklib.js'
 import { recordActivity } from './activity-log.js'
+import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
+
 
 export const pullController = {
   async pullData(req, res) {
@@ -61,6 +63,13 @@ export const pullController = {
         const result = await pullDeviceLogs(device.ip, port, device.sn)
 
         await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [deviceId])
+
+        // Invalidate cache attendance karena ada data baru
+        const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+        if (deleted > 0) {
+          console.log(`🧹 Invalidated ${deleted} attendance cache keys after pull from ${device.ip}`)
+        }
+
 
         let cleared = false
         let clearError = null

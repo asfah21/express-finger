@@ -1,6 +1,7 @@
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
+import { getCache, setCache, delCacheByPattern, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
 import ZKLib from 'node-zklib'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
@@ -201,6 +202,17 @@ export const employeeController = {
             const lim = parseInt(limit)
             const off = parseInt(offset)
 
+            // Cek cache - hanya cache request tanpa search (halaman 1) untuk hemat memori
+            let cacheKey = null
+            const shouldCache = !search && off === 0
+            if (shouldCache) {
+                cacheKey = buildCacheKey(CACHE_KEYS.EMPLOYEES_LIST, lim)
+                const cached = getCache(cacheKey)
+                if (cached) {
+                    return sendPaginated(res, cached.rows, cached.total, lim, off)
+                }
+            }
+
             let query = 'SELECT * FROM employee'
             let countQuery = 'SELECT COUNT(*)::int as total FROM employee'
             let params = [lim, off]
@@ -218,8 +230,14 @@ export const employeeController = {
 
             const { rows } = await pool.query(query, params)
             const { rows: countRes } = await pool.query(countQuery, countParams)
+            const total = countRes[0].total
 
-            sendPaginated(res, rows, countRes[0].total, lim, off)
+            // Simpan ke cache (hanya jika shouldCache)
+            if (shouldCache && cacheKey) {
+                setCache(cacheKey, { rows, total }, TTL.SHORT)
+            }
+
+            sendPaginated(res, rows, total, lim, off)
         } catch (error) {
             sendError(res, error.message)
         }
@@ -228,8 +246,19 @@ export const employeeController = {
     async getEmployee(req, res) {
         const { id } = req.params
         try {
+            // Cek cache
+            const cacheKey = buildCacheKey(CACHE_KEYS.EMPLOYEE_DETAIL, id)
+            const cached = getCache(cacheKey)
+            if (cached) {
+                return sendSuccess(res, cached)
+            }
+
             const { rows } = await pool.query('SELECT * FROM employee WHERE id = $1', [id])
             if (rows.length === 0) return sendError(res, 'Employee not found', 404)
+
+            // Simpan ke cache
+            setCache(cacheKey, rows[0], TTL.MEDIUM)
+
             sendSuccess(res, rows[0])
         } catch (error) {
             sendError(res, error.message)
@@ -265,6 +294,9 @@ export const employeeController = {
                  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
                 [userIdStr, nik, nama, jabatan, department, divisi, type]
             )
+
+            // Hapus cache employees
+            delCacheByPattern(CACHE_KEYS.EMPLOYEES_LIST + '*')
 
             await recordActivity({
                 username, action: 'add_employee', category: 'employee',
@@ -302,6 +334,10 @@ export const employeeController = {
             )
             if (rows.length === 0) return sendError(res, 'Employee not found', 404)
 
+            // Hapus cache employees
+            delCacheByPattern(CACHE_KEYS.EMPLOYEES_LIST + '*')
+            delCacheByPattern(CACHE_KEYS.EMPLOYEE_DETAIL + ':*')
+
             await recordActivity({
                 username, action: 'edit_employee', category: 'employee',
                 detail: `Updated employee: ${nama || rows[0]?.nama || 'N/A'} (ID: ${id})`,
@@ -329,6 +365,10 @@ export const employeeController = {
 
             const { rowCount } = await pool.query('DELETE FROM employee WHERE id = $1', [id])
             if (rowCount === 0) return sendError(res, 'Employee not found', 404)
+
+            // Hapus cache employees
+            delCacheByPattern(CACHE_KEYS.EMPLOYEES_LIST + '*')
+            delCacheByPattern(CACHE_KEYS.EMPLOYEE_DETAIL + ':*')
 
             await recordActivity({
                 username, action: 'delete_employee', category: 'employee',
@@ -371,6 +411,9 @@ export const employeeController = {
                 )
                 results.push(rows[0])
             }
+
+            // Hapus cache employees
+            delCacheByPattern(CACHE_KEYS.EMPLOYEES_LIST + '*')
 
             await recordActivity({
                 username, action: 'import_employees', category: 'import',

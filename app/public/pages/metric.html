@@ -1,0 +1,75 @@
+<div id="page-metric" class="page" style="display: none; padding-bottom: 2rem;">
+    <div class="header">
+        <h2><i class="fas fa-chart-bar" style="color: var(--primary);"></i> Cache Metrics</h2>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn-primary" style="width: auto; padding: 0.6rem 1.25rem;" onclick="refreshCacheMetrics()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn-primary btn-danger" style="width: auto; padding: 0.6rem 1.25rem;" onclick="flushCache()">
+                <i class="fas fa-trash-alt"></i> Flush Cache
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid" id="metric-stats-grid">
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-check-circle" style="color: var(--success);"></i> Cache Hits</div>
+            <div class="stat-value" id="metric-hits">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-times-circle" style="color: var(--error);"></i> Cache Misses</div>
+            <div class="stat-value" id="metric-misses">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-bullseye" style="color: var(--secondary);"></i> Hit Rate</div>
+            <div class="stat-value" id="metric-hitrate">0%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-database" style="color: var(--primary);"></i> Cache Size</div>
+            <div class="stat-value" id="metric-size">0 / 0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-memory" style="color: var(--warning);"></i> Utilization</div>
+            <div class="stat-value" id="metric-utilization">0%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-plus-circle" style="color: var(--success);"></i> Sets</div>
+            <div class="stat-value" id="metric-sets">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-minus-circle" style="color: var(--error);"></i> Deletes</div>
+            <div class="stat-value" id="metric-deletes">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label"><i class="fas fa-calculator" style="color: var(--primary);"></i> Total Requests</div>
+            <div class="stat-value" id="metric-total">0</div>
+        </div>
+    </div>
+
+    <!-- Cache Keys Table -->
+    <div class="table-container" style="margin-top: 1.5rem;">
+        <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 0.75rem;">
+            <i class="fas fa-key" style="color: var(--primary);"></i>
+            <h3 style="font-size: 1rem; font-weight: 600;">Cache Keys</h3>
+            <span id="metric-key-count" style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">0 keys</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 60%;">Cache Key</th>
+                        <th style="width: 40%;">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="metric-keys-body">
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                            <i class="fas fa-spinner fa-spin"></i> Loading cache keys...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

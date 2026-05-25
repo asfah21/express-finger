@@ -16,6 +16,10 @@ import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes, pul
 import { globalErrorHandler, notFoundHandler } from './middleware/index.js'
 import { ensureSchema, ensureRawDir, cleanupOldRawFiles, pool } from './utils/index.js'
 import { startPullScheduler } from './utils/scheduler.js'
+import { warmCache } from './utils/cache.js'
+import { getSettingsData } from './controllers/settings.js'
+import { getDevices } from './utils/database.js'
+
 
 const app = express()
 app.set('trust proxy', true)
@@ -142,10 +146,21 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'))
     // Setup cleanup interval
     setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
 
+    // Cache warming — pre-cache data statis dan overview
+    warmCache({
+      getSettingsData,
+      getDevices,
+    }).then(warmed => {
+      console.log(`🔥 Cache warming complete: ${warmed.length} items cached`)
+    }).catch(err => {
+      console.warn(`⚠️ Cache warming partial: ${err.message}`)
+    })
+
     server = app.listen(config.PORT, () => {
       console.log(`✅ GSI ADMS listener ready on port ${config.PORT}`)
       console.log(`🔗 Health check: http://localhost:${config.PORT}/health`)
     })
+
   } catch (error) {
     console.error('Failed to start server:', error)
     process.exit(1)

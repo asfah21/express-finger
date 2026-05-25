@@ -77,7 +77,7 @@
             <div class="mobile-header">
                 <div class="sidebar-logo" style="margin-bottom: 0;">
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
-                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.3.4</small></span>
+                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.3.5</small></span>
                 </div>
                 <div style="display: flex; gap: 0.75rem; align-items: center;">
                     <button class="icon-btn theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode"
@@ -96,7 +96,7 @@
             <nav class="sidebar">
                 <div class="sidebar-logo">
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
-                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.3.4</small></span>
+                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.3.5</small></span>
                 </div>
                 <div class="nav-item active" onclick="showPage('overview')">
                     <i class="fas fa-chart-line"></i>
@@ -145,9 +145,20 @@
                     <i class="fas fa-shield-alt"></i>
                     <span>Activity Log</span>
                 </div>
-                <div class="nav-item superadmin-only" onclick="showPage('settings')">
+                <div class="nav-item superadmin-only" onclick="toggleSubMenu(this, 'submenu-settings')">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div id="submenu-settings" class="submenu-container">
+                    <div class="nav-item submenu-item superadmin-only" onclick="showPage('settings')">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>General</span>
+                    </div>
+                    <div class="nav-item submenu-item superadmin-only" onclick="showPage('metric')">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Metric</span>
+                    </div>
                 </div>
                 <!-- Mobile only logout -->
                 <div class="nav-item logout mobile-only-item" onclick="logout()">
@@ -194,6 +205,8 @@
                 <div data-include="pages/pull-employee.html"></div>
 
                 <div data-include="pages/settings.html"></div>
+
+                <div data-include="pages/metric.html"></div>
                 <footer class="app-footer">
                     <div>&copy; 2026 AZRA - <strong>GSI Fingerprint Dashboard</strong></div>
                 </footer>

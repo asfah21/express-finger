@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { fileURLToPath } from 'url'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError } from '../utils/response.js'
+import { getCache, setCache, delCache, CACHE_KEYS, TTL } from '../utils/cache.js'
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -130,9 +131,19 @@ const FIELD_VALIDATORS = {
 export const settingsController = {
     async getSettings(req, res) {
         try {
+            // Cek cache
+            const cached = getCache(CACHE_KEYS.SETTINGS)
+            if (cached) {
+                return sendSuccess(res, cached)
+            }
+
             const settings = await getSettingsData()
             // For the frontend, send the api_key in plaintext so user can see/edit it
             // The encryption happens only when saving
+
+            // Simpan ke cache
+            setCache(CACHE_KEYS.SETTINGS, settings, TTL.VERY_LONG)
+
             sendSuccess(res, settings)
         } catch (error) {
             sendError(res, error.message)
@@ -142,6 +153,9 @@ export const settingsController = {
     async updateSettings(req, res) {
         try {
             const currentSettings = await getSettingsData()
+
+            // Hapus cache settings karena ada perubahan
+            delCache(CACHE_KEYS.SETTINGS)
             const body = req.body || {}
 
             // Validasi: hanya field yang diizinkan yang bisa diubah

@@ -7,6 +7,7 @@ import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, o
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt } from './js/pages/settings.js';
+import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
@@ -99,8 +100,9 @@ window.showSyncModal = showSyncModal;
 window.closeSyncModal = closeSyncModal;
 window.updateEmployeeDeviceStatus = function() {};
 
-
-
+// Metric Page Functions
+window.refreshCacheMetrics = refreshCacheMetrics;
+window.flushCache = flushCache;
 
 // For legacy code within this file that hasn't been moved yet
 const paginationState = state.pagination;
@@ -154,7 +156,7 @@ function showDashboard() {
     }
 
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings', 'metric'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
@@ -175,22 +177,18 @@ function applyRoleRestrictions() {
         el.style.display = isSuperAdmin ? '' : 'none';
     });
 
-    if (!isAdmin && state.currentPath === 'settings') {
-        showPage('overview');
-    }
-
-    // Settings page hanya bisa diakses oleh superadmin
-    if (!isSuperAdmin && state.currentPath === 'settings') {
+    // Settings & Metric pages hanya bisa diakses oleh superadmin
+    if (!isSuperAdmin && (state.currentPath === 'settings' || state.currentPath === 'metric')) {
         showPage('overview');
     }
 }
 
 function showPage(pageId) {
-    // Guard: Settings hanya untuk superadmin
-    if (pageId === 'settings') {
+    // Guard: Settings & Metric hanya untuk superadmin
+    if (pageId === 'settings' || pageId === 'metric') {
         const isSuperAdmin = state.currentUser?.role === 'superadmin';
         if (!isSuperAdmin) {
-            showToast('Access denied: Settings requires Superadmin privileges', 'error');
+            showToast('Access denied: This page requires Superadmin privileges', 'error');
             pageId = 'overview';
             state.currentPath = pageId;
             window.location.hash = pageId;
@@ -209,7 +207,8 @@ function showPage(pageId) {
         'activity': 'Activity Log',
         'pull': 'Pull Data',
         'pull-employee': 'Pull Employee',
-        'settings': 'System Settings'
+        'settings': 'System Settings',
+        'metric': 'Cache Metrics'
     };
     const pageTitle = titles[pageId] || 'Dashboard';
     const titleEl = document.getElementById('page-title');
@@ -261,6 +260,7 @@ function showPage(pageId) {
             loadSettings();
             loadUserList();
         }
+        if (pageId === 'metric') refreshCacheMetrics();
     }
 
     if (window.innerWidth < 1024) {
@@ -538,7 +538,7 @@ window.addEventListener('resize', () => {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings', 'metric'];
     if (hash && validPages.includes(hash) && hash !== state.currentPath) {
         showPage(hash);
     }

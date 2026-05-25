@@ -1,11 +1,23 @@
 import express from 'express'
 import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
 import { apiController, syncController, deviceManagerController, employeeController, settingsController } from '../controllers/index.js'
+import { getCacheMetrics, clearCache } from '../utils/cache.js'
 
 const router = express.Router()
 
 // Semua route API memerlukan API key (atau JWT via Dashboard)
 router.use(requireApiKey)
+
+// Cache monitoring routes (Super Admin only)
+router.get('/cache-stats', requireSuperAdminPrivileges, (_req, res) => {
+  const stats = getCacheMetrics()
+  res.json({ status: 'ok', cache: stats })
+})
+
+router.post('/cache-flush', requireSuperAdminPrivileges, (_req, res) => {
+  clearCache()
+  res.json({ status: 'ok', message: 'Cache flushed successfully' })
+})
 
 router.get('/settings', requireSuperAdminPrivileges, settingsController.getSettings)
 router.put('/settings', requireSuperAdminPrivileges, settingsController.updateSettings)

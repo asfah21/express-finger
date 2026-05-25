@@ -3,6 +3,8 @@ import { saveManyLogs } from './database.js'
 import { config } from '../config/index.js'
 import fs from 'fs/promises'
 import path from 'path'
+import { delCacheByPatterns, CACHE_PATTERNS } from './cache.js'
+
 
 /**
  * Optimized PULL Sync for ZKTeco/Solution Firmware 8+ (X-105, 606-S)
@@ -222,10 +224,17 @@ export async function pullDeviceUsers(ip, port = 4370) {
                     SET nama = EXCLUDED.nama, updated_at = now()
                 `, [String(u.userId), u.name]);
             }
+
+            // Invalidate cache employee karena ada data baru dari device
+            const deleted = delCacheByPatterns(CACHE_PATTERNS.EMPLOYEE)
+            if (deleted > 0) {
+                console.log(`🧹 Invalidated ${deleted} employee cache keys after pulling users from ${ip}`)
+            }
         }
 
         await zk.disconnect();
         return { success: true, count: userData.length };
+
     } catch (error) {
         console.error(`❌ Error pulling users from ${ip}:`, error.message);
         try { await zk.disconnect(); } catch (e) { }

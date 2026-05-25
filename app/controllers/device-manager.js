@@ -1,6 +1,7 @@
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
+import { getCache, setCache, delCacheByPattern, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -28,8 +29,19 @@ export const deviceManagerController = {
             const lim = parseInt(limit)
             const off = parseInt(offset)
 
+            // Cek cache
+            const cacheKey = buildCacheKey(CACHE_KEYS.DEVICES_LIST, lim, off)
+            const cached = getCache(cacheKey)
+            if (cached) {
+                return sendPaginated(res, cached.rows, cached.total, lim, off)
+            }
+
             const { rows } = await pool.query('SELECT *, COUNT(*) OVER()::int as total FROM devices ORDER BY id ASC LIMIT $1 OFFSET $2', [lim, off])
             const total = rows.length > 0 ? rows[0].total : 0
+
+            // Simpan ke cache
+            setCache(cacheKey, { rows, total }, TTL.MEDIUM)
+
             sendPaginated(res, rows, total, lim, off)
         } catch (error) {
             sendError(res, error.message)
@@ -50,6 +62,9 @@ export const deviceManagerController = {
                 'INSERT INTO devices (sn, name, ip, port, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING *',
                 [sn, name, ip, port, is_active]
             )
+
+            // Hapus cache devices list
+            delCacheByPattern(CACHE_KEYS.DEVICES_LIST + '*')
 
             await recordActivity({
                 username, action: 'add_device', category: 'device',
@@ -82,6 +97,9 @@ export const deviceManagerController = {
             )
             if (rows.length === 0) return sendError(res, 'Device not found', 404)
 
+            // Hapus cache devices list
+            delCacheByPattern(CACHE_KEYS.DEVICES_LIST + '*')
+
             await recordActivity({
                 username, action: 'edit_device', category: 'device',
                 detail: `Updated device ID ${id}: name="${name || rows[0].name}"`,
@@ -106,6 +124,9 @@ export const deviceManagerController = {
 
             const { rowCount } = await pool.query('DELETE FROM devices WHERE id = $1', [id])
             if (rowCount === 0) return sendError(res, 'Device not found', 404)
+
+            // Hapus cache devices list
+            delCacheByPattern(CACHE_KEYS.DEVICES_LIST + '*')
 
             await recordActivity({
                 username, action: 'delete_device', category: 'device',

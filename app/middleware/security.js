@@ -34,10 +34,15 @@ export const securityMiddleware = (req, res, next) => {
     'camera=(), microphone=(), geolocation=(), interest-cohort=()'
   )
   
-  // Prevent serving cached pages after logout
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-  res.setHeader('Pragma', 'no-cache')
-  res.setHeader('Expires', '0')
+  // Prevent serving cached pages after logout (for HTML pages only)
+  // API responses can be cached by the server-side cache module
+  if (req.path.endsWith('.html') || req.path === '/' || req.accepts('text/html')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+  }
+  // For API responses, allow server-side caching (Cache-Control is set per-endpoint)
+
   
   next()
 }

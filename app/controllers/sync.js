@@ -2,6 +2,8 @@ import { pullDeviceLogs } from '../utils/zklib.js'
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError } from '../utils/response.js'
+import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
+
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -38,6 +40,12 @@ export const syncController = {
             // Update last sync time
             await pool.query('UPDATE devices SET last_sync = now(), sn = $1 WHERE ip = $2', [result.sn, targetIp])
 
+            // Invalidate cache attendance karena ada data baru dari device
+            const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+            if (deleted > 0) {
+                console.log(`🧹 Invalidated ${deleted} attendance cache keys after sync from ${targetIp}`)
+            }
+
             await recordActivity({
                 username: req.user?.username || 'api',
                 action: 'sync_device',
@@ -47,6 +55,7 @@ export const syncController = {
             })
 
             sendSuccess(res, result, 'Sync completed successfully')
+
         } catch (error) {
             sendError(res, error.message)
         }
@@ -102,6 +111,12 @@ export const syncController = {
                 if (isStream && typeof res.flush === 'function') res.flush()
             }
 
+            // Invalidate cache attendance setelah sync semua device
+            const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+            if (deleted > 0) {
+                console.log(`🧹 Invalidated ${deleted} attendance cache keys after sync all`)
+            }
+
             if (isStream) {
                 res.write(`\n✨ All done! Total processed: ${processed} devices.\n`)
                 res.end()
@@ -116,6 +131,7 @@ export const syncController = {
                 })
                 sendSuccess(res, { results }, 'Sync process finished')
             }
+
         } catch (error) {
             if (isStream) {
                 res.write(`\n❌ Critical Error: ${error.message}\n`)

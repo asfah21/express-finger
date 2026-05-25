@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises'
 import { config } from '../config/index.js'
 import { smartParseMany, saveManyLogs, ensureRawDir, upsertDevice } from '../utils/index.js'
+import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
 
 // Simple memory cache to reduce DB load
 const lastDeviceIPs = new Map()
@@ -40,6 +41,12 @@ export const deviceController = {
         // saveManyLogs sudah memiliki proteksi ON CONFLICT (Idempotent)
         await saveManyLogs(rows, deviceSN);
         console.log(`📩 [${deviceSN}] Saved ${rows.length} logs from ${deviceIP}`);
+        
+        // 5. Invalidate cache attendance karena ada data baru
+        const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+        if (deleted > 0) {
+          console.log(`🧹 Invalidated ${deleted} attendance cache keys after push from ${deviceSN}`)
+        }
       }
 
       return res.status(200).send('OK');
@@ -49,6 +56,7 @@ export const deviceController = {
       return res.status(200).send('OK');
     }
   },
+
 
   async handleGetRequest(req, res) {
     try {

@@ -1,5 +1,6 @@
 import { pool } from '../utils/database.js'
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
+import { getCache, setCache, delCacheByPattern, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
 
 /**
  * Record an activity log entry.
@@ -43,6 +44,17 @@ export const activityLogController = {
 
             const lim = Math.min(parseInt(limit) || 50, 500)
             const off = Math.max(parseInt(offset) || 0, 0)
+
+            // Cek cache - hanya cache request tanpa filter (halaman 1) untuk hemat memori
+            let cacheKey = null
+            const shouldCache = !username && !category && !action && !from && !to && !status && !search && off === 0
+            if (shouldCache) {
+                cacheKey = buildCacheKey(CACHE_KEYS.ACTIVITY_LOGS_LIST, lim)
+                const cached = getCache(cacheKey)
+                if (cached) {
+                    return sendPaginated(res, cached.rows, cached.total, lim, off)
+                }
+            }
 
             const where = []
             const params = []
@@ -88,7 +100,15 @@ export const activityLogController = {
                 )
             ])
 
-            sendPaginated(res, dataRes.rows, countRes.rows[0].total, lim, off)
+            const total = countRes.rows[0].total
+
+            // Simpan ke cache (hanya jika shouldCache)
+            if (shouldCache && cacheKey) {
+                setCache(cacheKey, { rows: dataRes.rows, total }, TTL.SHORT)
+            }
+
+            sendPaginated(res, dataRes.rows, total, lim, off)
+
         } catch (err) {
             sendError(res, err.message)
         }

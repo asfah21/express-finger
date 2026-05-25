@@ -49,6 +49,13 @@ export async function refreshOverview(force = false) {
             const el = document.getElementById('overview-last-update');
             if (el) el.innerText = cached.lastUpdate;
         }
+        // Restore chart dari cache tanpa fetch API
+        if (cached.chartData && attendanceChart) {
+            attendanceChart.data.labels = cached.chartData.labels;
+            attendanceChart.data.datasets[0].data = cached.chartData.checkinData;
+            attendanceChart.data.datasets[1].data = cached.chartData.checkoutData;
+            attendanceChart.update('none'); // Update tanpa animasi
+        }
         return; // Skip fetch API
     }
     
@@ -90,12 +97,35 @@ export async function refreshOverview(force = false) {
         window.updatePaginationUI('overview');
 
         refreshLateToday(today);
-        refreshChart();
+        await refreshChart();
 
         const lastUpdateEl = document.getElementById('overview-last-update');
         if (lastUpdateEl) {
             lastUpdateEl.innerText = 'Last Updated: ' + new Date().toLocaleTimeString('id-ID');
         }
+
+        // Simpan data ke cache untuk下次 pindah page
+        const recentLogsBody = document.getElementById('recent-logs-body');
+        const lateTodayBody = document.getElementById('late-today-body');
+        const lateTodayCount = document.getElementById('late-today-count');
+        overviewCache = {
+            timestamp: Date.now(),
+            data: {
+                statDevices: statDevices?.innerText || '0',
+                statEmployees: statEmployees?.innerText || '0',
+                statLogs: statLogs?.innerText || '0',
+                recentLogsHtml: recentLogsBody?.innerHTML || '',
+                lateCount: lateTodayCount?.innerText || '0',
+                lateHtml: lateTodayBody?.innerHTML || '',
+                paginationTotal: s.total,
+                lastUpdate: lastUpdateEl?.innerText || '',
+                chartData: attendanceChart ? {
+                    labels: attendanceChart.data.labels,
+                    checkinData: attendanceChart.data.datasets[0].data,
+                    checkoutData: attendanceChart.data.datasets[1].data
+                } : null
+            }
+        };
     } catch (err) {
         console.error('Failed to refresh overview', err);
         // Remove loading states even on error

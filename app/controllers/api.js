@@ -5,12 +5,26 @@ import { config } from '../config/index.js'
 import { pool } from '../utils/database.js'
 import { getSettingsData } from './settings.js'
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
+import { getCache, setCache, delCacheByPattern, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
 
 // API controller
 export const apiController = {
   async getLogs(req, res) {
     try {
       const { from, to, limit = 100, offset = 0, user_id, type, device_sn, search } = req.query
+
+      // Cek cache untuk GET logs - gunakan key yang lebih ringkas
+      // Hanya cache request tanpa filter spesifik (halaman 1, tanpa filter) untuk menghemat memori
+      let cacheKey = null
+      const shouldCache = !user_id && !type && !device_sn && !search && Number(offset) === 0
+      
+      if (shouldCache) {
+        cacheKey = buildCacheKey(CACHE_KEYS.LOGS_LIST, from || 'all', limit)
+        const cached = getCache(cacheKey)
+        if (cached) {
+          return sendPaginated(res, cached.rows, cached.total, Number(limit), Number(offset))
+        }
+      }
       const lim = Math.min(Number(limit) || 100, config.MAX_LIMIT)
       const off = Math.max(Number(offset) || 0, 0)
       const where = []
@@ -193,7 +207,14 @@ export const apiController = {
       })
 
       const total = Number(countRes.rows[0]?.total || 0)
+
+      // Simpan ke cache untuk request berikutnya (hanya jika shouldCache)
+      if (shouldCache && cacheKey) {
+        setCache(cacheKey, { rows, total }, TTL.SHORT)
+      }
+
       sendPaginated(res, rows, total, lim, off)
+
     } catch (e) {
       sendError(res, e.message)
     }
@@ -203,6 +224,15 @@ export const apiController = {
     try {
       const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
       const dateStr = String(req.query.date || todayWita)
+
+      // Cek cache
+      const cacheKey = buildCacheKey(CACHE_KEYS.LOGS_DAILY_STATS, dateStr)
+      const cached = getCache(cacheKey)
+      if (cached) {
+        res.setHeader('Cache-Control', 'public, max-age=15')
+        return sendSuccess(res, cached)
+      }
+
       const from = new Date(`${dateStr}T00:00:00Z`)
       const to = new Date(`${dateStr}T23:59:59Z`)
       const { rows } = await pool.query({
@@ -221,8 +251,13 @@ export const apiController = {
         `,
         values: [from, to],
       })
+
+      // Simpan ke cache
+      const result = { date: dateStr, rows }
+      setCache(cacheKey, result, TTL.MEDIUM)
+
       res.setHeader('Cache-Control', 'public, max-age=15')
-      sendSuccess(res, { date: dateStr, rows })
+      sendSuccess(res, result)
     } catch (e) {
       sendError(res, e.message)
     }
