@@ -7,7 +7,11 @@ export async function refreshOverview() {
     try {
         const s = state.pagination.overview;
         const today = getWitaDateString();
-        
+
+        // Show loading states
+        showChartLoading(true);
+        document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
+
         // Fetch all data in parallel - total counts come from limit=1 requests
         const [devicesRes, empRes, logsRes] = await Promise.all([
             fetch('/api/devices?limit=1'),
@@ -24,9 +28,14 @@ export async function refreshOverview() {
         const employeesData = await empRes.json();
         const logsData = await logsRes.json();
 
-        document.getElementById('stat-devices').innerText = devicesData.data?.total || 0;
-        document.getElementById('stat-employees').innerText = employeesData.data?.total || 0;
-        document.getElementById('stat-logs').innerText = logsData.data?.total || 0;
+        // Update stat values and remove loading class
+        const statDevices = document.getElementById('stat-devices');
+        const statEmployees = document.getElementById('stat-employees');
+        const statLogs = document.getElementById('stat-logs');
+        
+        if (statDevices) { statDevices.innerText = devicesData.data?.total || 0; statDevices.classList.remove('loading'); }
+        if (statEmployees) { statEmployees.innerText = employeesData.data?.total || 0; statEmployees.classList.remove('loading'); }
+        if (statLogs) { statLogs.innerText = logsData.data?.total || 0; statLogs.classList.remove('loading'); }
 
         s.total = logsData.data?.total || 0;
         renderRecentLogs(logsData.data?.list || logsData.data?.logs || []);
@@ -41,6 +50,23 @@ export async function refreshOverview() {
         }
     } catch (err) {
         console.error('Failed to refresh overview', err);
+        // Remove loading states even on error
+        document.querySelectorAll('.stat-value.loading').forEach(el => el.classList.remove('loading'));
+        showChartLoading(false);
+    }
+}
+
+/**
+ * Show or hide the chart skeleton loading overlay
+ */
+function showChartLoading(isLoading) {
+    const skeleton = document.getElementById('chart-skeleton');
+    const canvas = document.getElementById('attendance-chart');
+    if (skeleton) {
+        skeleton.style.display = isLoading ? 'flex' : 'none';
+    }
+    if (canvas) {
+        canvas.style.display = isLoading ? 'none' : 'block';
     }
 }
 
@@ -51,6 +77,9 @@ export async function refreshOverview() {
  */
 async function refreshChart() {
     try {
+        // Show skeleton while chart data is loading
+        showChartLoading(true);
+        
         const rangeSelect = document.getElementById('chart-range');
         const daysCount = rangeSelect ? parseInt(rangeSelect.value) : 7;
         
@@ -136,6 +165,9 @@ async function refreshChart() {
         // Adjust bar percentage for mobile
         const barPct = isMobile ? 0.6 : 0.4;
 
+        // Hide skeleton before rendering chart
+        showChartLoading(false);
+
         attendanceChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -195,6 +227,7 @@ async function refreshChart() {
         });
     } catch (err) {
         console.error('Failed to refresh chart:', err);
+        showChartLoading(false);
     }
 }
 

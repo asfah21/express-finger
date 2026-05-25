@@ -128,7 +128,7 @@ export async function ensureSchema() {
 export async function saveManyLogs(rows, deviceSN = null) {
   if (!rows.length) return
 
-  const chunkSize = 100
+  const chunkSize = 500
   let totalInserted = 0
 
   for (let i = 0; i < rows.length; i += chunkSize) {

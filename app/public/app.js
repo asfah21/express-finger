@@ -5,7 +5,7 @@ import { checkAuth, handleLogin, logout, silentTokenCheck } from './js/auth.js';
 import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice } from './js/pages/devices.js';
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
-import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, recordClientActivity } from './js/pages/activity.js';
+import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt } from './js/pages/settings.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
@@ -60,6 +60,7 @@ window.refreshActivityLogs = refreshActivityLogs;
 window.handleActivitySearch = handleActivitySearch;
 window.applyActivityFilter = applyActivityFilter;
 window.clearOldActivityLogs = clearOldActivityLogs;
+window.exportActivityLogs = exportActivityLogs;
 window.recordClientActivity = recordClientActivity;
 
 // Settings Page Functions

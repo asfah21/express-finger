@@ -180,6 +180,63 @@ export async function clearOldActivityLogs() {
     toggleModal(true);
 }
 
+export async function exportActivityLogs() {
+    const search = document.getElementById('activity-search')?.value || '';
+    const category = document.getElementById('activity-category')?.value || '';
+    const from = document.getElementById('activity-date-from')?.value || '';
+    const to = document.getElementById('activity-date-to')?.value || '';
+
+    showToast('Preparing export data...');
+
+    try {
+        let url = `/api/activity-logs?limit=${state.EXPORT_LIMIT}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (category) url += `&category=${encodeURIComponent(category)}`;
+        if (from) url += `&from=${from}T00:00:00%2B08:00`;
+        if (to) url += `&to=${to}T23:59:59%2B08:00`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch activity logs');
+        const data = await res.json();
+        const logs = data.data?.list || data.data?.logs || [];
+
+        if (logs.length === 0) {
+            return showToast('No data to export', 'warning');
+        }
+
+        const exportData = logs.map(log => {
+            const dt = new Date(log.created_at);
+            const dateStr = dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return {
+                Date: dateStr,
+                Time: timeStr,
+                Username: log.username || '-',
+                Category: log.category || '-',
+                Action: log.action || '-',
+                Detail: log.detail || '-',
+                'IP Address': log.ip_address || '-',
+                Status: log.status || '-'
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Activity Logs");
+
+        const today = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(workbook, `activity_logs_${today}.xlsx`);
+        showToast('Export successful', 'success');
+
+        if (window.recordClientActivity) {
+            await window.recordClientActivity('export_activity_logs', 'export', `Exported activity logs (count: ${logs.length})`);
+        }
+    } catch (err) {
+        console.error('Export failed:', err);
+        showToast('Export failed', 'error');
+    }
+}
+
 export async function recordClientActivity(action, category, detail) {
     try {
         await fetch('/api/activity-logs/record', {

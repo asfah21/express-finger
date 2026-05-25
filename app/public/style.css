@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap');
 
 :root {
     --primary: #246196;
@@ -35,7 +35,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Roboto', sans-serif;
 }
 
 /* Smooth theme transitions for all themed elements */
@@ -1461,4 +1461,81 @@ select option {
     .chart-range-select {
         width: 100%;
     }
+}
+
+/* ===== Chart Skeleton Loading ===== */
+.chart-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+    border-radius: 0.75rem;
+    z-index: 5;
+    transition: opacity 0.4s ease;
+}
+
+.chart-skeleton-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    height: 160px;
+    padding: 0 1rem;
+    width: 100%;
+    max-width: 500px;
+    justify-content: center;
+}
+
+.chart-skeleton-bar {
+    width: 32px;
+    background: linear-gradient(180deg, var(--primary) 0%, rgba(36, 97, 150, 0.3) 100%);
+    border-radius: 4px 4px 0 0;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-skeleton-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255,255,255,0.1) 50%, 
+        transparent 100%);
+    animation: skeleton-shimmer 2s infinite;
+}
+
+.chart-skeleton-label {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chart-skeleton-label::before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Stat card loading pulse */
+.stat-value.loading {
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    color: var(--text-muted) !important;
+    min-width: 60px;
+    display: inline-block;
 }

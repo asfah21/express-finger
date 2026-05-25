@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'fs/promises'
 import path from 'path'
+import crypto from 'crypto'
 import { fileURLToPath } from 'url'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError } from '../utils/response.js'
@@ -10,6 +11,61 @@ function getClientIp(req) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const settingsPath = path.join(__dirname, '../config/user_settings.json')
+
+// ============================================================
+// API Key Encryption / Decryption
+// Menggunakan AES-256-GCM dengan key derivasi dari JWT_SECRET
+// ============================================================
+const ALGORITHM = 'aes-256-gcm'
+const KEY_LENGTH = 32 // 256 bit
+const IV_LENGTH = 16  // 128 bit
+const TAG_LENGTH = 16 // 128 bit
+
+function getEncryptionKey() {
+    const secret = process.env.JWT_SECRET
+    if (!secret) {
+        throw new Error('JWT_SECRET is required for API key encryption')
+    }
+    // Derive a 256-bit key from JWT_SECRET using SHA256
+    return crypto.createHash('sha256').update(secret).digest()
+}
+
+function encryptApiKey(plaintext) {
+    if (!plaintext) return ''
+    const key = getEncryptionKey()
+    const iv = crypto.randomBytes(IV_LENGTH)
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
+    
+    let encrypted = cipher.update(plaintext, 'utf8', 'hex')
+    encrypted += cipher.final('hex')
+    const authTag = cipher.getAuthTag().toString('hex')
+    
+    // Format: iv:authTag:ciphertext (all hex)
+    return `${iv.toString('hex')}:${authTag}:${encrypted}`
+}
+
+function decryptApiKey(encrypted) {
+    if (!encrypted) return ''
+    try {
+        const key = getEncryptionKey()
+        const parts = encrypted.split(':')
+        if (parts.length !== 3) return encrypted // Not encrypted, return as-is
+        
+        const iv = Buffer.from(parts[0], 'hex')
+        const authTag = Buffer.from(parts[1], 'hex')
+        const ciphertext = parts[2]
+        
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
+        decipher.setAuthTag(authTag)
+        
+        let decrypted = decipher.update(ciphertext, 'hex', 'utf8')
+        decrypted += decipher.final('utf8')
+        return decrypted
+    } catch (err) {
+        console.error('❌ Failed to decrypt API key:', err.message)
+        return ''
+    }
+}
 
 const defaultSettings = {
     late_tolerance_mins: 5,
@@ -43,7 +99,12 @@ const defaultSettings = {
 export async function getSettingsData() {
     try {
         const data = await readFile(settingsPath, 'utf8')
-        return JSON.parse(data)
+        const settings = JSON.parse(data)
+        // Decrypt api_key when reading for internal use (auth middleware)
+        if (settings.api_key && settings.api_key.includes(':')) {
+            settings.api_key = decryptApiKey(settings.api_key)
+        }
+        return settings
     } catch (error) {
         // Jika file belum ada, buat baru dengan default settings
         await writeFile(settingsPath, JSON.stringify(defaultSettings, null, 2))
@@ -51,10 +112,27 @@ export async function getSettingsData() {
     }
 }
 
+// Validasi tipe data untuk setiap field settings yang diizinkan
+const ALLOWED_KEYS = new Set([
+    'api_key', 'late_tolerance_mins', 'cleanup_age_days',
+    'types', 'shift_types', 'remarks_config'
+])
+
+const FIELD_VALIDATORS = {
+    api_key: (val) => typeof val === 'string',
+    late_tolerance_mins: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 0 && val <= 999,
+    cleanup_age_days: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 1 && val <= 365,
+    types: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
+    shift_types: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
+    remarks_config: (val) => typeof val === 'object' && val !== null && !Array.isArray(val)
+}
+
 export const settingsController = {
     async getSettings(req, res) {
         try {
             const settings = await getSettingsData()
+            // For the frontend, send the api_key in plaintext so user can see/edit it
+            // The encryption happens only when saving
             sendSuccess(res, settings)
         } catch (error) {
             sendError(res, error.message)
@@ -64,7 +142,31 @@ export const settingsController = {
     async updateSettings(req, res) {
         try {
             const currentSettings = await getSettingsData()
-            const newSettings = { ...currentSettings, ...req.body }
+            const body = req.body || {}
+
+            // Validasi: hanya field yang diizinkan yang bisa diubah
+            const invalidKeys = Object.keys(body).filter(k => !ALLOWED_KEYS.has(k))
+            if (invalidKeys.length > 0) {
+                return sendError(res, `Unknown settings fields: ${invalidKeys.join(', ')}`, 400)
+            }
+
+            // Validasi tipe data setiap field
+            for (const [key, value] of Object.entries(body)) {
+                const validator = FIELD_VALIDATORS[key]
+                if (validator && !validator(value)) {
+                    return sendError(res, `Invalid value type for "${key}"`, 400)
+                }
+            }
+
+            // Encrypt api_key before saving to file
+            const bodyToSave = { ...body }
+            if (bodyToSave.api_key) {
+                bodyToSave.api_key = encryptApiKey(bodyToSave.api_key)
+            } else if (bodyToSave.api_key === '') {
+                bodyToSave.api_key = '' // Allow clearing the API key
+            }
+
+            const newSettings = { ...currentSettings, ...bodyToSave }
 
             // Tulis ulang file settings
             await writeFile(settingsPath, JSON.stringify(newSettings, null, 2))
@@ -72,11 +174,11 @@ export const settingsController = {
             const username = req.user?.username || 'api'
             const ip = getClientIp(req)
             
-            // Audit trail detail: catat perubahan spesifik (kecuali password)
+            // Audit trail detail: catat perubahan spesifik
             const changes = []
-            for (const key of Object.keys(req.body)) {
+            for (const key of Object.keys(body)) {
                 const oldVal = currentSettings[key]
-                const newVal = req.body[key]
+                const newVal = body[key]
                 
                 // Sembunyikan nilai sensitif di log
                 if (key === 'api_key') {
@@ -96,7 +198,12 @@ export const settingsController = {
                 ip
             })
 
-            sendSuccess(res, newSettings, 'Settings updated successfully')
+            // Return settings with decrypted api_key for the frontend
+            const responseSettings = { ...newSettings }
+            if (responseSettings.api_key) {
+                responseSettings.api_key = decryptApiKey(responseSettings.api_key)
+            }
+            sendSuccess(res, responseSettings, 'Settings updated successfully')
         } catch (error) {
             sendError(res, error.message)
         }

@@ -45,7 +45,20 @@
                             </div>
                             <div class="chart-wrapper">
                                 <div style="position: relative; height: 250px; min-width: 300px;">
-                                    <canvas id="attendance-chart"></canvas>
+                                    <!-- Chart Loading Skeleton -->
+                                    <div id="chart-skeleton" class="chart-skeleton">
+                                        <div class="chart-skeleton-bars">
+                                            <div class="chart-skeleton-bar" style="height: 60%; animation-delay: 0s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 80%; animation-delay: 0.1s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 45%; animation-delay: 0.2s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 90%; animation-delay: 0.3s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 55%; animation-delay: 0.4s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 75%; animation-delay: 0.5s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 40%; animation-delay: 0.6s;"></div>
+                                        </div>
+                                        <div class="chart-skeleton-label">Loading chart data...</div>
+                                    </div>
+                                    <canvas id="attendance-chart" style="display: none;"></canvas>
                                 </div>
                             </div>
                         </div>

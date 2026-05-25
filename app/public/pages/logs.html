@@ -19,14 +19,14 @@
                             <label
                                 style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">FROM
                                 DATE</label>
-                            <input type="date" id="log-date-from">
+                            <input type="date" id="log-date-from" onchange="applyLogFilter()">
                         </div>
 
                         <div style="flex: 1; min-width: 140px;">
                             <label
                                 style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">TO
                                 DATE</label>
-                            <input type="date" id="log-date-to">
+                            <input type="date" id="log-date-to" onchange="applyLogFilter()">
                         </div>
 
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
