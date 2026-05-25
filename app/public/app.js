@@ -185,6 +185,17 @@ function applyRoleRestrictions() {
 }
 
 function showPage(pageId) {
+    // Guard: Settings hanya untuk superadmin
+    if (pageId === 'settings') {
+        const isSuperAdmin = state.currentUser?.role === 'superadmin';
+        if (!isSuperAdmin) {
+            showToast('Access denied: Settings requires Superadmin privileges', 'error');
+            pageId = 'overview';
+            state.currentPath = pageId;
+            window.location.hash = pageId;
+        }
+    }
+
     state.currentPath = pageId;
     window.location.hash = pageId;
 

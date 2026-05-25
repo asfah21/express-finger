@@ -220,6 +220,20 @@ export const updateAccount = async (req, res) => {
 // User Management (Admin only)
 // ============================================================
 
+/**
+ * Check if only default superadmin user exists (fresh install)
+ * Used by login page to show default credentials hint
+ */
+export const checkDefaultUser = async (req, res) => {
+    try {
+        const { rows } = await pool.query('SELECT username, role FROM users ORDER BY id')
+        const isDefaultOnly = rows.length === 1 && rows[0].username === 'superadmin' && rows[0].role === 'superadmin'
+        sendSuccess(res, { isDefaultOnly, userCount: rows.length })
+    } catch (err) {
+        sendError(res, err.message)
+    }
+}
+
 export const listUsers = async (req, res) => {
     try {
         const { rows } = await pool.query(

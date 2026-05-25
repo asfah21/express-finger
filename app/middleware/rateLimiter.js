@@ -9,15 +9,16 @@ import { sendError } from '../utils/response.js'
 
 /**
  * Login rate limiter
- * - Max 5 attempts per IP per 15 menit
+ * - Max 10 attempts per IP per 15 menit
  * - Mencegah brute force login
+ * - 15 menit window agar user tidak frustrasi dengan cooldown pendek
  */
 export const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 menit
-    max: 5,
+    max: 10,
     message: {
         status: 'error',
-        message: 'Too many login attempts. Please try again in 15 minutes.'
+        message: 'Too many login attempts. Please try again later.'
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -26,7 +27,7 @@ export const loginLimiter = rateLimit({
     },
     handler: (req, res) => {
         console.warn(`⚠️ [RATE LIMIT] Login exceeded for IP: ${req.ip}`)
-        sendError(res, 'Too many login attempts. Please try again in 15 minutes.', 429)
+        sendError(res, 'Too many login attempts. Please try again later.', 429)
     }
 })
 

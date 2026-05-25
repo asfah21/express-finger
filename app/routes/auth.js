@@ -1,5 +1,5 @@
 import express from 'express'
-import { login, logout, me, verify, updateAccount, listUsers, addUser, deleteUser, resetUserPassword } from '../controllers/auth.js'
+import { login, logout, me, verify, updateAccount, listUsers, addUser, deleteUser, resetUserPassword, checkDefaultUser } from '../controllers/auth.js'
 import { requireAuth, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
 
 const router = express.Router()
@@ -7,6 +7,7 @@ const router = express.Router()
 router.post('/login', login)
 router.post('/logout', logout)
 router.get('/me', requireAuth, me)
+router.get('/check-default', checkDefaultUser)
 router.post('/verify', requireAuth, verify)
 router.put('/account', requireAuth, updateAccount)
 
