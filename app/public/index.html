@@ -151,6 +151,10 @@
                     <i class="fas fa-chevron-down toggle-icon"></i>
                 </div>
                 <div id="submenu-settings" class="submenu-container">
+                    <div class="nav-item submenu-item" onclick="showPage('user')">
+                        <i class="fas fa-user-shield"></i>
+                        <span>User</span>
+                    </div>
                     <div class="nav-item submenu-item superadmin-only" onclick="showPage('settings')">
                         <i class="fas fa-sliders-h"></i>
                         <span>General</span>
@@ -203,6 +207,8 @@
                 <div data-include="pages/pull.html"></div>
 
                 <div data-include="pages/pull-employee.html"></div>
+
+                <div data-include="pages/user.html"></div>
 
                 <div data-include="pages/settings.html"></div>
 

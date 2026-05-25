@@ -156,7 +156,7 @@ function showDashboard() {
     }
 
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings', 'metric'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'user', 'settings', 'metric'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
@@ -207,6 +207,7 @@ function showPage(pageId) {
         'activity': 'Activity Log',
         'pull': 'Pull Data',
         'pull-employee': 'Pull Employee',
+        'user': 'My Account',
         'settings': 'System Settings',
         'metric': 'Cache Metrics'
     };
@@ -538,7 +539,7 @@ window.addEventListener('resize', () => {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'settings', 'metric'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'user', 'settings', 'metric'];
     if (hash && validPages.includes(hash) && hash !== state.currentPath) {
         showPage(hash);
     }
