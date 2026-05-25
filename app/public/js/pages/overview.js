@@ -8,7 +8,7 @@ let overviewCache = {
     timestamp: 0,
     data: null
 };
-const OVERVIEW_CACHE_TTL = 30000; // 30 detik
+const OVERVIEW_CACHE_TTL = 120000; // 2 menit
 
 export async function refreshOverview(force = false) {
     const now = Date.now();
