@@ -6,7 +6,7 @@ import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
-import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt } from './js/pages/settings.js';
+import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword } from './js/pages/settings.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
@@ -76,6 +76,8 @@ window.loadUserList = loadUserList;
 window.addNewUser = addNewUser;
 window.deleteUserPrompt = deleteUserPrompt;
 window.resetUserPasswordPrompt = resetUserPasswordPrompt;
+window.loadProfileInfo = loadProfileInfo;
+window.toggleProfilePassword = toggleProfilePassword;
 
 // Pull Data Page Functions
 window.refreshPull = refreshPull;
@@ -156,7 +158,7 @@ function showDashboard() {
     }
 
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'user', 'settings', 'metric'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
     if (hash && validPages.includes(hash)) {
         showPage(hash);
     } else {
@@ -207,7 +209,7 @@ function showPage(pageId) {
         'activity': 'Activity Log',
         'pull': 'Pull Data',
         'pull-employee': 'Pull Employee',
-        'user': 'My Account',
+        'account': 'My Account',
         'settings': 'System Settings',
         'metric': 'Cache Metrics'
     };
@@ -257,6 +259,7 @@ function showPage(pageId) {
         if (pageId === 'activity') refreshActivityLogs();
         if (pageId === 'pull') refreshPull();
         if (pageId === 'pull-employee') refreshPullEmployee();
+        if (pageId === 'account') loadProfileInfo();
         if (pageId === 'settings') {
             loadSettings();
             loadUserList();
@@ -539,7 +542,7 @@ window.addEventListener('resize', () => {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'user', 'settings', 'metric'];
+    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
     if (hash && validPages.includes(hash) && hash !== state.currentPath) {
         showPage(hash);
     }

@@ -81,6 +81,24 @@ export async function saveShiftSettings() {
     }
 }
 
+export function loadProfileInfo() {
+    const user = state.currentUser;
+    if (!user) return;
+
+    const initial = (user.username || 'U')[0].toUpperCase();
+    const avatarLetter = document.getElementById('profile-avatar-letter');
+    const displayName = document.getElementById('profile-display-name');
+    const roleBadge = document.getElementById('profile-role-badge');
+    const usernameLabel = document.getElementById('profile-username-label');
+    const roleLabel = document.getElementById('profile-role-label');
+
+    if (avatarLetter) avatarLetter.textContent = initial;
+    if (displayName) displayName.textContent = user.username || '-';
+    if (roleBadge) roleBadge.textContent = user.role || '-';
+    if (usernameLabel) usernameLabel.textContent = user.username || '-';
+    if (roleLabel) roleLabel.textContent = user.role || '-';
+}
+
 export async function updateAccount() {
     const username = document.getElementById('profile-username').value;
     const password = document.getElementById('profile-password').value;
@@ -100,14 +118,31 @@ export async function updateAccount() {
             showToast('Account updated successfully', 'success');
             document.getElementById('profile-username').value = '';
             document.getElementById('profile-password').value = '';
-            // window.checkAuth is global
-            if (window.checkAuth) window.checkAuth();
+            // Refresh profile info
+            if (window.checkAuth) {
+                await window.checkAuth();
+            }
+            loadProfileInfo();
         } else {
             const data = await res.json();
             showToast(data.message || 'Update failed', 'error');
         }
     } catch (err) {
         showToast('Network error', 'error');
+    }
+}
+
+export function toggleProfilePassword() {
+    const input = document.getElementById('profile-password');
+    const icon = document.getElementById('profile-pass-icon');
+    if (input && icon) {
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
     }
 }
 
