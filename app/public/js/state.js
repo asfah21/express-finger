@@ -17,5 +17,9 @@ export const state = {
         activity: { page: 0, size: 25, total: 0 }
     },
     // Maximum export limit - centralized to avoid hardcoded values
-    EXPORT_LIMIT: 50000
+    EXPORT_LIMIT: 50000,
+    // Dynamic page permissions
+    allowedPages: [],
+    allowedPageLabels: {}
 };
+

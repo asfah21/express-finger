@@ -6,7 +6,7 @@ import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
-import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword } from './js/pages/settings.js';
+import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission } from './js/pages/settings.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
@@ -78,6 +78,9 @@ window.deleteUserPrompt = deleteUserPrompt;
 window.resetUserPasswordPrompt = resetUserPasswordPrompt;
 window.loadProfileInfo = loadProfileInfo;
 window.toggleProfilePassword = toggleProfilePassword;
+window.loadPagePermissions = loadPagePermissions;
+window.savePagePermission = savePagePermission;
+
 
 // Pull Data Page Functions
 window.refreshPull = refreshPull;
@@ -133,7 +136,7 @@ function showLogin() {
     document.getElementById('dashboard').style.display = 'none';
 }
 
-function showDashboard() {
+async function showDashboard() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('dashboard').style.display = 'flex';
 
@@ -142,7 +145,11 @@ function showDashboard() {
         navUserEl.innerText = state.currentUser.username;
     }
 
-    applyRoleRestrictions();
+    // Load dynamic page permissions from server
+    await loadUserPermissions();
+
+    // Apply dynamic sidebar visibility based on permissions
+    applyDynamicSidebar();
 
     // Restore sidebar collapsed state from localStorage
     if (window.innerWidth >= 1024) {
@@ -158,49 +165,105 @@ function showDashboard() {
     }
 
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
-    if (hash && validPages.includes(hash)) {
+    if (hash && state.allowedPages.includes(hash)) {
         showPage(hash);
     } else {
         showPage('overview');
     }
 }
 
-function applyRoleRestrictions() {
+/**
+ * Load user's allowed pages from the server
+ */
+async function loadUserPermissions() {
     if (!state.currentUser) return;
-    const isAdmin = state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin';
-    const isSuperAdmin = state.currentUser.role === 'superadmin';
-
-    document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdmin ? '' : 'none';
-    });
-
-    document.querySelectorAll('.superadmin-only').forEach(el => {
-        el.style.display = isSuperAdmin ? '' : 'none';
-    });
-
-    // Settings & Metric pages hanya bisa diakses oleh superadmin
-    if (!isSuperAdmin && (state.currentPath === 'settings' || state.currentPath === 'metric')) {
-        showPage('overview');
+    try {
+        const res = await fetch('/api/my-permissions');
+        if (res.ok) {
+            const data = await res.json();
+            state.allowedPages = (data.data || []).map(p => p.page_id);
+            state.allowedPageLabels = (data.data || []).reduce((acc, p) => {
+                acc[p.page_id] = p.page_label;
+                return acc;
+            }, {});
+        } else {
+            // Fallback: allow all pages for backward compatibility
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
+            state.allowedPageLabels = {};
+        }
+    } catch (err) {
+        console.warn('Failed to load permissions, using defaults:', err);
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
+        state.allowedPageLabels = {};
     }
 }
 
-function showPage(pageId) {
-    // Guard: Settings & Metric hanya untuk superadmin
-    if (pageId === 'settings' || pageId === 'metric') {
-        const isSuperAdmin = state.currentUser?.role === 'superadmin';
-        if (!isSuperAdmin) {
-            showToast('Access denied: This page requires Superadmin privileges', 'error');
-            pageId = 'overview';
-            state.currentPath = pageId;
-            window.location.hash = pageId;
+/**
+ * Apply dynamic sidebar visibility based on user permissions
+ * Hides nav items for pages the user doesn't have access to
+ */
+function applyDynamicSidebar() {
+    if (!state.allowedPages || state.allowedPages.length === 0) return;
+
+    // Show/hide individual nav items based on allowed pages
+    document.querySelectorAll('.nav-item[onclick*="showPage"]').forEach(item => {
+        const match = item.getAttribute('onclick')?.match(/'([^']+)'/);
+        if (match) {
+            const pageId = match[1];
+            if (state.allowedPages.includes(pageId)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
         }
+    });
+
+    // Handle submenu items
+    document.querySelectorAll('.submenu-container .nav-item').forEach(item => {
+        const match = item.getAttribute('onclick')?.match(/'([^']+)'/);
+        if (match) {
+            const pageId = match[1];
+            if (state.allowedPages.includes(pageId)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    });
+
+    // Hide parent submenu toggles if all their children are hidden
+    document.querySelectorAll('.submenu-container').forEach(sub => {
+        const items = sub.querySelectorAll('.nav-item');
+        let allHidden = true;
+        items.forEach(item => {
+            if (item.style.display !== 'none') {
+                allHidden = false;
+            }
+        });
+        if (allHidden && items.length > 0) {
+            // Hide the parent toggle
+            const parentToggle = sub.previousElementSibling;
+            if (parentToggle && parentToggle.classList.contains('nav-item')) {
+                parentToggle.style.display = 'none';
+            }
+        }
+    });
+
+}
+
+function showPage(pageId) {
+    // Dynamic permission guard using allowedPages from server
+    if (state.allowedPages && !state.allowedPages.includes(pageId)) {
+        showToast('Access denied: You do not have permission to access this page', 'error');
+        pageId = 'overview';
+        state.currentPath = pageId;
+        window.location.hash = pageId;
     }
 
     state.currentPath = pageId;
     window.location.hash = pageId;
 
-    const titles = {
+    const defaultTitles = {
         'overview': 'System Overview',
         'devices': 'Devices & Sync',
         'employees': 'Employee List',
@@ -213,7 +276,8 @@ function showPage(pageId) {
         'settings': 'System Settings',
         'metric': 'Cache Metrics'
     };
-    const pageTitle = titles[pageId] || 'Dashboard';
+    // Use dynamic label from server if available, fallback to default
+    const pageTitle = state.allowedPageLabels?.[pageId] || defaultTitles[pageId] || 'Dashboard';
     const titleEl = document.getElementById('page-title');
     if (titleEl) titleEl.innerText = pageTitle;
     // Update browser tab title
@@ -263,7 +327,9 @@ function showPage(pageId) {
         if (pageId === 'settings') {
             loadSettings();
             loadUserList();
+            loadPagePermissions();
         }
+
         if (pageId === 'metric') refreshCacheMetrics();
     }
 
@@ -542,11 +608,11 @@ window.addEventListener('resize', () => {
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
-    const validPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
-    if (hash && validPages.includes(hash) && hash !== state.currentPath) {
+    if (hash && state.allowedPages.includes(hash) && hash !== state.currentPath) {
         showPage(hash);
     }
 });
+
 
 // Run initial auth check and setup silent token check
 checkAuth();

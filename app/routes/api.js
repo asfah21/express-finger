@@ -1,6 +1,6 @@
 import express from 'express'
 import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
-import { apiController, syncController, deviceManagerController, employeeController, settingsController } from '../controllers/index.js'
+import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController } from '../controllers/index.js'
 import { getCacheMetrics, clearCache } from '../utils/cache.js'
 
 const router = express.Router()
@@ -21,6 +21,13 @@ router.post('/cache-flush', requireSuperAdminPrivileges, (_req, res) => {
 
 router.get('/settings', requireSuperAdminPrivileges, settingsController.getSettings)
 router.put('/settings', requireSuperAdminPrivileges, settingsController.updateSettings)
+
+// Page Permissions routes (Super Admin only for management)
+router.get('/page-permissions', requireSuperAdminPrivileges, pagePermissionsController.getAll)
+router.put('/page-permissions/:id', requireSuperAdminPrivileges, pagePermissionsController.update)
+
+// Get current user's accessible pages (any authenticated user)
+router.get('/my-permissions', requireApiKey, pagePermissionsController.getMyPermissions)
 
 router.get('/logs', apiController.getLogs)
 router.get('/logs/summary', apiController.getAttendanceSummary)

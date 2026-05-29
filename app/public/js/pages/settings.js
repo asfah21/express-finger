@@ -358,3 +358,127 @@ export function openSettingsAuth() {
     toggleModal(true);
     setTimeout(() => document.getElementById('settings-auth-pass')?.focus(), 150);
 }
+
+/**
+ * Load all page permissions from the server and render the UI
+ */
+export async function loadPagePermissions() {
+    const container = document.getElementById('page-permissions-container');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;font-size:0.9rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+
+    try {
+        const res = await fetch('/api/page-permissions');
+        if (!res.ok) throw new Error('Failed to load permissions');
+        const data = await res.json();
+
+        const permissions = data.data || [];
+        if (!permissions || permissions.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:1.5rem;">No page permissions configured</div>';
+            return;
+        }
+
+        const allRoles = ['superadmin', 'admin', 'viewer'];
+        const roleColors = {
+            'superadmin': 'var(--error)',
+            'admin': 'var(--warning)',
+            'viewer': 'var(--primary)'
+        };
+
+        container.innerHTML = `
+            <div style="overflow-x:auto; width:100%;">
+                <table style="width:100%;font-size:0.85rem;border-collapse:collapse;min-width:600px;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--glass-border);color:var(--text-muted);">
+                            <th style="padding:0.5rem;text-align:left;">Page</th>
+                            ${allRoles.map(role => `
+                                <th style="padding:0.5rem;text-align:center;text-transform:capitalize;">
+                                    <span class="badge" style="background:${roleColors[role]};color:#fff;padding:0.2rem 0.5rem;font-size:0.7rem;">
+                                        ${role}
+                                    </span>
+                                </th>
+                            `).join('')}
+                            <th style="padding:0.5rem;text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${permissions.map(perm => {
+                            const roles = perm.allowed_roles || [];
+                            return `
+                                <tr style="border-bottom:1px solid var(--glass-border);" data-perm-id="${perm.id}">
+                                    <td style="padding:0.5rem;font-weight:600;white-space:nowrap;">
+                                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                                            <i class="fas fa-file-alt" style="color:var(--text-muted);font-size:0.75rem;"></i>
+                                            ${perm.page_label}
+                                            <span style="font-size:0.7rem;color:var(--text-muted);font-weight:normal;">(${perm.page_id})</span>
+                                        </div>
+                                    </td>
+                                    ${allRoles.map(role => `
+                                        <td style="padding:0.5rem;text-align:center;">
+                                            <input type="checkbox" 
+                                                class="perm-checkbox" 
+                                                data-perm-id="${perm.id}" 
+                                                data-role="${role}" 
+                                                ${roles.includes(role) ? 'checked' : ''}
+                                                style="width:18px;height:18px;cursor:pointer;accent-color:${roleColors[role]};">
+                                        </td>
+                                    `).join('')}
+                                    <td style="padding:0.5rem;text-align:center;">
+                                        <button class="btn-primary" style="padding:0.3rem 0.8rem;font-size:0.75rem;" 
+                                            onclick="savePagePermission(${perm.id})">
+                                            <i class="fas fa-save"></i> Save
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top:1rem;padding:0.75rem;background:rgba(251,191,36,0.1);border-radius:0.5rem;border:1px solid rgba(251,191,36,0.2);font-size:0.8rem;color:var(--text-muted);">
+                <i class="fas fa-info-circle" style="color:var(--warning);margin-right:0.5rem;"></i>
+                <strong>Note:</strong> Changes take effect immediately. Users may need to refresh the page to see updated sidebar.
+            </div>
+        `;
+    } catch (err) {
+        console.error('loadPagePermissions error:', err);
+        container.innerHTML = `<div style="text-align:center;color:var(--error);padding:1.5rem;"><i class="fas fa-exclamation-triangle"></i> Error loading page permissions</div>`;
+    }
+}
+
+/**
+ * Save a single page permission
+ */
+export async function savePagePermission(permId) {
+    const checkboxes = document.querySelectorAll(`.perm-checkbox[data-perm-id="${permId}"]`);
+    const allowedRoles = [];
+
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            allowedRoles.push(cb.dataset.role);
+        }
+    });
+
+    if (allowedRoles.length === 0) {
+        return showToast('At least one role must be selected', 'warning');
+    }
+
+    try {
+        const res = await fetch(`/api/page-permissions/${permId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ allowed_roles: allowedRoles })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Page permission updated successfully', 'success');
+        } else {
+            showToast(data.message || 'Failed to update permission', 'error');
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+

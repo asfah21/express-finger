@@ -95,6 +95,16 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS page_permissions (
+      id SERIAL PRIMARY KEY,
+      page_id TEXT NOT NULL,
+      page_label TEXT NOT NULL,
+      allowed_roles TEXT[] NOT NULL DEFAULT '{superadmin}',
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE(page_id)
+    );
+
     CREATE TABLE IF NOT EXISTS activity_logs (
       id BIGSERIAL PRIMARY KEY,
       username TEXT NOT NULL DEFAULT 'system',
@@ -122,7 +132,39 @@ export async function ensureSchema() {
     await pool.query('INSERT INTO users (username, password, role) VALUES ($1, $2, $3)', ['superadmin', hashedPassword, 'superadmin'])
     console.log('✅ Default superadmin user created (username: superadmin, password: admin123)')
   }
+
+  // Seed default page permissions if table is empty
+  const { rowCount: permCount } = await pool.query('SELECT 1 FROM page_permissions LIMIT 1')
+  if (permCount === 0) {
+    const defaultPermissions = [
+      { page_id: 'overview', page_label: 'Overview', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'devices', page_label: 'Devices', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'employees', page_label: 'Employees', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'pull-employee', page_label: 'Pull Employee', roles: '{superadmin,admin}' },
+      { page_id: 'logs', page_label: 'Attendance Log', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'pair', page_label: 'Attendance Pair', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'pull', page_label: 'Pull Data', roles: '{superadmin,admin}' },
+
+      { page_id: 'activity', page_label: 'Activity Log', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'account', page_label: 'My Account', roles: '{superadmin,admin,viewer}' },
+      { page_id: 'settings', page_label: 'System Settings', roles: '{superadmin}' },
+      { page_id: 'metric', page_label: 'Cache Metrics', roles: '{superadmin}' }
+    ]
+    for (const perm of defaultPermissions) {
+      await pool.query(
+        'INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ($1, $2, $3) ON CONFLICT (page_id) DO NOTHING',
+        [perm.page_id, perm.page_label, perm.roles]
+      )
+    }
+    console.log('✅ Default page permissions seeded')
+  }
+
+  // Update existing installations: remove 'viewer' from pull and pull-employee if they have it
+  await pool.query(
+    `UPDATE page_permissions SET allowed_roles = array_remove(allowed_roles, 'viewer') WHERE page_id IN ('pull', 'pull-employee') AND 'viewer' = ANY(allowed_roles)`
+  )
 }
+
 
 // Batch insert with chunking
 export async function saveManyLogs(rows, deviceSN = null) {
