@@ -1145,6 +1145,60 @@ select option {
     background: rgba(248, 113, 113, 0.1);
 }
 
+/* Activity Log Table - Responsive column sizing */
+.activity-detail-cell {
+    max-width: 280px;
+}
+
+.activity-detail-text {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.activity-ip-cell {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+    .activity-detail-cell {
+        max-width: 180px;
+    }
+    .activity-detail-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .activity-ip-cell {
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 768px) {
+    .activity-detail-cell {
+        max-width: 120px;
+    }
+    .activity-detail-text {
+        -webkit-line-clamp: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .activity-ip-cell {
+        max-width: 80px;
+    }
+    .activity-status-cell {
+        white-space: nowrap;
+    }
+}
+
 /* ===== UTILITY CLASSES ===== */
 .flex { display: flex; }
 .flex-col { flex-direction: column; }

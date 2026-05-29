@@ -98,11 +98,11 @@ export async function refreshActivityLogs() {
                                 <span style="font-size:0.85rem;">${log.action || '-'}</span>
                             </div>
                         </td>
-                        <td style="max-width:280px;">
-                            <div style="font-size:0.82rem;color:var(--text-muted);white-space:normal;line-height:1.4;">${log.detail || '-'}</div>
+                        <td class="activity-detail-cell">
+                            <div class="activity-detail-text">${log.detail || '-'}</div>
                         </td>
-                        <td style="font-size:0.8rem;color:var(--text-muted);">${log.ip_address || '-'}</td>
-                        <td>
+                        <td class="activity-ip-cell">${log.ip_address || '-'}</td>
+                        <td class="activity-status-cell">
                             <span class="badge ${isSuccess ? 'badge-success' : 'badge-error'}">
                                 <i class="fas ${isSuccess ? 'fa-check' : 'fa-times'}"></i> ${isSuccess ? 'Success' : 'Error'}
                             </span>
