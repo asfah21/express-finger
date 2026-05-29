@@ -237,6 +237,8 @@ export async function saveManyLogs(rows, deviceSN = null) {
  */
 export async function upsertDevice(sn, ip) {
   if (!sn || !ip) return
+  // Jangan simpan SN palsu (PULL-{IP}) ke database
+  if (sn.startsWith('PULL-')) return
   const cleanIp = ip.includes('::ffff:') ? ip.split('::ffff:')[1] : ip
   const query = `
     INSERT INTO devices (sn, ip, last_sync, is_active)

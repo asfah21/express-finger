@@ -18,9 +18,6 @@ export async function runSyncWorker() {
     console.log('🤖 Worker: Starting scheduled PULL sync...')
 
     try {
-        // Bersihkan "mesin hantu" (ghost devices) dari hasil bug lama
-        await pool.query("DELETE FROM devices WHERE sn LIKE 'PULL-%'")
-
         const { rows: devices } = await pool.query(
             'SELECT ip, port, sn FROM devices WHERE is_active = true'
         )

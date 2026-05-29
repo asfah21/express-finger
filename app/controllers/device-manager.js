@@ -53,6 +53,7 @@ export const deviceManagerController = {
         if (!ip) return sendError(res, 'IP address is required', 400)
         if (!isValidIPv4(ip)) return sendError(res, 'Invalid IP address format', 400)
         if (port && (port < 1 || port > 65535)) return sendError(res, 'Port must be between 1 and 65535', 400)
+        if (sn && sn.startsWith('PULL-')) return sendError(res, 'Invalid serial number format', 400)
 
         const username = req.user?.username || 'api'
         const clientIp = getClientIp(req)

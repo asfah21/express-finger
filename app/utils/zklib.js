@@ -119,9 +119,13 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
                 return log.timestamp <= limit;
             });
 
-            const deviceSn = sn || `PULL-${ip}`;
-            await saveManyLogs(formattedLogs, deviceSn);
-            console.log(`✅ FW 8+ Sync Done: ${formattedLogs.length} logs for ${deviceSn}. Type mapping: OK`);
+            // Hanya simpan log jika SN diketahui (jangan buat SN palsu)
+            if (sn) {
+                await saveManyLogs(formattedLogs, sn);
+                console.log(`✅ FW 8+ Sync Done: ${formattedLogs.length} logs for ${sn}. Type mapping: OK`);
+            } else {
+                console.log(`⚠️ Skipping save: No serial number for device ${ip}. Logs: ${formattedLogs.length}`);
+            }
         }
 
         await zk.disconnect();
