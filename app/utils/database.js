@@ -164,6 +164,21 @@ export async function ensureSchema() {
   await pool.query(
     `UPDATE page_permissions SET allowed_roles = array_remove(allowed_roles, 'viewer') WHERE page_id IN ('pull', 'pull-employee') AND 'viewer' = ANY(allowed_roles)`
   )
+
+  // Ensure hr page exists in page_permissions for existing installations
+  // Insert if not exists, update roles to include admin if currently only superadmin
+  const { rows: hrRows } = await pool.query(`SELECT allowed_roles FROM page_permissions WHERE page_id = 'hr'`)
+  if (hrRows.length === 0) {
+    await pool.query(
+      `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('hr', 'HR Settings', '{superadmin,admin}')`
+    )
+    console.log('✅ HR Settings page permission added')
+  } else if (!hrRows[0].allowed_roles.includes('admin')) {
+    await pool.query(
+      `UPDATE page_permissions SET allowed_roles = ARRAY['superadmin','admin'], updated_at = now() WHERE page_id = 'hr'`
+    )
+    console.log('✅ HR Settings page permission updated to include admin')
+  }
 }
 
 
