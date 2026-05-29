@@ -655,48 +655,63 @@ body {
     background: var(--card-bg);
     border: 1px solid var(--glass-border);
     border-radius: 1.25rem;
-    overflow: visible;
-    /* Changed from hidden to show dropdowns */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
     backdrop-filter: blur(8px);
+}
+
+/* Custom scrollbar for table slider */
+.table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: var(--input-bg);
+    border-radius: 0 0 1.25rem 1.25rem;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 4px;
+    opacity: 0.5;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+.table-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40px;
+    background: linear-gradient(to right, transparent, var(--card-bg));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 0 1.25rem 1.25rem 0;
+}
+
+.table-container:not(.scrolled-to-end)::after {
+    opacity: 1;
+}
+
+.table-container table {
+    min-width: 900px;
+}
+
+/* Sticky header for horizontal scroll */
+.table-container table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 /* Responsive Tables - horizontal scroll on smaller screens */
 @media (max-width: 1100px) {
-    .table-container {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        position: relative;
-    }
-
-    .table-container::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: 40px;
-        background: linear-gradient(to right, transparent, var(--card-bg));
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        border-radius: 0 1.25rem 1.25rem 0;
-    }
-
-    .table-container:not(.scrolled-to-end)::after {
-        opacity: 1;
-    }
-
-    .table-container table {
-        min-width: 900px;
-    }
-
-    /* Sticky header for horizontal scroll */
-    .table-container table thead th {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-
     .table-footer {
         flex-direction: column;
         gap: 1.25rem;
