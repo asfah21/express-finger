@@ -6,7 +6,8 @@ import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
-import { loadSettings, saveSystemSettings, saveAttendanceSettings, saveRemarksSettings, saveShiftSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission } from './js/pages/settings.js';
+import { loadSettings, saveSystemSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission } from './js/pages/settings.js';
+import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHrShiftSettings } from './js/pages/hr.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
@@ -67,9 +68,6 @@ window.recordClientActivity = recordClientActivity;
 // Settings Page Functions
 window.loadSettings = loadSettings;
 window.saveSystemSettings = saveSystemSettings;
-window.saveAttendanceSettings = saveAttendanceSettings;
-window.saveRemarksSettings = saveRemarksSettings;
-window.saveShiftSettings = saveShiftSettings;
 window.updateAccount = updateAccount;
 window.toggleNewUserPassword = toggleNewUserPassword;
 window.loadUserList = loadUserList;
@@ -80,6 +78,12 @@ window.loadProfileInfo = loadProfileInfo;
 window.toggleProfilePassword = toggleProfilePassword;
 window.loadPagePermissions = loadPagePermissions;
 window.savePagePermission = savePagePermission;
+
+// HR Page Functions
+window.loadHrSettings = loadHrSettings;
+window.saveHrAttendanceSettings = saveHrAttendanceSettings;
+window.saveHrRemarksSettings = saveHrRemarksSettings;
+window.saveHrShiftSettings = saveHrShiftSettings;
 
 
 // Pull Data Page Functions
@@ -188,12 +192,12 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'hr', 'metric'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'metric'];
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'hr', 'metric'];
         state.allowedPageLabels = {};
     }
 }
@@ -274,6 +278,7 @@ function showPage(pageId) {
         'pull-employee': 'Pull Employee',
         'account': 'My Account',
         'settings': 'System Settings',
+        'hr': 'HR Settings',
         'metric': 'Cache Metrics'
     };
     // Use dynamic label from server if available, fallback to default
@@ -329,6 +334,8 @@ function showPage(pageId) {
             loadUserList();
             loadPagePermissions();
         }
+
+        if (pageId === 'hr') loadHrSettings();
 
         if (pageId === 'metric') refreshCacheMetrics();
     }
@@ -604,6 +611,16 @@ window.addEventListener('resize', () => {
         }
     }, 250);
 });
+
+// Table horizontal scroll shadow detection
+// Adds 'scrolled-to-end' class when user scrolls to the far right of a table container
+document.addEventListener('scroll', (e) => {
+    const container = e.target.closest('.table-container');
+    if (container && container.scrollWidth > container.clientWidth) {
+        const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 5;
+        container.classList.toggle('scrolled-to-end', isAtEnd);
+    }
+}, { passive: true, capture: true });
 
 // Handle browser back/forward buttons
 window.addEventListener('hashchange', () => {

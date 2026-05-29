@@ -660,20 +660,38 @@ body {
     backdrop-filter: blur(8px);
 }
 
-/* Responsive Tables */
-@media (max-width: 768px) {
+/* Responsive Tables - horizontal scroll on smaller screens */
+@media (max-width: 1100px) {
     .table-container {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         position: relative;
     }
 
-    table {
-        min-width: 600px;
+    .table-container::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 40px;
+        background: linear-gradient(to right, transparent, var(--card-bg));
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        border-radius: 0 1.25rem 1.25rem 0;
     }
 
-    /* Sticky header for mobile scroll */
-    table thead th {
+    .table-container:not(.scrolled-to-end)::after {
+        opacity: 1;
+    }
+
+    .table-container table {
+        min-width: 900px;
+    }
+
+    /* Sticky header for horizontal scroll */
+    .table-container table thead th {
         position: sticky;
         top: 0;
         z-index: 10;

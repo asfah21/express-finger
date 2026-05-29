@@ -148,6 +148,7 @@ export async function ensureSchema() {
       { page_id: 'activity', page_label: 'Activity Log', roles: '{superadmin,admin,viewer}' },
       { page_id: 'account', page_label: 'My Account', roles: '{superadmin,admin,viewer}' },
       { page_id: 'settings', page_label: 'System Settings', roles: '{superadmin}' },
+      { page_id: 'hr', page_label: 'HR Settings', roles: '{superadmin,admin}' },
       { page_id: 'metric', page_label: 'Cache Metrics', roles: '{superadmin}' }
     ]
     for (const perm of defaultPermissions) {

@@ -1,0 +1,77 @@
+<div id="page-hr" class="page" style="display: none; padding-bottom: 2rem;">
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+
+                        <!-- Attendance Rules Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 400px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-calendar-check" style="color: var(--warning);"></i> Attendance Rules
+                            </h3>
+                            <div class="form-group">
+                                <label>Late Tolerance (Minutes)</label>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="number" id="hr-late-tolerance" value="5" style="flex: 1;">
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">min</span>
+                                </div>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    Lateness within this limit will be considered "On Time".
+                                </p>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem; background: var(--warning);"
+                                onclick="saveHrAttendanceSettings()">
+                                <i class="fas fa-save"></i> Save Rules
+                            </button>
+                        </div>
+
+                        <!-- Attendance Remarks Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-comment-dots" style="color: var(--primary);"></i> Attendance Remarks
+                            </h3>
+                            <div class="form-group">
+                                <label>Late Remark (use {diff} for minutes)</label>
+                                <input type="text" id="hr-remark-late" placeholder="Terlambat {diff} menit">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Early Arrival</label>
+                                    <input type="text" id="hr-remark-early-arrival" placeholder="Anomali (Terlalu Awal)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Early Departure</label>
+                                    <input type="text" id="hr-remark-early-departure" placeholder="Pulang Mendahului">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Potential Overtime (Checkout > 60min)</label>
+                                <input type="text" id="hr-remark-overtime" placeholder="Anomali (Lembur?)">
+                            </div>
+                            <div class="form-group">
+                                <label>Duplicate / Anomaly</label>
+                                <input type="text" id="hr-remark-duplicate" placeholder="Duplikat Absensi">
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem;" onclick="saveHrRemarksSettings()">
+                                <i class="fas fa-save"></i> Save Remarks
+                            </button>
+                        </div>
+
+                        <!-- Shift Definitions Card -->
+                        <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 500px;">
+                            <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                                <i class="fas fa-clock" style="color: var(--secondary);"></i> Shift Definitions
+                            </h3>
+                            <div class="form-group">
+                                <label>Shifts Config (JSON format)</label>
+                                <textarea id="hr-shift-types"
+                                    style="width: 100%; height: 280px; font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.2); color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.75rem;"></textarea>
+                                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    Support single shift (start/end) & multi-shift (shifts: [[start, end], ...]).
+                                </p>
+                            </div>
+                            <button class="btn-primary" style="margin-top: 1rem; background: var(--secondary);"
+                                onclick="saveHrShiftSettings()">
+                                <i class="fas fa-save"></i> Save Shift Config
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
