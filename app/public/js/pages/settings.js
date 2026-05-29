@@ -131,6 +131,34 @@ export async function loadUserList() {
             return;
         }
 
+        const userRows = users.map(user => {
+            const roleBadgeColor = user.role === 'superadmin' ? 'var(--secondary)' : user.role === 'admin' ? 'var(--primary)' : 'var(--text-muted)';
+            return `
+                <tr style="border-bottom:1px solid var(--glass-border);">
+                    <td style="padding:0.5rem;font-weight:600;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0;">${user.username[0].toUpperCase()}</div>
+                            <span style="white-space:nowrap;">${user.username}</span>
+                            ${state.currentUser?.username === user.username ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
+                        </div>
+                    </td>
+                    <td style="padding:0.5rem;">
+                        <span class="badge" style="background:${roleBadgeColor};color:#fff;white-space:nowrap;">
+                            ${user.role}
+                        </span>
+                    </td>
+                    <td style="padding:0.5rem;text-align:right;white-space:nowrap;">
+                        <button class="icon-btn" title="Reset Password" onclick="resetUserPasswordPrompt(${user.id}, '${user.username}')" style="margin-right:0.25rem;">
+                            <i class="fas fa-key" style="color:var(--warning);"></i>
+                        </button>
+                        <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${state.currentUser?.username === user.username ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                            <i class="fas fa-trash" style="${state.currentUser?.username !== user.username ? 'color:var(--error);' : ''}"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
         container.innerHTML = `
             <div style="overflow-x:auto; width:100%;">
                 <table style="width:100%;font-size:0.85rem;border-collapse:collapse;min-width:400px;">
@@ -142,30 +170,7 @@ export async function loadUserList() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${users.map(user => `
-                            <tr style="border-bottom:1px solid var(--glass-border);">
-                                <td style="padding:0.5rem;font-weight:600;">
-                                    <div style="display:flex;align-items:center;gap:0.5rem;">
-                                        <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0;">${user.username[0].toUpperCase()}</div>
-                                        <span style="white-space:nowrap;">${user.username}</span>
-                                        ${state.currentUser?.username === user.username ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
-                                    </div>
-                                </td>
-                                <td style="padding:0.5rem;">
-                                    <span class="badge" style="background:${user.role === 'admin' || user.role === 'superadmin' ? 'var(--secondary)' : 'var(--glass-border)'};color:${user.role === 'admin' || user.role === 'superadmin' ? '#fff' : 'inherit'};white-space:nowrap;">
-                                        ${user.role}
-                                    </span>
-                                </td>
-                                <td style="padding:0.5rem;text-align:right;white-space:nowrap;">
-                                    <button class="icon-btn" title="Reset Password" onclick="resetUserPasswordPrompt(${user.id}, '${user.username}')" style="margin-right:0.25rem;">
-                                        <i class="fas fa-key" style="color:var(--warning);"></i>
-                                    </button>
-                                    <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${state.currentUser?.username === user.username ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
-                                        <i class="fas fa-trash" style="${state.currentUser?.username !== user.username ? 'color:var(--error);' : ''}"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('')}
+                        ${userRows}
                     </tbody>
                 </table>
             </div>
@@ -339,9 +344,9 @@ export async function loadPagePermissions() {
 
         const allRoles = ['superadmin', 'admin', 'viewer'];
         const roleColors = {
-            'superadmin': 'var(--error)',
-            'admin': 'var(--warning)',
-            'viewer': 'var(--primary)'
+            'superadmin': 'var(--secondary)',
+            'admin': 'var(--primary)',
+            'viewer': 'var(--text-muted)'
         };
 
         container.innerHTML = `
