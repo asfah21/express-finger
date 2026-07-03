@@ -7,7 +7,7 @@ import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, o
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
 import { loadSettings, saveSystemSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission } from './js/pages/settings.js';
-import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHrShiftSettings } from './js/pages/hr.js';
+import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHrShiftSettings, switchHrTab } from './js/pages/hr.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
@@ -84,6 +84,7 @@ window.loadHrSettings = loadHrSettings;
 window.saveHrAttendanceSettings = saveHrAttendanceSettings;
 window.saveHrRemarksSettings = saveHrRemarksSettings;
 window.saveHrShiftSettings = saveHrShiftSettings;
+window.switchHrTab = switchHrTab;
 
 
 // Pull Data Page Functions

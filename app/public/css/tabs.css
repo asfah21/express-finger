@@ -1,0 +1,87 @@
+/* ===== HR Settings Tabs ===== */
+.hr-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--glass-border);
+    flex-wrap: wrap;
+}
+
+.hr-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.hr-tab:hover {
+    color: var(--text);
+    background: var(--hover-bg);
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.hr-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.hr-tab i {
+    font-size: 1rem;
+}
+
+.hr-tab-panel {
+    display: none;
+    animation: fadeIn 0.25s ease;
+}
+
+.hr-tab-panel.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive: stack tabs vertically on very small screens */
+@media (max-width: 480px) {
+    .hr-tabs {
+        flex-direction: column;
+        border-bottom: none;
+        gap: 0.25rem;
+    }
+
+    .hr-tab {
+        border-bottom: none;
+        border-left: 3px solid transparent;
+        margin-bottom: 0;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+    }
+
+    .hr-tab.active {
+        border-bottom: none;
+        border-left-color: var(--primary);
+        background: var(--hover-bg);
+    }
+
+    .hr-tab:hover {
+        border-radius: 0.5rem;
+    }
+}

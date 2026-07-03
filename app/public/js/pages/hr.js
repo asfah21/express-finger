@@ -20,6 +20,20 @@ async function updateSettings(payload, successMsg) {
     }
 }
 
+/**
+ * Switch between HR settings tabs
+ */
+window.switchHrTab = function(tabId) {
+    // Update tab button active states
+    document.querySelectorAll('.hr-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabId);
+    });
+    // Update tab panel active states
+    document.querySelectorAll('.hr-tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === 'hr-tab-' + tabId);
+    });
+};
+
 export async function loadHrSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
