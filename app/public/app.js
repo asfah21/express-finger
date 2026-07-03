@@ -156,6 +156,10 @@ async function showDashboard() {
     // Apply dynamic sidebar visibility based on permissions
     applyDynamicSidebar();
 
+    // Sembunyikan elemen superadmin-only jika user bukan superadmin
+    applySuperAdminVisibility();
+
+
     // Restore sidebar collapsed state from localStorage
     if (window.innerWidth >= 1024) {
         const sidebar = document.querySelector('.sidebar');
@@ -255,6 +259,22 @@ function applyDynamicSidebar() {
     });
 
 }
+
+/**
+ * Sembunyikan elemen dengan class "superadmin-only" jika user bukan superadmin
+ * Ini mencakup tombol Clear Old di Activity Log, menu Settings, Metric, dll.
+ */
+function applySuperAdminVisibility() {
+    const isSuperAdmin = state.currentUser?.role === 'superadmin';
+    document.querySelectorAll('.superadmin-only').forEach(el => {
+        if (!isSuperAdmin) {
+            el.style.display = 'none';
+        } else {
+            el.style.display = '';
+        }
+    });
+}
+
 
 function showPage(pageId) {
     // Dynamic permission guard using allowedPages from server

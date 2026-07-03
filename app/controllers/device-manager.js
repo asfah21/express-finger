@@ -86,6 +86,11 @@ export const deviceManagerController = {
         const clientIp = getClientIp(req)
 
         try {
+            // Ambil data lama sebelum update untuk perbandingan
+            const { rows: oldRows } = await pool.query('SELECT * FROM devices WHERE id = $1', [id])
+            if (oldRows.length === 0) return sendError(res, 'Device not found', 404)
+            const old = oldRows[0]
+
             const { rows } = await pool.query(
                 `UPDATE devices 
          SET sn = COALESCE($1, sn), 
@@ -96,14 +101,34 @@ export const deviceManagerController = {
          WHERE id = $6 RETURNING *`,
                 [sn, name, ip, port, is_active, id]
             )
-            if (rows.length === 0) return sendError(res, 'Device not found', 404)
 
             // Hapus cache devices list
             delCacheByPattern(CACHE_KEYS.DEVICES_LIST + '*')
 
+            // Bandingkan field yang berubah untuk detail log
+            const newData = rows[0]
+            const changes = []
+            const fields = [
+                { label: 'SN', key: 'sn' },
+                { label: 'Name', key: 'name' },
+                { label: 'IP', key: 'ip' },
+                { label: 'Port', key: 'port' },
+                { label: 'Active', key: 'is_active' }
+            ]
+            for (const field of fields) {
+                const oldVal = old[field.key]
+                const newVal = newData[field.key]
+                const oldStr = oldVal != null ? String(oldVal) : ''
+                const newStr = newVal != null ? String(newVal) : ''
+                if (oldStr !== newStr) {
+                    changes.push(`${field.label}: "${oldStr || '-'}" → "${newStr || '-'}"`)
+                }
+            }
+
+            const changeDetail = changes.length > 0 ? changes.join('; ') : 'No changes'
             await recordActivity({
                 username, action: 'edit_device', category: 'device',
-                detail: `Updated device ID ${id}: name="${name || rows[0].name}"`,
+                detail: `Updated device ID ${id}: ${newData.name || 'Unnamed'}. Changes: ${changeDetail}`,
                 ip: clientIp
             })
 
@@ -112,6 +137,7 @@ export const deviceManagerController = {
             sendError(res, error.message)
         }
     },
+
 
     async deleteDevice(req, res) {
         const { id } = req.params

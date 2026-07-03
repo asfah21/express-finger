@@ -320,6 +320,11 @@ export const employeeController = {
         const ip = getClientIp(req)
 
         try {
+            // Ambil data lama sebelum update untuk perbandingan
+            const { rows: oldRows } = await pool.query('SELECT * FROM employee WHERE id = $1', [id])
+            if (oldRows.length === 0) return sendError(res, 'Employee not found', 404)
+            const old = oldRows[0]
+
             const { rows } = await pool.query(
                 `UPDATE employee 
                  SET user_id = COALESCE($1, user_id), 
@@ -332,15 +337,37 @@ export const employeeController = {
                  WHERE id = $8 RETURNING *`,
                 [user_id ? String(user_id) : null, nik, nama, jabatan, department, divisi, type, id]
             )
-            if (rows.length === 0) return sendError(res, 'Employee not found', 404)
 
             // Hapus cache employees
             delCacheByPattern(CACHE_KEYS.EMPLOYEES_LIST + '*')
             delCacheByPattern(CACHE_KEYS.EMPLOYEE_DETAIL + ':*')
 
+            // Bandingkan field yang berubah untuk detail log
+            const newData = rows[0]
+            const changes = []
+            const fields = [
+                { label: 'User ID', key: 'user_id' },
+                { label: 'NIK', key: 'nik' },
+                { label: 'Nama', key: 'nama' },
+                { label: 'Jabatan', key: 'jabatan' },
+                { label: 'Department', key: 'department' },
+                { label: 'Divisi', key: 'divisi' },
+                { label: 'Type', key: 'type' }
+            ]
+            for (const field of fields) {
+                const oldVal = old[field.key]
+                const newVal = newData[field.key]
+                const oldStr = oldVal != null ? String(oldVal) : ''
+                const newStr = newVal != null ? String(newVal) : ''
+                if (oldStr !== newStr) {
+                    changes.push(`${field.label}: "${oldStr || '-'}" → "${newStr || '-'}"`)
+                }
+            }
+
+            const changeDetail = changes.length > 0 ? changes.join('; ') : 'No changes'
             await recordActivity({
                 username, action: 'edit_employee', category: 'employee',
-                detail: `Updated employee: ${nama || rows[0]?.nama || 'N/A'} (ID: ${id})`,
+                detail: `Updated employee: ${newData.nama || 'N/A'} (ID: ${id}). Changes: ${changeDetail}`,
                 ip
             })
 
@@ -352,6 +379,7 @@ export const employeeController = {
             sendError(res, error.message)
         }
     },
+
 
     async deleteEmployee(req, res) {
         const { id } = req.params
