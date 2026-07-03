@@ -181,7 +181,12 @@ export const apiController = {
             }
           }
 
-          if (row.is_duplicate) {
+          // Anomaly check FIRST: user already did Masuk (type=0) within the last 14 hours, now doing Masuk again
+          // This takes priority over "late" because if someone already clocked in today,
+          // doing Masuk again at 17:45 is clearly an anomaly (should be Pulang), not "terlambat 645 menit"
+          if (alreadyDidSameTypeRecently) {
+            ket = remarks.anomaly_pulang || 'Anomali / Pulang';
+          } else if (row.is_duplicate) {
             ket = remarks.duplicate || 'Duplikat Absensi';
           } else if (shiftStart !== -1) {
             const diff = totalMinutes - shiftStart;
@@ -190,12 +195,6 @@ export const apiController = {
             } else if (diff < -60) {
               ket = remarks.early_arrival || 'Anomali (Terlalu Awal)';
             }
-          }
-
-          // Anomaly check: user already did Masuk (type=0) within the last 14 hours, now doing Masuk again
-          // They should be doing Pulang instead
-          if (!ket && alreadyDidSameTypeRecently) {
-            ket = remarks.anomaly_pulang || 'Anomali / Pulang';
           }
         } else if (row.type === 1 && shiftCfg) { // Check-out
 
@@ -220,7 +219,11 @@ export const apiController = {
             }
           }
 
-          if (row.is_duplicate) {
+          // Anomaly check FIRST: user already did Pulang (type=1) within the last 14 hours, now doing Pulang again
+          // This takes priority over "early departure" or "overtime" checks
+          if (alreadyDidSameTypeRecently) {
+            ket = remarks.anomaly_masuk || 'Anomali / Masuk';
+          } else if (row.is_duplicate) {
             ket = remarks.duplicate || 'Duplikat Absensi';
           } else if (shiftEnd !== -1) {
             const diff = totalMinutes - shiftEnd;
@@ -229,12 +232,6 @@ export const apiController = {
             } else if (diff < -60) {
               ket = remarks.early_departure || 'Pulang Cepat';
             }
-          }
-
-          // Anomaly check: user already did Pulang (type=1) within the last 14 hours, now doing Pulang again
-          // They should be doing Masuk instead
-          if (!ket && alreadyDidSameTypeRecently) {
-            ket = remarks.anomaly_masuk || 'Anomali / Masuk';
           }
         }
 
