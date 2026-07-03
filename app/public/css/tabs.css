@@ -31,9 +31,10 @@
 }
 
 .hr-tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
+    color: var(--tab-active-color, var(--primary));
+    border-bottom-color: var(--tab-active-color, var(--primary));
 }
+
 
 .hr-tab i {
     font-size: 1rem;
@@ -77,9 +78,10 @@
 
     .hr-tab.active {
         border-bottom: none;
-        border-left-color: var(--primary);
+        border-left-color: var(--tab-active-color, var(--primary));
         background: var(--hover-bg);
     }
+
 
     .hr-tab:hover {
         border-radius: 0.5rem;

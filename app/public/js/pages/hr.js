@@ -24,9 +24,14 @@ async function updateSettings(payload, successMsg) {
  * Switch between HR settings tabs
  */
 export function switchHrTab(tabId) {
-    // Update tab button active states
+    // Update tab button active states with matching colors
     document.querySelectorAll('.hr-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.tab === tabId);
+        const isActive = tab.dataset.tab === tabId;
+        tab.classList.toggle('active', isActive);
+        if (isActive) {
+            const color = tab.dataset.color || 'var(--primary)';
+            tab.style.setProperty('--tab-active-color', color);
+        }
     });
     // Update tab panel active states
     document.querySelectorAll('.hr-tab-panel').forEach(panel => {
@@ -35,7 +40,15 @@ export function switchHrTab(tabId) {
 }
 window.switchHrTab = switchHrTab;
 
+
 export async function loadHrSettings() {
+    // Set initial active tab color
+    const activeTab = document.querySelector('.hr-tab.active');
+    if (activeTab) {
+        const color = activeTab.dataset.color || 'var(--primary)';
+        activeTab.style.setProperty('--tab-active-color', color);
+    }
+
     const res = await fetch('/api/settings');
     const data = await res.json();
     if (data.status === 'success') {
@@ -59,7 +72,7 @@ export async function saveHrAttendanceSettings() {
     const lateTolerance = document.getElementById('hr-late-tolerance').value;
     await updateSettings({
         late_tolerance_mins: parseInt(lateTolerance)
-    }, 'Attendance rules updated');
+    }, 'Rules updated');
 }
 
 export async function saveHrRemarksSettings() {
@@ -72,7 +85,7 @@ export async function saveHrRemarksSettings() {
             duplicate: document.getElementById('hr-remark-duplicate').value
         }
     };
-    await updateSettings(payload, 'Attendance remarks updated');
+    await updateSettings(payload, 'Remarks updated');
 }
 
 export async function saveHrShiftSettings() {

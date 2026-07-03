@@ -2,28 +2,28 @@
 
     <!-- Tab Navigation -->
     <div class="hr-tabs" style="display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--glass-border); flex-wrap: wrap;">
-        <button class="hr-tab active" data-tab="attendance-rules" onclick="switchHrTab('attendance-rules')">
+        <button class="hr-tab active" data-tab="attendance-rules" data-color="var(--warning)" onclick="switchHrTab('attendance-rules')">
             <i class="fas fa-calendar-check"></i>
-            <span>Attendance Rules</span>
+            <span>Rules</span>
         </button>
-        <button class="hr-tab" data-tab="attendance-remarks" onclick="switchHrTab('attendance-remarks')">
+        <button class="hr-tab" data-tab="attendance-remarks" data-color="var(--primary)" onclick="switchHrTab('attendance-remarks')">
             <i class="fas fa-comment-dots"></i>
-            <span>Attendance Remarks</span>
+            <span>Remarks</span>
         </button>
-        <button class="hr-tab" data-tab="shift-definitions" onclick="switchHrTab('shift-definitions')">
+        <button class="hr-tab" data-tab="shift-definitions" data-color="var(--secondary)" onclick="switchHrTab('shift-definitions')">
             <i class="fas fa-clock"></i>
-            <span>Shift Definitions</span>
+            <span>Shift</span>
         </button>
     </div>
 
     <!-- Tab Content -->
     <div class="hr-tab-content">
 
-        <!-- Attendance Rules Tab -->
+        <!-- Rules Tab -->
         <div id="hr-tab-attendance-rules" class="hr-tab-panel active">
             <div class="stat-card" style="max-width: 500px;">
                 <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-calendar-check" style="color: var(--warning);"></i> Attendance Rules
+                    <i class="fas fa-calendar-check" style="color: var(--warning);"></i> Rules
                 </h3>
                 <div class="form-group">
                     <label>Late Tolerance (Minutes)</label>
@@ -42,11 +42,11 @@
             </div>
         </div>
 
-        <!-- Attendance Remarks Tab -->
+        <!-- Remarks Tab -->
         <div id="hr-tab-attendance-remarks" class="hr-tab-panel">
             <div class="stat-card" style="max-width: 500px;">
                 <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-comment-dots" style="color: var(--primary);"></i> Attendance Remarks
+                    <i class="fas fa-comment-dots" style="color: var(--primary);"></i> Remarks
                 </h3>
                 <div class="form-group">
                     <label>Late Remark (use {diff} for minutes)</label>
@@ -76,11 +76,11 @@
             </div>
         </div>
 
-        <!-- Shift Definitions Tab -->
+        <!-- Shift Tab -->
         <div id="hr-tab-shift-definitions" class="hr-tab-panel">
             <div class="stat-card" style="max-width: 500px;">
                 <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-clock" style="color: var(--secondary);"></i> Shift Definitions
+                    <i class="fas fa-clock" style="color: var(--secondary);"></i> Shift
                 </h3>
                 <div class="form-group">
                     <label>Shifts Config (JSON format)</label>
