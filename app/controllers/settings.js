@@ -107,6 +107,15 @@ export async function getSettingsData() {
         if (settings.api_key && settings.api_key.includes(':')) {
             settings.api_key = decryptApiKey(settings.api_key)
         }
+        // Merge remarks_config with defaults to ensure all keys exist
+        // This handles the case where the saved file has an older format
+        // missing newer remark keys like anomaly_masuk, anomaly_pulang
+        if (settings.remarks_config && defaultSettings.remarks_config) {
+            settings.remarks_config = {
+                ...defaultSettings.remarks_config,
+                ...settings.remarks_config
+            }
+        }
         return settings
     } catch (error) {
         // Jika file belum ada, buat baru dengan default settings
@@ -114,6 +123,7 @@ export async function getSettingsData() {
         return defaultSettings
     }
 }
+
 
 // Validasi tipe data untuk setiap field settings yang diizinkan
 const ALLOWED_KEYS = new Set([

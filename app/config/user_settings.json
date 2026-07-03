@@ -1,5 +1,5 @@
 {
-  "late_tolerance_mins": 5,
+"late_tolerance_mins": 5,
   "cleanup_age_days": 30,
   "api_key": "",
   "types": {
@@ -79,6 +79,8 @@
     "early_arrival": "Anomali (Terlalu Awal)",
     "overtime_check": "Anomali (Lembur?)",
     "early_departure": "Pulang Cepat",
-    "duplicate": "Duplikat Absensi"
+    "duplicate": "Duplikat Absensi",
+    "anomaly_masuk": "Anomali / Masuk",
+    "anomaly_pulang": "Anomali / Pulang"
   }
 }

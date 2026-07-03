@@ -115,16 +115,245 @@ export const apiController = {
         5: 'Lembur Keluar'
       }
 
-      // Build a lookup of attendance sequence per user within a 14-hour lookback window.
-      // This handles night shifts correctly (e.g., shift starts at 18:00, ends at 06:00 next day).
-      // If a user already did Masuk (type=0) within the last 14 hours, doing Masuk again is anomaly.
-      // If a user already did Pulang (type=1) within the last 14 hours, doing Pulang again is anomaly.
-      const ANOMALY_LOOKBACK_HOURS = 14;
-      // Sort rows chronologically
+      // ─── State Machine for Anomaly Detection ───────────────────────────────
+      // Each user session follows: Masuk (type=0) → Pulang (type=1) → Masuk → Pulang → ...
+      // If a user does Masuk while waiting for Pulang → Anomali / Pulang
+      // If a user does Pulang while waiting for Masuk → Anomali / Masuk
+      // The 14-hour window acts as a session timeout: if the last activity was >14h ago,
+      // the session is considered expired and a new session begins.
+      // This correctly handles:
+      //   - Normal: Masuk → Pulang → Masuk → Pulang (all normal)
+      //   - Anomali: Masuk → Masuk (second Masuk = anomaly, should be Pulang)
+      //   - Anomali: Pulang → Pulang (second Pulang = anomaly, should be Masuk)
+      //   - Overshift: Masuk 18:00 → Pulang 02:00 (within 14h, normal)
+      //   - Session timeout: Masuk 06:00 → (14h passes) → Masuk 22:00 = new session
+      const SESSION_TIMEOUT_HOURS = 14;
+
+      /**
+       * Find the matching shift for a given attendance time.
+       * Strategy (priority order):
+       *   1. Range-check: if attendance time falls INSIDE a shift's [start, end) window,
+       *      pick that shift. This correctly handles overnight shifts (e.g. 19:00-07:00)
+       *      where the window wraps past midnight.
+       *   2. Fallback (no shift contains the time): use nearest-neighbor on start (for
+       *      check-in) or end (for check-out). This handles edge cases where someone
+       *      clocks in/out far outside any shift window.
+       *   3. Tie-breaker (multiple shifts match): pick the one with closest start/end.
+       *
+       * Boundary consistency: We use [start, end) — inclusive start, exclusive end.
+       * This ensures adjacent shifts like 07:00-19:00 and 19:00-07:00 do NOT overlap
+       * at the boundary: 07:00 belongs to the day shift (07:00-19:00), 19:00 belongs
+       * to the night shift (19:00-07:00). Without this, a time exactly at the boundary
+       * would match both shifts, causing inconsistent tie-breaker results.
+       *
+       * @param {object} shiftCfg - A single shift config entry from shift_types
+       * @param {number} totalMinutes - Attendance time in minutes since midnight (0-1439)
+       * @param {number} type - 0 for check-in (Masuk), 1 for check-out (Pulang)
+       * @returns {{ start: number, end: number } | null} - The matched shift's start/end in minutes, or null
+       */
+      function findMatchingShift(shiftCfg, totalMinutes, type) {
+        // Single shift (Staff format with start/end)
+        if (shiftCfg.start && shiftCfg.end) {
+          const [hS, mS] = shiftCfg.start.split(':').map(Number);
+          const [hE, mE] = shiftCfg.end.split(':').map(Number);
+          return { start: hS * 60 + mS, end: hE * 60 + mE };
+        }
+
+        // Multi shift (Non-Staff format with shifts array)
+        if (shiftCfg.shifts) {
+          const candidates = [];
+
+          for (const s of shiftCfg.shifts) {
+            const [hS, mS] = s[0].split(':').map(Number);
+            const [hE, mE] = s[1].split(':').map(Number);
+            const startVal = hS * 60 + mS;
+            const endVal = hE * 60 + mE;
+
+            // Check if attendance time falls INSIDE this shift's range
+            // Use [start, end) — inclusive start, exclusive end — to prevent
+            // boundary overlap between adjacent shifts (e.g. 07:00 and 19:00).
+            let isInside = false;
+            if (endVal > startVal) {
+              // Normal shift (e.g. 07:00-19:00): time in [start, end)
+              isInside = totalMinutes >= startVal && totalMinutes < endVal;
+            } else {
+              // Overnight shift (e.g. 19:00-07:00): time in [start, 23:59] OR [00:00, end)
+              // end is exclusive, so 07:00 (420) is NOT inside this overnight shift.
+              // 07:00 belongs to the day shift (07:00-19:00) via [start, end) rule.
+              isInside = totalMinutes >= startVal || totalMinutes < endVal;
+            }
+
+            if (isInside) {
+              candidates.push({ start: startVal, end: endVal });
+            }
+          }
+
+          if (candidates.length === 1) {
+            // Exactly one shift contains this time → perfect match
+            return candidates[0];
+          }
+
+          if (candidates.length > 1) {
+            // Multiple shifts overlap this time (should not happen with [start, end) boundaries)
+            // Pick the one with closest start (for check-in) or end (for check-out)
+            const key = type === 0 ? 'start' : 'end';
+            candidates.sort((a, b) => Math.abs(totalMinutes - a[key]) - Math.abs(totalMinutes - b[key]));
+            return candidates[0];
+          }
+
+          // Fallback: time is outside ALL shift ranges.
+          // This happens when attendance time falls in a gap between shifts (e.g. shifts
+          // are 07:00-15:00 and 16:00-23:00, and someone clocks in at 15:30).
+          // Use nearest-neighbor on start (check-in) or end (check-out).
+          // NOTE: For overnight shifts (19:00-07:00), a time like 03:00 IS inside the
+          // range (03:00 < 07:00), so it would have matched above. This fallback mainly
+          // applies to non-24h coverage gaps.
+          const key = type === 0 ? 'start' : 'end';
+          let best = null;
+          let minDiff = Infinity;
+          for (const s of shiftCfg.shifts) {
+            const [hS, mS] = s[0].split(':').map(Number);
+            const [hE, mE] = s[1].split(':').map(Number);
+            const startVal = hS * 60 + mS;
+            const endVal = hE * 60 + mE;
+            const val = key === 'start' ? startVal : endVal;
+            const d = Math.abs(totalMinutes - val);
+            if (d < minDiff) {
+              minDiff = d;
+              best = { start: startVal, end: endVal };
+            }
+          }
+          return best;
+        }
+
+        return null;
+      }
+
+      // Sort rows chronologically for state machine processing
       const sortedRows = [...dataRes.rows].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      // Build a map from row.id to its position in sortedRows
-      const rowPositionMap = new Map();
-      sortedRows.forEach((r, idx) => rowPositionMap.set(r.id, idx));
+
+      // Pre-compute expected state for each row using the state machine
+      // State: 'waiting_checkin' (expecting Masuk) or 'waiting_checkout' (expecting Pulang)
+      const rowAnomalyMap = new Map(); // row.id → { isAnomaly, anomalyType }
+      const rowShiftMap = new Map();   // row.id → { start, end } (matched shift, for session consistency)
+      const userStateMap = new Map();  // user_id → { state, lastTimestamp, matchedShift }
+
+      for (const r of sortedRows) {
+
+        const uid = r.user_id;
+        const rTime = new Date(r.timestamp).getTime();
+        let state = userStateMap.get(uid);
+
+        // Session timeout: if last activity was >14h ago, reset state
+        if (state) {
+          const hoursSinceLastActivity = (rTime - state.lastTimestamp) / (1000 * 60 * 60);
+          if (hoursSinceLastActivity > SESSION_TIMEOUT_HOURS) {
+            state = null; // Session expired, start fresh
+          }
+        }
+
+        // Determine expected type based on state
+        let isAnomaly = false;
+        let anomalyType = null; // 'pulang' for Masuk-when-should-Pulang, 'masuk' for Pulang-when-should-Masuk
+
+        if (!state) {
+          // No active session → expecting Masuk (type=0)
+          if (r.type === 0) {
+            // Normal: Masuk starts a new session
+            isAnomaly = false;
+          } else {
+            // Anomaly: Pulang without Masuk first
+            isAnomaly = true;
+            anomalyType = 'masuk';
+          }
+        } else if (state.state === 'waiting_checkout') {
+          // Waiting for Pulang (type=1)
+          if (r.type === 1) {
+            // Normal: Pulang completes the session
+            isAnomaly = false;
+          } else {
+            // Anomaly: Masuk again when should be Pulang
+            isAnomaly = true;
+            anomalyType = 'pulang';
+          }
+        } else if (state.state === 'waiting_checkin') {
+          // Waiting for Masuk (type=0)
+          if (r.type === 0) {
+            // Normal: Masuk starts a new session
+            isAnomaly = false;
+          } else {
+            // Anomaly: Pulang again when should be Masuk
+            isAnomaly = true;
+            anomalyType = 'masuk';
+          }
+        }
+
+        rowAnomalyMap.set(r.id, { isAnomaly, anomalyType });
+
+        // ─── Pre-compute matched shift for this row ───────────────────────────
+        // For check-in: find the matching shift and store it in the session state.
+        // For check-out: reuse the shift that was matched during check-in, so that
+        // a single Masuk-Pulang session evaluates against the SAME shift consistently.
+        // This prevents issues like: night shift check-in at 18:30 matches day shift,
+        // but check-out at 06:00 would match night shift if computed independently.
+        const empType = r.emp_type;
+        const shiftCfg = shiftTypes[empType];
+        if (shiftCfg) {
+          const dt = new Date(r.timestamp);
+          const hours = dt.getUTCHours();
+          const minutes = dt.getUTCMinutes();
+          const totalMinutes = hours * 60 + minutes;
+
+          if (r.type === 0) {
+            // Check-in: find matching shift via range-check (with fallback)
+            const matched = findMatchingShift(shiftCfg, totalMinutes, 0);
+            rowShiftMap.set(r.id, matched);
+            // Store in session state so check-out can reuse it
+            if (state) {
+              state.matchedShift = matched;
+            }
+          } else if (r.type === 1 && state && state.matchedShift) {
+            // Check-out: reuse the shift from the corresponding check-in session
+            // This ensures Masuk-Pulang are evaluated against the same shift.
+            rowShiftMap.set(r.id, state.matchedShift);
+          } else if (r.type === 1) {
+            // Check-out without a prior check-in session (orphan checkout):
+            // fall back to independent shift matching
+            const matched = findMatchingShift(shiftCfg, totalMinutes, 1);
+            rowShiftMap.set(r.id, matched);
+          }
+        }
+
+        // Update state machine based on what SHOULD happen next:
+        // - Normal Masuk (type=0) → now waiting for Pulang (waiting_checkout)
+        // - Normal Pulang (type=1) → now waiting for Masuk (waiting_checkin)
+        // - Anomaly Masuk (should have been Pulang) → treat as if Pulang was done,
+        //   so state becomes waiting_checkin (ready for next Masuk session)
+        // - Anomaly Pulang (should have been Masuk) → treat as if Masuk was done,
+        //   so state becomes waiting_checkout (ready for next Pulang)
+        if (!isAnomaly) {
+          // Normal transition based on actual record type
+          if (r.type === 0) {
+            userStateMap.set(uid, { state: 'waiting_checkout', lastTimestamp: rTime, matchedShift: rowShiftMap.get(r.id) });
+          } else if (r.type === 1) {
+            userStateMap.set(uid, { state: 'waiting_checkin', lastTimestamp: rTime, matchedShift: null });
+          }
+        } else {
+          // Anomaly: transition based on what SHOULD have happened
+          // This prevents cascading false anomalies across days
+          if (anomalyType === 'pulang') {
+            // User did Masuk but should have done Pulang
+            // Treat as if Pulang was done → now waiting for Masuk
+            userStateMap.set(uid, { state: 'waiting_checkin', lastTimestamp: rTime, matchedShift: null });
+          } else if (anomalyType === 'masuk') {
+            // User did Pulang but should have done Masuk
+            // Treat as if Masuk was done → now waiting for Pulang
+            userStateMap.set(uid, { state: 'waiting_checkout', lastTimestamp: rTime, matchedShift: rowShiftMap.get(r.id) });
+          }
+        }
+
+
+      }
 
       const rows = dataRes.rows.map(row => {
         const dt = new Date(row.timestamp);
@@ -137,56 +366,31 @@ export const apiController = {
         const shiftCfg = shiftTypes[empType];
         const rowTime = dt.getTime();
 
-        // Check if the user already has the SAME type logged within the last 14 hours
-        // by looking at the sorted rows up to (but not including) this row's position
-        const currentPos = rowPositionMap.get(row.id) ?? -1;
-        let alreadyDidSameTypeRecently = false;
-        let hasOppositeTypeToday = false;
-        if (currentPos >= 0) {
-          for (let i = 0; i < currentPos; i++) {
-            const prev = sortedRows[i];
-            if (prev.user_id !== row.user_id) continue;
-            const prevTime = new Date(prev.timestamp).getTime();
-            const hoursDiff = (rowTime - prevTime) / (1000 * 60 * 60);
-            // Only look back within the anomaly window (14 hours)
-            if (hoursDiff >= 0 && hoursDiff <= ANOMALY_LOOKBACK_HOURS) {
-              if (prev.type === row.type) {
-                alreadyDidSameTypeRecently = true;
-              }
-              // Track if the opposite type exists in the window (for correction handling)
-              if ((row.type === 0 && prev.type === 1) || (row.type === 1 && prev.type === 0)) {
-                hasOppositeTypeToday = true;
-              }
-            }
+        // Get anomaly info from pre-computed state machine
+        const anomalyInfo = rowAnomalyMap.get(row.id);
+        const isAnomalyRecord = anomalyInfo?.isAnomaly ?? false;
+        const anomalyType = anomalyInfo?.anomalyType ?? null;
+
+        // ─── State Machine Anomaly Check (takes priority over shift-based checks) ───
+        // If the state machine says this is an anomaly, apply it immediately.
+        // This handles:
+        //   - Masuk when waiting for Pulang → Anomali / Pulang
+        //   - Pulang when waiting for Masuk → Anomali / Masuk
+        if (isAnomalyRecord) {
+          if (anomalyType === 'pulang') {
+            ket = remarks.anomaly_pulang || 'Anomali / Pulang';
+          } else if (anomalyType === 'masuk') {
+            ket = remarks.anomaly_masuk || 'Anomali / Masuk';
           }
         }
 
-        if (row.type === 0 && shiftCfg) { // Check-in
-          let shiftStart = -1;
-          if (shiftCfg.start) {
-            // Single shift
-            const [h, m] = shiftCfg.start.split(':').map(Number);
-            shiftStart = h * 60 + m;
-          } else if (shiftCfg.shifts) {
-            // Multi shift (Closest one)
-            let minDiff = Infinity;
-            for (const s of shiftCfg.shifts) {
-              const [h, m] = s[0].split(':').map(Number);
-              const startVal = h * 60 + m;
-              const d = Math.abs(totalMinutes - startVal);
-              if (d < minDiff) {
-                minDiff = d;
-                shiftStart = startVal;
-              }
-            }
-          }
+        if (row.type === 0 && shiftCfg && !ket) { // Check-in (only if no anomaly already set)
+          // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
+          // This ensures range-check first, fallback to nearest-neighbor.
+          const matched = rowShiftMap.get(row.id) || findMatchingShift(shiftCfg, totalMinutes, 0);
+          const shiftStart = matched ? matched.start : -1;
 
-          // Anomaly check FIRST: user already did Masuk (type=0) within the last 14 hours, now doing Masuk again
-          // This takes priority over "late" because if someone already clocked in today,
-          // doing Masuk again at 17:45 is clearly an anomaly (should be Pulang), not "terlambat 645 menit"
-          if (alreadyDidSameTypeRecently) {
-            ket = remarks.anomaly_pulang || 'Anomali / Pulang';
-          } else if (row.is_duplicate) {
+          if (row.is_duplicate) {
             ket = remarks.duplicate || 'Duplikat Absensi';
           } else if (shiftStart !== -1) {
             const diff = totalMinutes - shiftStart;
@@ -196,34 +400,14 @@ export const apiController = {
               ket = remarks.early_arrival || 'Anomali (Terlalu Awal)';
             }
           }
-        } else if (row.type === 1 && shiftCfg) { // Check-out
+        } else if (row.type === 1 && shiftCfg && !ket) { // Check-out (only if no anomaly already set)
+          // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
+          // For check-out, this reuses the SAME shift that was matched during check-in,
+          // ensuring a single Masuk-Pulang session evaluates against the same shift consistently.
+          const matched = rowShiftMap.get(row.id) || findMatchingShift(shiftCfg, totalMinutes, 1);
+          const shiftEnd = matched ? matched.end : -1;
 
-          let shiftEnd = -1;
-          if (shiftCfg.end) {
-            const [h, m] = shiftCfg.end.split(':').map(Number);
-            shiftEnd = h * 60 + m;
-          } else if (shiftCfg.shifts) {
-            // Pick shift end based on the closest start shift used above (roughly)
-            let minDiff = Infinity;
-            for (const s of shiftCfg.shifts) {
-              const [hStart, mStart] = s[0].split(':').map(Number);
-              const [hEnd, mEnd] = s[1].split(':').map(Number);
-              const endVal = hEnd * 60 + mEnd;
-
-              // Simple check: which end is closest?
-              const d = Math.abs(totalMinutes - endVal);
-              if (d < minDiff) {
-                minDiff = d;
-                shiftEnd = endVal;
-              }
-            }
-          }
-
-          // Anomaly check FIRST: user already did Pulang (type=1) within the last 14 hours, now doing Pulang again
-          // This takes priority over "early departure" or "overtime" checks
-          if (alreadyDidSameTypeRecently) {
-            ket = remarks.anomaly_masuk || 'Anomali / Masuk';
-          } else if (row.is_duplicate) {
+          if (row.is_duplicate) {
             ket = remarks.duplicate || 'Duplikat Absensi';
           } else if (shiftEnd !== -1) {
             const diff = totalMinutes - shiftEnd;
@@ -235,15 +419,7 @@ export const apiController = {
           }
         }
 
-        // Correction handling: if an anomaly was detected but the user also logged the opposite type
-        // within the lookback window, the anomaly is resolved (they corrected themselves)
-        if (ket === (remarks.anomaly_masuk || 'Anomali / Masuk') && hasOppositeTypeToday) {
-          // User had anomaly "Pulang again" but also logged Masuk (type=0) → corrected
-          ket = '';
-        } else if (ket === (remarks.anomaly_pulang || 'Anomali / Pulang') && hasOppositeTypeToday) {
-          // User had anomaly "Masuk again" but also logged Pulang (type=1) → corrected
-          ket = '';
-        }
+
 
         return {
           id: row.id,
