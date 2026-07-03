@@ -93,7 +93,9 @@ const defaultSettings = {
         "early_arrival": "Anomali (Terlalu Awal)",
         "overtime_check": "Anomali (Lembur?)",
         "early_departure": "Pulang Cepat",
-        "duplicate": "Duplikat Absensi"
+        "duplicate": "Duplikat Absensi",
+        "anomaly_masuk": "Anomali / Masuk",
+        "anomaly_pulang": "Anomali / Pulang"
     }
 }
 

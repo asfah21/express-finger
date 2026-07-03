@@ -101,7 +101,9 @@ export const apiController = {
         "early_arrival": "Anomali (Terlalu Awal)",
         "overtime_check": "Anomali (Lembur?)",
         "early_departure": "Pulang Cepat",
-        "duplicate": "Duplikat Absensi"
+        "duplicate": "Duplikat Absensi",
+        "anomaly_masuk": "Anomali / Masuk",
+        "anomaly_pulang": "Anomali / Pulang"
       };
 
       const typeMap = paramSettings?.types || {
@@ -113,6 +115,17 @@ export const apiController = {
         5: 'Lembur Keluar'
       }
 
+      // Build a lookup of attendance sequence per user within a 14-hour lookback window.
+      // This handles night shifts correctly (e.g., shift starts at 18:00, ends at 06:00 next day).
+      // If a user already did Masuk (type=0) within the last 14 hours, doing Masuk again is anomaly.
+      // If a user already did Pulang (type=1) within the last 14 hours, doing Pulang again is anomaly.
+      const ANOMALY_LOOKBACK_HOURS = 14;
+      // Sort rows chronologically
+      const sortedRows = [...dataRes.rows].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      // Build a map from row.id to its position in sortedRows
+      const rowPositionMap = new Map();
+      sortedRows.forEach((r, idx) => rowPositionMap.set(r.id, idx));
+
       const rows = dataRes.rows.map(row => {
         const dt = new Date(row.timestamp);
         const hours = dt.getUTCHours();
@@ -122,6 +135,31 @@ export const apiController = {
         let ket = '';
         const empType = row.emp_type;
         const shiftCfg = shiftTypes[empType];
+        const rowTime = dt.getTime();
+
+        // Check if the user already has the SAME type logged within the last 14 hours
+        // by looking at the sorted rows up to (but not including) this row's position
+        const currentPos = rowPositionMap.get(row.id) ?? -1;
+        let alreadyDidSameTypeRecently = false;
+        let hasOppositeTypeToday = false;
+        if (currentPos >= 0) {
+          for (let i = 0; i < currentPos; i++) {
+            const prev = sortedRows[i];
+            if (prev.user_id !== row.user_id) continue;
+            const prevTime = new Date(prev.timestamp).getTime();
+            const hoursDiff = (rowTime - prevTime) / (1000 * 60 * 60);
+            // Only look back within the anomaly window (14 hours)
+            if (hoursDiff >= 0 && hoursDiff <= ANOMALY_LOOKBACK_HOURS) {
+              if (prev.type === row.type) {
+                alreadyDidSameTypeRecently = true;
+              }
+              // Track if the opposite type exists in the window (for correction handling)
+              if ((row.type === 0 && prev.type === 1) || (row.type === 1 && prev.type === 0)) {
+                hasOppositeTypeToday = true;
+              }
+            }
+          }
+        }
 
         if (row.type === 0 && shiftCfg) { // Check-in
           let shiftStart = -1;
@@ -153,7 +191,14 @@ export const apiController = {
               ket = remarks.early_arrival || 'Anomali (Terlalu Awal)';
             }
           }
+
+          // Anomaly check: user already did Masuk (type=0) within the last 14 hours, now doing Masuk again
+          // They should be doing Pulang instead
+          if (!ket && alreadyDidSameTypeRecently) {
+            ket = remarks.anomaly_pulang || 'Anomali / Pulang';
+          }
         } else if (row.type === 1 && shiftCfg) { // Check-out
+
           let shiftEnd = -1;
           if (shiftCfg.end) {
             const [h, m] = shiftCfg.end.split(':').map(Number);
@@ -185,6 +230,22 @@ export const apiController = {
               ket = remarks.early_departure || 'Pulang Cepat';
             }
           }
+
+          // Anomaly check: user already did Pulang (type=1) within the last 14 hours, now doing Pulang again
+          // They should be doing Masuk instead
+          if (!ket && alreadyDidSameTypeRecently) {
+            ket = remarks.anomaly_masuk || 'Anomali / Masuk';
+          }
+        }
+
+        // Correction handling: if an anomaly was detected but the user also logged the opposite type
+        // within the lookback window, the anomaly is resolved (they corrected themselves)
+        if (ket === (remarks.anomaly_masuk || 'Anomali / Masuk') && hasOppositeTypeToday) {
+          // User had anomaly "Pulang again" but also logged Masuk (type=0) → corrected
+          ket = '';
+        } else if (ket === (remarks.anomaly_pulang || 'Anomali / Pulang') && hasOppositeTypeToday) {
+          // User had anomaly "Masuk again" but also logged Pulang (type=1) → corrected
+          ket = '';
         }
 
         return {

@@ -62,6 +62,8 @@ export async function loadHrSettings() {
         document.getElementById('hr-remark-early-departure').value = r.early_departure || '';
         document.getElementById('hr-remark-overtime').value = r.overtime_check || '';
         document.getElementById('hr-remark-duplicate').value = r.duplicate || '';
+        document.getElementById('hr-remark-anomaly-masuk').value = r.anomaly_masuk || '';
+        document.getElementById('hr-remark-anomaly-pulang').value = r.anomaly_pulang || '';
 
         // Shifts config
         document.getElementById('hr-shift-types').value = JSON.stringify(s.shift_types || {}, null, 4);
@@ -82,11 +84,14 @@ export async function saveHrRemarksSettings() {
             early_arrival: document.getElementById('hr-remark-early-arrival').value,
             early_departure: document.getElementById('hr-remark-early-departure').value,
             overtime_check: document.getElementById('hr-remark-overtime').value,
-            duplicate: document.getElementById('hr-remark-duplicate').value
+            duplicate: document.getElementById('hr-remark-duplicate').value,
+            anomaly_masuk: document.getElementById('hr-remark-anomaly-masuk').value,
+            anomaly_pulang: document.getElementById('hr-remark-anomaly-pulang').value
         }
     };
     await updateSettings(payload, 'Remarks updated');
 }
+
 
 export async function saveHrShiftSettings() {
     try {
