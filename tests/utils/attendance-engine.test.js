@@ -26,7 +26,7 @@ function makeRow(overrides = {}) {
   return {
     id: overrides.id !== undefined ? overrides.id : 1,
     user_id: overrides.user_id !== undefined ? overrides.user_id : 'U001',
-    timestamp: overrides.timestamp !== undefined ? overrides.timestamp : '2025-06-01T07:30:00Z',
+    timestamp: overrides.timestamp !== undefined ? overrides.timestamp : '2025-06-01T07:30:00',
     type: overrides.type !== undefined ? overrides.type : 0,
     emp_type: overrides.emp_type !== undefined ? overrides.emp_type : 'Staff',
     is_duplicate: overrides.is_duplicate !== undefined ? overrides.is_duplicate : false,
@@ -37,7 +37,7 @@ function makeRow(overrides = {}) {
     divisi: overrides.divisi !== undefined ? overrides.divisi : 'Engineering',
     device_name: overrides.device_name !== undefined ? overrides.device_name : 'Device-A',
     device_sn: overrides.device_sn !== undefined ? overrides.device_sn : 'SN001',
-    created_at: overrides.created_at !== undefined ? overrides.created_at : '2025-06-01T07:30:05Z',
+    created_at: overrides.created_at !== undefined ? overrides.created_at : '2025-06-01T07:30:05',
   };
 }
 
@@ -194,8 +194,8 @@ describe('buildStateMachine()', () => {
 
   it('normal Masuk -> Pulang sequence: no anomalies', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }),
-      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00Z', type: 1 }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }),
+      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00', type: 1 }),
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap, rowShiftMap } = buildStateMachine(rows, shiftTypes);
@@ -210,8 +210,8 @@ describe('buildStateMachine()', () => {
 
   it('Masuk when waiting for Pulang -> anomaly (pulang)', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }), // Normal Masuk
-      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00Z', type: 0 }), // Anomaly: Masuk again
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }), // Normal Masuk
+      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00', type: 0 }), // Anomaly: Masuk again
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -222,7 +222,7 @@ describe('buildStateMachine()', () => {
 
   it('Pulang when waiting for Masuk -> anomaly (masuk)', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00Z', type: 1 }), // Pulang without Masuk
+      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 }), // Pulang without Masuk
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -232,9 +232,9 @@ describe('buildStateMachine()', () => {
 
   it('Pulang -> Pulang -> anomaly (masuk) on second Pulang', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }), // Normal Masuk
-      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00Z', type: 1 }), // Normal Pulang
-      makeRow({ id: 3, timestamp: '2025-06-01T17:00:00Z', type: 1 }), // Anomaly: Pulang again
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }), // Normal Masuk
+      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00', type: 1 }), // Normal Pulang
+      makeRow({ id: 3, timestamp: '2025-06-01T17:00:00', type: 1 }), // Anomaly: Pulang again
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -246,8 +246,8 @@ describe('buildStateMachine()', () => {
 
   it('session timeout (>14h) resets state, allowing new Masuk without anomaly', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }), // Masuk
-      makeRow({ id: 2, timestamp: '2025-06-02T08:00:00Z', type: 0 }), // Next day Masuk (>14h later)
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }), // Masuk
+      makeRow({ id: 2, timestamp: '2025-06-02T08:00:00', type: 0 }), // Next day Masuk (>14h later)
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -259,8 +259,8 @@ describe('buildStateMachine()', () => {
 
   it('session timeout does NOT reset if within 14h', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }), // Masuk
-      makeRow({ id: 2, timestamp: '2025-06-01T20:00:00Z', type: 0 }), // ~12.5h later -> still within timeout
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }), // Masuk
+      makeRow({ id: 2, timestamp: '2025-06-01T20:00:00', type: 0 }), // ~12.5h later -> still within timeout
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -271,9 +271,9 @@ describe('buildStateMachine()', () => {
 
   it('anomaly Masuk (should be Pulang) transitions state to waiting_checkin', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }), // Normal Masuk
-      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00Z', type: 0 }), // Anomaly Masuk -> treated as Pulang -> waiting_checkin
-      makeRow({ id: 3, timestamp: '2025-06-01T16:30:00Z', type: 1 }), // Pulang when waiting_checkin -> anomaly masuk
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }), // Normal Masuk
+      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00', type: 0 }), // Anomaly Masuk -> treated as Pulang -> waiting_checkin
+      makeRow({ id: 3, timestamp: '2025-06-01T16:30:00', type: 1 }), // Pulang when waiting_checkin -> anomaly masuk
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -287,8 +287,8 @@ describe('buildStateMachine()', () => {
 
   it('anomaly Pulang (should be Masuk) transitions state to waiting_checkout', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00Z', type: 1 }), // Anomaly Pulang -> treated as Masuk -> waiting_checkout
-      makeRow({ id: 2, timestamp: '2025-06-01T17:00:00Z', type: 0 }), // Masuk when waiting_checkout -> anomaly pulang
+      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 }), // Anomaly Pulang -> treated as Masuk -> waiting_checkout
+      makeRow({ id: 2, timestamp: '2025-06-01T17:00:00', type: 0 }), // Masuk when waiting_checkout -> anomaly pulang
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -309,8 +309,8 @@ describe('buildStateMachine()', () => {
       ],
     };
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T18:30:00Z', type: 0, emp_type: 'NonStaff' }),
-      makeRow({ id: 2, timestamp: '2025-06-02T06:00:00Z', type: 1, emp_type: 'NonStaff' }),
+      makeRow({ id: 1, timestamp: '2025-06-01T18:30:00', type: 0, emp_type: 'NonStaff' }),
+      makeRow({ id: 2, timestamp: '2025-06-02T06:00:00', type: 1, emp_type: 'NonStaff' }),
     ];
     const shiftTypes = { NonStaff: nightShiftConfig };
     const { rowShiftMap } = buildStateMachine(rows, shiftTypes);
@@ -323,7 +323,7 @@ describe('buildStateMachine()', () => {
 
   it('orphan check-out (no prior session) falls back to independent shift matching', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00Z', type: 1 }), // Pulang without Masuk
+      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 }), // Pulang without Masuk
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowShiftMap } = buildStateMachine(rows, shiftTypes);
@@ -334,10 +334,10 @@ describe('buildStateMachine()', () => {
 
   it('handles multiple users independently', () => {
     const rows = [
-      makeRow({ id: 1, user_id: 'U001', timestamp: '2025-06-01T07:30:00Z', type: 0 }),
-      makeRow({ id: 2, user_id: 'U002', timestamp: '2025-06-01T07:35:00Z', type: 0 }),
-      makeRow({ id: 3, user_id: 'U001', timestamp: '2025-06-01T16:30:00Z', type: 1 }),
-      makeRow({ id: 4, user_id: 'U002', timestamp: '2025-06-01T16:35:00Z', type: 1 }),
+      makeRow({ id: 1, user_id: 'U001', timestamp: '2025-06-01T07:30:00', type: 0 }),
+      makeRow({ id: 2, user_id: 'U002', timestamp: '2025-06-01T07:35:00', type: 0 }),
+      makeRow({ id: 3, user_id: 'U001', timestamp: '2025-06-01T16:30:00', type: 1 }),
+      makeRow({ id: 4, user_id: 'U002', timestamp: '2025-06-01T16:35:00', type: 1 }),
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
@@ -350,7 +350,7 @@ describe('buildStateMachine()', () => {
 
   it('handles rows without emp_type in shiftTypes gracefully', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0, emp_type: 'Unknown' }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0, emp_type: 'Unknown' }),
     ];
     const shiftTypes = { Staff: staffShift }; // 'Unknown' not in shiftTypes
     const { rowAnomalyMap, rowShiftMap } = buildStateMachine(rows, shiftTypes);
@@ -364,7 +364,7 @@ describe('buildStateMachine()', () => {
 
 describe('detectAttendanceRemark()', () => {
   it('returns anomaly_pulang when state machine says anomalyType=pulang', () => {
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T08:00:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T08:00:00', type: 0 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: true, anomalyType: 'pulang' }]]);
     const rowShiftMap = new Map();
     const shiftTypes = { Staff: staffShift };
@@ -374,7 +374,7 @@ describe('detectAttendanceRemark()', () => {
   });
 
   it('returns anomaly_masuk when state machine says anomalyType=masuk', () => {
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T16:30:00Z', type: 1 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: true, anomalyType: 'masuk' }]]);
     const rowShiftMap = new Map();
     const shiftTypes = { Staff: staffShift };
@@ -384,7 +384,7 @@ describe('detectAttendanceRemark()', () => {
   });
 
   it('returns duplicate remark for duplicate check-in', () => {
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0, is_duplicate: true });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0, is_duplicate: true });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -394,7 +394,7 @@ describe('detectAttendanceRemark()', () => {
   });
 
   it('returns duplicate remark for duplicate check-out', () => {
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T16:30:00Z', type: 1, is_duplicate: true });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1, is_duplicate: true });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -405,7 +405,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns late remark when check-in exceeds tolerance', () => {
     // Shift starts at 07:00, check-in at 07:10, tolerance=5 -> diff=10 > 5
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:10:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:10:00', type: 0 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -416,7 +416,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns no remark when check-in is within tolerance', () => {
     // Shift starts at 07:00, check-in at 07:03, tolerance=5 -> diff=3 <= 5
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:03:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:03:00', type: 0 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -427,7 +427,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns early arrival when check-in is >60 min before shift start', () => {
     // Shift starts at 07:00, check-in at 05:30 -> diff=-90 < -60
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T05:30:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T05:30:00', type: 0 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -438,7 +438,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns no remark when check-in is early but within 60 min', () => {
     // Shift starts at 07:00, check-in at 06:35 -> diff=-25, not < -60
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T06:35:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T06:35:00', type: 0 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -449,7 +449,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns overtime remark when check-out exceeds shift end by >60 min', () => {
     // Shift ends at 16:00, check-out at 17:30 -> diff=90 > 60
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T17:30:00Z', type: 1 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T17:30:00', type: 1 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -460,7 +460,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns no remark when check-out overtime is within 60 min', () => {
     // Shift ends at 16:00, check-out at 16:30 -> diff=30, not > 60
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T16:30:00Z', type: 1 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -471,7 +471,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns early departure when check-out is >60 min before shift end', () => {
     // Shift ends at 16:00, check-out at 14:00 -> diff=-120 < -60
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T14:00:00Z', type: 1 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T14:00:00', type: 1 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -482,7 +482,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('returns no remark when check-out early but within 60 min', () => {
     // Shift ends at 16:00, check-out at 15:30 -> diff=-30, not < -60
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T15:30:00Z', type: 1 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T15:30:00', type: 1 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -493,7 +493,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('state machine anomaly takes priority over duplicate', () => {
     // Even if is_duplicate=true, anomaly from state machine should win
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T08:00:00Z', type: 0, is_duplicate: true });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T08:00:00', type: 0, is_duplicate: true });
     const rowAnomalyMap = new Map([[1, { isAnomaly: true, anomalyType: 'pulang' }]]);
     const rowShiftMap = new Map();
     const shiftTypes = { Staff: staffShift };
@@ -503,7 +503,7 @@ describe('detectAttendanceRemark()', () => {
   });
 
   it('returns empty string for normal check-in without shift config', () => {
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0, emp_type: 'Unknown' });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0, emp_type: 'Unknown' });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map();
     const shiftTypes = { Staff: staffShift };
@@ -522,7 +522,7 @@ describe('detectAttendanceRemark()', () => {
       anomaly_masuk: 'Anomaly IN',
       anomaly_pulang: 'Anomaly OUT',
     };
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0, is_duplicate: true });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0, is_duplicate: true });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -533,7 +533,7 @@ describe('detectAttendanceRemark()', () => {
 
   it('falls back to DEFAULT_REMARKS when remarks config is missing a key', () => {
     const partialRemarks = { late: 'Custom Late' };
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T05:30:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T05:30:00', type: 0 });
     const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
     const rowShiftMap = new Map([[1, { start: 7 * 60, end: 16 * 60 }]]);
     const shiftTypes = { Staff: staffShift };
@@ -606,8 +606,8 @@ describe('calculateShiftDiff()', () => {
 describe('processAttendance()', () => {
   it('processes a normal Masuk -> Pulang sequence correctly', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:03:00Z', type: 0 }), // within tolerance
-      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00Z', type: 1 }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:03:00', type: 0 }), // within tolerance
+      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00', type: 1 }),
     ];
     const shiftTypes = { Staff: staffShift };
     const result = processAttendance(rows, shiftTypes, defaultRemarks, 5);
@@ -629,8 +629,8 @@ describe('processAttendance()', () => {
 
   it('detects anomaly via state machine in full pipeline', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:03:00Z', type: 0 }), // within tolerance
-      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00Z', type: 0 }), // Masuk again -> anomaly
+      makeRow({ id: 1, timestamp: '2025-06-01T07:03:00', type: 0 }), // within tolerance
+      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00', type: 0 }), // Masuk again -> anomaly
     ];
     const shiftTypes = { Staff: staffShift };
     const result = processAttendance(rows, shiftTypes, defaultRemarks, 5);
@@ -641,7 +641,7 @@ describe('processAttendance()', () => {
 
   it('detects late check-in in full pipeline', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:20:00Z', type: 0 }), // 20 min late
+      makeRow({ id: 1, timestamp: '2025-06-01T07:20:00', type: 0 }), // 20 min late
     ];
     const shiftTypes = { Staff: staffShift };
     const result = processAttendance(rows, shiftTypes, defaultRemarks, 5);
@@ -651,7 +651,7 @@ describe('processAttendance()', () => {
 
   it('detects duplicate in full pipeline', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0, is_duplicate: true }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0, is_duplicate: true }),
     ];
     const shiftTypes = { Staff: staffShift };
     const result = processAttendance(rows, shiftTypes, defaultRemarks, 5);
@@ -666,8 +666,8 @@ describe('processAttendance()', () => {
 
   it('preserves original row order in output (not sorted order)', () => {
     const rows = [
-      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00Z', type: 1 }),
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }),
+      makeRow({ id: 2, timestamp: '2025-06-01T16:30:00', type: 1 }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }),
     ];
     const shiftTypes = { Staff: staffShift };
     const result = processAttendance(rows, shiftTypes, defaultRemarks, 5);
@@ -679,7 +679,7 @@ describe('processAttendance()', () => {
 
   it('uses custom typeMap for absensi labels', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }),
     ];
     const shiftTypes = { Staff: staffShift };
     const customTypeMap = { 0: 'Check-In', 1: 'Check-Out' };
@@ -690,8 +690,8 @@ describe('processAttendance()', () => {
 
   it('handles multi-shift config in full pipeline', () => {
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T07:03:00Z', type: 0, emp_type: 'NonStaff' }), // within tolerance
-      makeRow({ id: 2, timestamp: '2025-06-01T15:30:00Z', type: 1, emp_type: 'NonStaff' }),
+      makeRow({ id: 1, timestamp: '2025-06-01T07:03:00', type: 0, emp_type: 'NonStaff' }), // within tolerance
+      makeRow({ id: 2, timestamp: '2025-06-01T15:30:00', type: 1, emp_type: 'NonStaff' }),
     ];
     const shiftTypes = { NonStaff: multiShift };
     const result = processAttendance(rows, shiftTypes, defaultRemarks, 5);
@@ -705,7 +705,7 @@ describe('processAttendance()', () => {
 
 describe('buildLogResponse()', () => {
   it('returns correct shape for a basic row', () => {
-    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00Z', type: 0 });
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 });
     const result = buildLogResponse(row, '', null);
 
     expect(result).toEqual({
@@ -721,8 +721,8 @@ describe('buildLogResponse()', () => {
       absensi: 'Masuk',
       device_name: 'Device-A',
       device_sn: 'SN001',
-      timestamp: '2025-06-01T07:30:00Z',
-      created_at: '2025-06-01T07:30:05Z',
+      timestamp: '2025-06-01T07:30:00',
+      created_at: '2025-06-01T07:30:05',
       ket: '',
     });
   });

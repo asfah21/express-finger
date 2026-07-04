@@ -282,8 +282,8 @@ export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
     const shiftCfg = shiftTypes[empType];
     if (shiftCfg) {
       const dt = new Date(r.timestamp);
-      const hours = dt.getUTCHours();
-      const minutes = dt.getUTCMinutes();
+      const hours = dt.getHours();
+      const minutes = dt.getMinutes();
       const totalMinutes = hours * 60 + minutes;
 
       if (r.type === 0) {
@@ -403,8 +403,8 @@ export function calculateShiftDiff(totalMinutes, shiftBoundary, tolerance, type,
  */
 export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, remarks, tolerance, ruleInOut) {
   const dt = new Date(row.timestamp);
-  const hours = dt.getUTCHours();
-  const minutes = dt.getUTCMinutes();
+  const hours = dt.getHours();
+  const minutes = dt.getMinutes();
   const totalMinutes = hours * 60 + minutes;
 
   let ket = '';
