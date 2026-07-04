@@ -269,32 +269,38 @@ describe('buildStateMachine()', () => {
     expect(rowAnomalyMap.get(2)).toEqual({ isAnomaly: true, anomalyType: 'pulang' });
   });
 
-  it('anomaly Masuk (should be Pulang) transitions state to waiting_checkin', () => {
+  it('anomaly Masuk does NOT cascade — next Pulang is normal', () => {
+    // Anomaly Masuk (type=0 when waiting for Pulang) should NOT change state.
+    // The system still expects Pulang next, so the next Pulang is normal.
     const rows = [
       makeRow({ id: 1, timestamp: '2025-06-01T07:30:00', type: 0 }), // Normal Masuk
-      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00', type: 0 }), // Anomaly Masuk -> treated as Pulang -> waiting_checkin
-      makeRow({ id: 3, timestamp: '2025-06-01T16:30:00', type: 1 }), // Pulang when waiting_checkin -> anomaly masuk
+      makeRow({ id: 2, timestamp: '2025-06-01T08:00:00', type: 0 }), // Anomaly Masuk (should be Pulang)
+      makeRow({ id: 3, timestamp: '2025-06-01T16:30:00', type: 1 }), // Normal Pulang (completes the session)
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
 
     expect(rowAnomalyMap.get(1)).toEqual({ isAnomaly: false, anomalyType: null });
     expect(rowAnomalyMap.get(2)).toEqual({ isAnomaly: true, anomalyType: 'pulang' });
-    // After anomaly Masuk (treated as Pulang), state is waiting_checkin.
-    // Pulang when waiting for Masuk -> anomaly masuk
-    expect(rowAnomalyMap.get(3)).toEqual({ isAnomaly: true, anomalyType: 'masuk' });
+    // Anomaly Masuk does NOT change state (still waiting_checkout).
+    // Pulang is the expected type → normal (no anomaly)
+    expect(rowAnomalyMap.get(3)).toEqual({ isAnomaly: false, anomalyType: null });
   });
 
-  it('anomaly Pulang (should be Masuk) transitions state to waiting_checkout', () => {
+  it('anomaly Pulang does NOT cascade — next Masuk is normal', () => {
+    // Anomaly Pulang (type=1 when waiting for Masuk) should NOT change state.
+    // The system still expects Masuk next, so the next Masuk is normal.
     const rows = [
-      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 }), // Anomaly Pulang -> treated as Masuk -> waiting_checkout
-      makeRow({ id: 2, timestamp: '2025-06-01T17:00:00', type: 0 }), // Masuk when waiting_checkout -> anomaly pulang
+      makeRow({ id: 1, timestamp: '2025-06-01T16:30:00', type: 1 }), // Anomaly Pulang (should be Masuk)
+      makeRow({ id: 2, timestamp: '2025-06-01T17:00:00', type: 0 }), // Normal Masuk (starts new session)
     ];
     const shiftTypes = { Staff: staffShift };
     const { rowAnomalyMap } = buildStateMachine(rows, shiftTypes);
 
     expect(rowAnomalyMap.get(1)).toEqual({ isAnomaly: true, anomalyType: 'masuk' });
-    expect(rowAnomalyMap.get(2)).toEqual({ isAnomaly: true, anomalyType: 'pulang' });
+    // Anomaly Pulang does NOT change state (still waiting_checkin).
+    // Masuk is the expected type → normal (no anomaly)
+    expect(rowAnomalyMap.get(2)).toEqual({ isAnomaly: false, anomalyType: null });
   });
 
   it('check-out reuses the shift matched during check-in (session consistency)', () => {

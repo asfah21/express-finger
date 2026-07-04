@@ -307,13 +307,21 @@ export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
       }
     }
 
-    // Update state machine based on what SHOULD happen next:
-    // - Normal Masuk (type=0) → now waiting for Pulang (waiting_checkout)
-    // - Normal Pulang (type=1) → now waiting for Masuk (waiting_checkin)
-    // - Anomaly Masuk (should have been Pulang) → treat as if Pulang was done,
-    //   so state becomes waiting_checkin (ready for next Masuk session)
-    // - Anomaly Pulang (should have been Masuk) → treat as if Masuk was done,
-    //   so state becomes waiting_checkout (ready for next Pulang)
+    // Update state machine based on actual record type.
+    // IMPORTANT: Only normal (non-anomaly) records transition the session state.
+    // Anomaly records are treated as "noise" — they do NOT change the expected
+    // next state. This prevents cascade anomalies where one anomaly flips the
+    // state and causes subsequent legitimate records to also be flagged.
+    //
+    // Rationale:
+    //   - If the system expects Pulang (waiting_checkout) and a Masuk arrives,
+    //     that Masuk is flagged as anomaly 'pulang'. The system should STILL
+    //     expect Pulang next — the anomaly didn't fulfill the expected Pulang.
+    //   - If the system expects Masuk (waiting_checkin) and a Pulang arrives,
+    //     that Pulang is flagged as anomaly 'masuk'. The system should STILL
+    //     expect Masuk next.
+    //   - This ensures the pairing Masuk→Pulang is the single source of truth
+    //     for session state, not individual events.
     if (!isAnomaly) {
       // Normal transition based on actual record type
       if (r.type === 0) {
@@ -321,18 +329,12 @@ export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
       } else if (r.type === 1) {
         userStateMap.set(uid, { state: 'waiting_checkin', lastTimestamp: rTime, matchedShift: null });
       }
-    } else {
-      // Anomaly: transition based on what SHOULD have happened
-      // This prevents cascading false anomalies across days
-      if (anomalyType === 'pulang') {
-        // User did Masuk but should have done Pulang
-        // Treat as if Pulang was done → now waiting for Masuk
-        userStateMap.set(uid, { state: 'waiting_checkin', lastTimestamp: rTime, matchedShift: null });
-      } else if (anomalyType === 'masuk') {
-        // User did Pulang but should have done Masuk
-        // Treat as if Masuk was done → now waiting for Pulang
-        userStateMap.set(uid, { state: 'waiting_checkout', lastTimestamp: rTime, matchedShift: rowShiftMap.get(r.id) });
-      }
+    }
+    // Anomaly records: do NOT transition state.
+    // Only update lastTimestamp to prevent session timeout from resetting
+    // due to stale timestamps.
+    if (isAnomaly) {
+      userStateMap.set(uid, { ...state, lastTimestamp: rTime });
     }
   }
 
@@ -431,8 +433,11 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
 
   if (row.type === 0 && shiftCfg) { // Check-in (only if no anomaly already set)
     // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
-    // This ensures range-check first, fallback to nearest-neighbor.
-    const matched = rowShiftMap.get(row.id) || findMatchingShift(shiftCfg, totalMinutes, 0);
+    // This is the SINGLE SOURCE OF TRUTH for shift matching — we do NOT recalculate
+    // here. The state machine already determined the shift during buildStateMachine().
+    // This ensures consistency: check-in and check-out in the same session use the
+    // same shift, and anomaly records don't get spurious shift-based remarks.
+    const matched = rowShiftMap.get(row.id);
     const shiftStart = matched ? matched.start : -1;
 
     if (row.is_duplicate) {
@@ -449,7 +454,7 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
     // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
     // For check-out, this reuses the SAME shift that was matched during check-in,
     // ensuring a single Masuk-Pulang session evaluates against the same shift consistently.
-    const matched = rowShiftMap.get(row.id) || findMatchingShift(shiftCfg, totalMinutes, 1);
+    const matched = rowShiftMap.get(row.id);
     const shiftEnd = matched ? matched.end : -1;
 
     if (row.is_duplicate) {
