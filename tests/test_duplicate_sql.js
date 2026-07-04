@@ -1,4 +1,4 @@
-import { pool } from './app/utils/database.js';
+import { pool } from '../app/utils/database.js';
 
 async function testQuery() {
     try {

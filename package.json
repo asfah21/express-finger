@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "node-cache": "^5.1.2"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
