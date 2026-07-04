@@ -72,6 +72,12 @@ const defaultSettings = {
     late_tolerance_mins: 5,
     cleanup_age_days: 30,
     api_key: "",
+    rule_in_out: {
+        "day_checkin": ["05:00", "10:00"],
+        "night_checkin": ["17:00", "22:00"],
+        "day_checkout": ["17:00", "20:00"],
+        "night_checkout": ["23:00", "08:00"]
+    },
     types: {
         "0": "Masuk",
         "1": "Pulang",
@@ -128,7 +134,7 @@ export async function getSettingsData() {
 // Validasi tipe data untuk setiap field settings yang diizinkan
 const ALLOWED_KEYS = new Set([
     'api_key', 'late_tolerance_mins', 'cleanup_age_days',
-    'types', 'shift_types', 'remarks_config'
+    'types', 'shift_types', 'remarks_config', 'rule_in_out'
 ])
 
 const FIELD_VALIDATORS = {
@@ -137,7 +143,8 @@ const FIELD_VALIDATORS = {
     cleanup_age_days: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 1 && val <= 365,
     types: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
     shift_types: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
-    remarks_config: (val) => typeof val === 'object' && val !== null && !Array.isArray(val)
+    remarks_config: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
+    rule_in_out: (val) => typeof val === 'object' && val !== null && !Array.isArray(val)
 }
 
 export const settingsController = {

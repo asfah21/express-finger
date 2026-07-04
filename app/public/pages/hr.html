@@ -35,6 +35,51 @@
                         Lateness within this limit will be considered "On Time".
                     </p>
                 </div>
+
+                <!-- Rule In Out Section -->
+                <hr style="border-color: var(--glass-border); margin: 1.25rem 0;">
+                <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">
+                    <i class="fas fa-arrows-alt-h" style="color: var(--warning);"></i> Rule In Out
+                </h4>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Define time windows for check-in and check-out to determine day/night shift matching.
+                </p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Day Check-in Window</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="time" id="hr-rule-day-checkin-start" value="05:00" style="flex: 1;">
+                            <span style="color: var(--text-muted);">to</span>
+                            <input type="time" id="hr-rule-day-checkin-end" value="10:00" style="flex: 1;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Night Check-in Window</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="time" id="hr-rule-night-checkin-start" value="17:00" style="flex: 1;">
+                            <span style="color: var(--text-muted);">to</span>
+                            <input type="time" id="hr-rule-night-checkin-end" value="22:00" style="flex: 1;">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Day Check-out Window</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="time" id="hr-rule-day-checkout-start" value="17:00" style="flex: 1;">
+                            <span style="color: var(--text-muted);">to</span>
+                            <input type="time" id="hr-rule-day-checkout-end" value="20:00" style="flex: 1;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Night Check-out Window</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="time" id="hr-rule-night-checkout-start" value="23:00" style="flex: 1;">
+                            <span style="color: var(--text-muted);">to</span>
+                            <input type="time" id="hr-rule-night-checkout-end" value="08:00" style="flex: 1;">
+                        </div>
+                    </div>
+                </div>
                 <button class="btn-primary" style="margin-top: 1rem; background: var(--warning);"
                     onclick="saveHrAttendanceSettings()">
                     <i class="fas fa-save"></i> Save Rules

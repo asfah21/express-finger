@@ -55,15 +55,27 @@ export async function loadHrSettings() {
         const s = data.data;
         document.getElementById('hr-late-tolerance').value = s.late_tolerance_mins || 5;
 
+        // Rule In Out config
+        const ruleInOut = s.rule_in_out || {};
+        const setTime = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        setTime('hr-rule-day-checkin-start', ruleInOut.day_checkin?.[0] || '05:00');
+        setTime('hr-rule-day-checkin-end', ruleInOut.day_checkin?.[1] || '10:00');
+        setTime('hr-rule-night-checkin-start', ruleInOut.night_checkin?.[0] || '17:00');
+        setTime('hr-rule-night-checkin-end', ruleInOut.night_checkin?.[1] || '22:00');
+        setTime('hr-rule-day-checkout-start', ruleInOut.day_checkout?.[0] || '17:00');
+        setTime('hr-rule-day-checkout-end', ruleInOut.day_checkout?.[1] || '20:00');
+        setTime('hr-rule-night-checkout-start', ruleInOut.night_checkout?.[0] || '23:00');
+        setTime('hr-rule-night-checkout-end', ruleInOut.night_checkout?.[1] || '08:00');
+
         // Remarks config
-        const r = s.remarks_config || {};
-        document.getElementById('hr-remark-late').value = r.late || '';
-        document.getElementById('hr-remark-early-arrival').value = r.early_arrival || '';
-        document.getElementById('hr-remark-early-departure').value = r.early_departure || '';
-        document.getElementById('hr-remark-overtime').value = r.overtime_check || '';
-        document.getElementById('hr-remark-duplicate').value = r.duplicate || '';
-        document.getElementById('hr-remark-anomaly-masuk').value = r.anomaly_masuk || '';
-        document.getElementById('hr-remark-anomaly-pulang').value = r.anomaly_pulang || '';
+        const remarksCfg = s.remarks_config || {};
+        document.getElementById('hr-remark-late').value = remarksCfg.late || '';
+        document.getElementById('hr-remark-early-arrival').value = remarksCfg.early_arrival || '';
+        document.getElementById('hr-remark-early-departure').value = remarksCfg.early_departure || '';
+        document.getElementById('hr-remark-overtime').value = remarksCfg.overtime_check || '';
+        document.getElementById('hr-remark-duplicate').value = remarksCfg.duplicate || '';
+        document.getElementById('hr-remark-anomaly-masuk').value = remarksCfg.anomaly_masuk || '';
+        document.getElementById('hr-remark-anomaly-pulang').value = remarksCfg.anomaly_pulang || '';
 
         // Shifts config
         document.getElementById('hr-shift-types').value = JSON.stringify(s.shift_types || {}, null, 4);
@@ -72,8 +84,16 @@ export async function loadHrSettings() {
 
 export async function saveHrAttendanceSettings() {
     const lateTolerance = document.getElementById('hr-late-tolerance').value;
+    const getVal = (id) => document.getElementById(id)?.value || '';
+    const ruleInOut = {
+        day_checkin: [getVal('hr-rule-day-checkin-start'), getVal('hr-rule-day-checkin-end')],
+        night_checkin: [getVal('hr-rule-night-checkin-start'), getVal('hr-rule-night-checkin-end')],
+        day_checkout: [getVal('hr-rule-day-checkout-start'), getVal('hr-rule-day-checkout-end')],
+        night_checkout: [getVal('hr-rule-night-checkout-start'), getVal('hr-rule-night-checkout-end')]
+    };
     await updateSettings({
-        late_tolerance_mins: parseInt(lateTolerance)
+        late_tolerance_mins: parseInt(lateTolerance),
+        rule_in_out: ruleInOut
     }, 'Rules updated');
 }
 

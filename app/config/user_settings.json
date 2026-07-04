@@ -2,6 +2,12 @@
 "late_tolerance_mins": 5,
   "cleanup_age_days": 30,
   "api_key": "",
+  "rule_in_out": {
+    "day_checkin": ["05:00", "10:00"],
+    "night_checkin": ["17:00", "22:00"],
+    "day_checkout": ["17:00", "20:00"],
+    "night_checkout": ["23:00", "08:00"]
+  },
   "types": {
     "0": "Masuk",
     "1": "Pulang",

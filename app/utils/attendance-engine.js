@@ -40,13 +40,17 @@ const DEFAULT_TYPE_MAP = {
 /**
  * Find the matching shift for a given attendance time.
  * Strategy (priority order):
- *   1. Range-check: if attendance time falls INSIDE a shift's [start, end) window,
+ *   1. Rule In Out check: if attendance time falls within a configured rule_in_out
+ *      window (day_checkin/night_checkin for check-in, day_checkout/night_checkout
+ *      for check-out), pick the corresponding shift type (day/night). This allows
+ *      admins to define explicit time windows for shift matching.
+ *   2. Range-check: if attendance time falls INSIDE a shift's [start, end) window,
  *      pick that shift. This correctly handles overnight shifts (e.g. 19:00-07:00)
  *      where the window wraps past midnight.
- *   2. Fallback (no shift contains the time): use nearest-neighbor on start (for
+ *   3. Fallback (no shift contains the time): use nearest-neighbor on start (for
  *      check-in) or end (for check-out). This handles edge cases where someone
  *      clocks in/out far outside any shift window.
- *   3. Tie-breaker (multiple shifts match): pick the one with closest start/end.
+ *   4. Tie-breaker (multiple shifts match): pick the one with closest start/end.
  *
  * Boundary consistency: We use [start, end) — inclusive start, exclusive end.
  * This ensures adjacent shifts like 07:00-19:00 and 19:00-07:00 do NOT overlap
@@ -57,9 +61,10 @@ const DEFAULT_TYPE_MAP = {
  * @param {object} shiftCfg - A single shift config entry from shift_types
  * @param {number} totalMinutes - Attendance time in minutes since midnight (0-1439)
  * @param {number} type - 0 for check-in (Masuk), 1 for check-out (Pulang)
+ * @param {object} [ruleInOut] - Optional rule_in_out config with day/night windows
  * @returns {{ start: number, end: number } | null} - The matched shift's start/end in minutes, or null
  */
-export function findMatchingShift(shiftCfg, totalMinutes, type) {
+export function findMatchingShift(shiftCfg, totalMinutes, type, ruleInOut) {
   // Guard: null/undefined shiftCfg
   if (!shiftCfg) return null;
 
@@ -72,6 +77,52 @@ export function findMatchingShift(shiftCfg, totalMinutes, type) {
 
   // Multi shift (Non-Staff format with shifts array)
   if (shiftCfg.shifts) {
+    // ─── Step 1: Rule In Out check ────────────────────────────────────────
+    // If rule_in_out is configured, check if the attendance time falls within
+    // a day/night window. If it does, pick the shift that corresponds to that
+    // window type (day shift = first shift, night shift = last shift).
+    // This takes priority over range-check and fallback.
+    if (ruleInOut) {
+      const ruleKey = type === 0 ? 'checkin' : 'checkout';
+      const dayKey = `day_${ruleKey}`;
+      const nightKey = `night_${ruleKey}`;
+
+      const dayWindow = ruleInOut[dayKey];
+      const nightWindow = ruleInOut[nightKey];
+
+      // Helper: check if totalMinutes falls within a [start, end) window,
+      // handling overnight windows (e.g. 23:00-08:00) correctly.
+      const isInWindow = (window) => {
+        if (!window || window.length < 2) return false;
+        const [hS, mS] = window[0].split(':').map(Number);
+        const [hE, mE] = window[1].split(':').map(Number);
+        const start = hS * 60 + mS;
+        const end = hE * 60 + mE;
+        if (end > start) {
+          return totalMinutes >= start && totalMinutes < end;
+        } else {
+          // Overnight window (e.g. 23:00-08:00)
+          return totalMinutes >= start || totalMinutes < end;
+        }
+      };
+
+      const inDay = dayWindow ? isInWindow(dayWindow) : false;
+      const inNight = nightWindow ? isInWindow(nightWindow) : false;
+
+      if (inDay || inNight) {
+        // Determine which shift index to use based on day/night:
+        // - Day shift is typically the first shift (index 0)
+        // - Night shift is typically the last shift (index length-1)
+        // This works for common 2-shift configs like [day, night]
+        const shiftIndex = inDay ? 0 : (shiftCfg.shifts.length - 1);
+        const s = shiftCfg.shifts[shiftIndex];
+        const [hS, mS] = s[0].split(':').map(Number);
+        const [hE, mE] = s[1].split(':').map(Number);
+        return { start: hS * 60 + mS, end: hE * 60 + mE };
+      }
+    }
+
+    // ─── Step 2: Range-check ──────────────────────────────────────────────
     const candidates = [];
 
     for (const s of shiftCfg.shifts) {
@@ -112,7 +163,8 @@ export function findMatchingShift(shiftCfg, totalMinutes, type) {
       return candidates[0];
     }
 
-    // Fallback: time is outside ALL shift ranges.
+    // ─── Step 3: Fallback to nearest shift ────────────────────────────────
+    // Time is outside ALL shift ranges.
     // This happens when attendance time falls in a gap between shifts (e.g. shifts
     // are 07:00-15:00 and 16:00-23:00, and someone clocks in at 15:30).
     // Use nearest-neighbor on start (check-in) or end (check-out).
@@ -159,11 +211,12 @@ export function findMatchingShift(shiftCfg, totalMinutes, type) {
  *
  * @param {Array<object>} sortedRows - Attendance rows sorted chronologically (ascending)
  * @param {object} shiftTypes - Shift configuration from settings (shift_types)
+ * @param {object} [ruleInOut] - Optional rule_in_out config for shift matching
  * @returns {{ rowAnomalyMap: Map, rowShiftMap: Map }}
  *   rowAnomalyMap: row.id → { isAnomaly: boolean, anomalyType: 'masuk'|'pulang'|null }
  *   rowShiftMap:   row.id → { start: number, end: number } | null (matched shift)
  */
-export function buildStateMachine(sortedRows, shiftTypes) {
+export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
   const rowAnomalyMap = new Map(); // row.id → { isAnomaly, anomalyType }
   const rowShiftMap = new Map();   // row.id → { start, end } (matched shift, for session consistency)
   const userStateMap = new Map();  // user_id → { state, lastTimestamp, matchedShift }
@@ -234,8 +287,8 @@ export function buildStateMachine(sortedRows, shiftTypes) {
       const totalMinutes = hours * 60 + minutes;
 
       if (r.type === 0) {
-        // Check-in: find matching shift via range-check (with fallback)
-        const matched = findMatchingShift(shiftCfg, totalMinutes, 0);
+        // Check-in: find matching shift via rule_in_out → range-check → fallback
+        const matched = findMatchingShift(shiftCfg, totalMinutes, 0, ruleInOut);
         rowShiftMap.set(r.id, matched);
         // Store in session state so check-out can reuse it.
         // Use immutable update: create new state object rather than mutating.
@@ -249,7 +302,7 @@ export function buildStateMachine(sortedRows, shiftTypes) {
       } else if (r.type === 1) {
         // Check-out without a prior check-in session (orphan checkout):
         // fall back to independent shift matching
-        const matched = findMatchingShift(shiftCfg, totalMinutes, 1);
+        const matched = findMatchingShift(shiftCfg, totalMinutes, 1, ruleInOut);
         rowShiftMap.set(r.id, matched);
       }
     }
@@ -345,9 +398,10 @@ export function calculateShiftDiff(totalMinutes, shiftBoundary, tolerance, type,
  * @param {object} shiftTypes - Shift configuration from settings
  * @param {object} remarks - Remarks configuration object
  * @param {number} tolerance - Late tolerance in minutes
+ * @param {object} [ruleInOut] - Optional rule_in_out config for shift matching
  * @returns {string} - The remark string (empty string if no anomaly)
  */
-export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, remarks, tolerance) {
+export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, remarks, tolerance, ruleInOut) {
   const dt = new Date(row.timestamp);
   const hours = dt.getUTCHours();
   const minutes = dt.getUTCMinutes();
@@ -461,18 +515,19 @@ export function buildLogResponse(row, ket, typeMap) {
  * @param {object} remarks - Remarks configuration from settings
  * @param {number} tolerance - Late tolerance in minutes
  * @param {object} typeMap - Type mapping (type number → label string)
+ * @param {object} [ruleInOut] - Optional rule_in_out config for shift matching
  * @returns {Array<object>} - Processed rows with remarks and formatted response
  */
-export function processAttendance(rows, shiftTypes, remarks, tolerance, typeMap) {
+export function processAttendance(rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut) {
   // Sort rows chronologically for state machine processing
   const sortedRows = [...rows].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   // Build state machine: anomaly detection + shift matching
-  const { rowAnomalyMap, rowShiftMap } = buildStateMachine(sortedRows, shiftTypes);
+  const { rowAnomalyMap, rowShiftMap } = buildStateMachine(sortedRows, shiftTypes, ruleInOut);
 
   // Generate remarks and format response for each row
   return rows.map(row => {
-    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, remarks, tolerance);
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, remarks, tolerance, ruleInOut);
     return buildLogResponse(row, ket, typeMap);
   });
 }

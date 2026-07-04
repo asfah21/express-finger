@@ -97,6 +97,7 @@ export const apiController = {
       const paramSettings = await getSettingsData()
       const tolerance = Number(paramSettings?.late_tolerance_mins || 5);
       const shiftTypes = paramSettings?.shift_types || {};
+      const ruleInOut = paramSettings?.rule_in_out || null;
       const remarks = paramSettings?.remarks_config || {
         "late": "Terlambat {diff} menit",
         "early_arrival": "Anomali (Terlalu Awal)",
@@ -120,7 +121,7 @@ export const apiController = {
       // All business logic (state machine, shift matching, anomaly detection,
       // remark generation, response formatting) is handled by processAttendance().
       // The controller only fetches data and returns the response.
-      const rows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap);
+      const rows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut);
 
       const total = Number(countRes.rows[0]?.total || 0)
 
