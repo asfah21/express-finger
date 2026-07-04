@@ -63,16 +63,19 @@ export const apiController = {
               d.name as device_name,
               al."timestamp", 
               al.created_at,
-              ROW_NUMBER() OVER (
-                PARTITION BY al.user_id, al.type, DATE(al."timestamp" AT TIME ZONE 'Asia/Makassar') 
+              LAG(al."timestamp") OVER (
+                PARTITION BY al.user_id, al.type
                 ORDER BY al."timestamp" ASC, al.id ASC
-              ) as row_num
+              ) as prev_same_type_ts
             FROM attendance_logs al
             LEFT JOIN employee e ON al.user_id::text = e.user_id::text
             LEFT JOIN devices d ON al.device_sn = d.sn
             ${whereSql}
           )
-          SELECT *, (row_num > 1) as is_duplicate
+          SELECT *, (
+            prev_same_type_ts IS NOT NULL
+            AND EXTRACT(EPOCH FROM ("timestamp" - prev_same_type_ts)) <= 300
+          ) as is_duplicate
           FROM ranked_logs
           ORDER BY "timestamp" DESC
           LIMIT $${i++} OFFSET $${i++}
