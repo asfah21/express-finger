@@ -6,7 +6,7 @@ import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
-import { loadSettings, saveSystemSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission } from './js/pages/settings.js';
+import { loadSettings, saveSystemSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission, switchSettingsTab, switchAccountTab } from './js/pages/settings.js';
 import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHrShiftSettings, switchHrTab } from './js/pages/hr.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
@@ -78,6 +78,8 @@ window.loadProfileInfo = loadProfileInfo;
 window.toggleProfilePassword = toggleProfilePassword;
 window.loadPagePermissions = loadPagePermissions;
 window.savePagePermission = savePagePermission;
+window.switchSettingsTab = switchSettingsTab;
+window.switchAccountTab = switchAccountTab;
 
 // HR Page Functions
 window.loadHrSettings = loadHrSettings;

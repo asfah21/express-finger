@@ -224,6 +224,18 @@ export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
   for (const r of sortedRows) {
     const uid = r.user_id;
     const rTime = new Date(r.timestamp).getTime();
+    const empType = r.emp_type;
+    const shiftCfg = shiftTypes[empType];
+
+    // ─── State machine only applies to employees with shift config ─────────
+    // If karyawan tidak memiliki shift assignment, skip anomaly detection entirely.
+    // No anomaly, no state tracking, no shift matching for this employee.
+    if (!shiftCfg) {
+      rowAnomalyMap.set(r.id, { isAnomaly: false, anomalyType: null });
+      rowShiftMap.set(r.id, undefined);
+      continue;
+    }
+
     let state = userStateMap.get(uid);
 
     // Session timeout: if last activity was >15h ago, reset state
@@ -278,8 +290,6 @@ export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
     // a single Masuk-Pulang session evaluates against the SAME shift consistently.
     // This prevents issues like: night shift check-in at 18:30 matches day shift,
     // but check-out at 06:00 would match night shift if computed independently.
-    const empType = r.emp_type;
-    const shiftCfg = shiftTypes[empType];
     if (shiftCfg) {
       const dt = new Date(r.timestamp);
       const hours = dt.getHours();
@@ -431,7 +441,14 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
     }
   }
 
-  if (row.type === 0 && shiftCfg) { // Check-in (only if no anomaly already set)
+  // ─── Duplicate Check (applies to ALL employees regardless of shift config) ───
+  // Duplicate detection is independent of shift assignment.
+  if (row.is_duplicate) {
+    return remarks.duplicate || DEFAULT_REMARKS.duplicate;
+  }
+
+  // ─── Shift-Based Checks (only for employees with shift config) ───────────────
+  if (row.type === 0 && shiftCfg) { // Check-in
     // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
     // This is the SINGLE SOURCE OF TRUTH for shift matching — we do NOT recalculate
     // here. The state machine already determined the shift during buildStateMachine().
@@ -440,9 +457,7 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
     const matched = rowShiftMap.get(row.id);
     const shiftStart = matched ? matched.start : -1;
 
-    if (row.is_duplicate) {
-      return remarks.duplicate || DEFAULT_REMARKS.duplicate;
-    } else if (shiftStart !== -1) {
+    if (shiftStart !== -1) {
       const diff = totalMinutes - shiftStart;
       if (diff > tolerance) {
         return (remarks.late || DEFAULT_REMARKS.late).replace('{diff}', diff);
@@ -450,16 +465,14 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
         return remarks.early_arrival || DEFAULT_REMARKS.early_arrival;
       }
     }
-  } else if (row.type === 1 && shiftCfg) { // Check-out (only if no anomaly already set)
+  } else if (row.type === 1 && shiftCfg) { // Check-out
     // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
     // For check-out, this reuses the SAME shift that was matched during check-in,
     // ensuring a single Masuk-Pulang session evaluates against the same shift consistently.
     const matched = rowShiftMap.get(row.id);
     const shiftEnd = matched ? matched.end : -1;
 
-    if (row.is_duplicate) {
-      return remarks.duplicate || DEFAULT_REMARKS.duplicate;
-    } else if (shiftEnd !== -1) {
+    if (shiftEnd !== -1) {
       const diff = totalMinutes - shiftEnd;
       if (diff > 60) {
         return remarks.overtime_check || DEFAULT_REMARKS.overtime_check;

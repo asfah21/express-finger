@@ -1,6 +1,42 @@
 import { state } from '../state.js';
 import { showToast, toggleModal, showConfirm } from '../utils.js';
 
+/**
+ * Switch between Settings tabs
+ */
+export function switchSettingsTab(tabId) {
+    document.querySelectorAll('#page-settings .hr-tab').forEach(tab => {
+        const isActive = tab.dataset.tab === tabId;
+        tab.classList.toggle('active', isActive);
+        if (isActive) {
+            const color = tab.dataset.color || 'var(--primary)';
+            tab.style.setProperty('--tab-active-color', color);
+        }
+    });
+    document.querySelectorAll('#page-settings .hr-tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === 'settings-tab-' + tabId);
+    });
+}
+window.switchSettingsTab = switchSettingsTab;
+
+/**
+ * Switch between Account tabs
+ */
+export function switchAccountTab(tabId) {
+    document.querySelectorAll('#page-account .hr-tab').forEach(tab => {
+        const isActive = tab.dataset.tab === tabId;
+        tab.classList.toggle('active', isActive);
+        if (isActive) {
+            const color = tab.dataset.color || 'var(--primary)';
+            tab.style.setProperty('--tab-active-color', color);
+        }
+    });
+    document.querySelectorAll('#page-account .hr-tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === 'account-tab-' + tabId);
+    });
+}
+window.switchAccountTab = switchAccountTab;
+
 export async function loadSettings() {
     const res = await fetch('/api/settings');
     const data = await res.json();
