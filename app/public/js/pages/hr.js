@@ -55,17 +55,13 @@ export async function loadHrSettings() {
         const s = data.data;
         document.getElementById('hr-late-tolerance').value = s.late_tolerance_mins || 5;
 
-        // Rule In Out config
-        const ruleInOut = s.rule_in_out || {};
-        const setTime = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-        setTime('hr-rule-day-checkin-start', ruleInOut.day_checkin?.[0] || '05:00');
-        setTime('hr-rule-day-checkin-end', ruleInOut.day_checkin?.[1] || '10:00');
-        setTime('hr-rule-night-checkin-start', ruleInOut.night_checkin?.[0] || '17:00');
-        setTime('hr-rule-night-checkin-end', ruleInOut.night_checkin?.[1] || '22:00');
-        setTime('hr-rule-day-checkout-start', ruleInOut.day_checkout?.[0] || '17:00');
-        setTime('hr-rule-day-checkout-end', ruleInOut.day_checkout?.[1] || '20:00');
-        setTime('hr-rule-night-checkout-start', ruleInOut.night_checkout?.[0] || '23:00');
-        setTime('hr-rule-night-checkout-end', ruleInOut.night_checkout?.[1] || '08:00');
+        // Rule In Out config (JSON textarea)
+        document.getElementById('hr-rule-in-out').value = JSON.stringify(s.rule_in_out || {
+            day_checkin: ["05:00", "10:00"],
+            night_checkin: ["17:00", "22:00"],
+            day_checkout: ["17:00", "20:00"],
+            night_checkout: ["23:00", "08:00"]
+        }, null, 4);
 
         // Remarks config
         const remarksCfg = s.remarks_config || {};
@@ -84,13 +80,14 @@ export async function loadHrSettings() {
 
 export async function saveHrAttendanceSettings() {
     const lateTolerance = document.getElementById('hr-late-tolerance').value;
-    const getVal = (id) => document.getElementById(id)?.value || '';
-    const ruleInOut = {
-        day_checkin: [getVal('hr-rule-day-checkin-start'), getVal('hr-rule-day-checkin-end')],
-        night_checkin: [getVal('hr-rule-night-checkin-start'), getVal('hr-rule-night-checkin-end')],
-        day_checkout: [getVal('hr-rule-day-checkout-start'), getVal('hr-rule-day-checkout-end')],
-        night_checkout: [getVal('hr-rule-night-checkout-start'), getVal('hr-rule-night-checkout-end')]
-    };
+    let ruleInOut = null;
+    try {
+        const jsonStr = document.getElementById('hr-rule-in-out').value;
+        ruleInOut = JSON.parse(jsonStr);
+    } catch (err) {
+        showToast('Invalid JSON format for Rule In Out', 'error');
+        return;
+    }
     await updateSettings({
         late_tolerance_mins: parseInt(lateTolerance),
         rule_in_out: ruleInOut
