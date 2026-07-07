@@ -458,7 +458,15 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
     const shiftStart = matched ? matched.start : -1;
 
     if (shiftStart !== -1) {
-      const diff = totalMinutes - shiftStart;
+      // Handle overnight shifts: if shift starts in the evening (e.g., 19:00)
+      // and attendance time is in the early morning (e.g., 02:00), the attendance
+      // is on the "next day" of the overnight shift. We add 1440 to normalize.
+      const isOvernight = matched && matched.end < matched.start;
+      let adjustedTotal = totalMinutes;
+      if (isOvernight && adjustedTotal < shiftStart) {
+        adjustedTotal += 1440;
+      }
+      const diff = adjustedTotal - shiftStart;
       if (diff > tolerance) {
         return (remarks.late || DEFAULT_REMARKS.late).replace('{diff}', diff);
       } else if (diff < -60) {
@@ -466,6 +474,7 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
       }
     }
   } else if (row.type === 1 && shiftCfg) { // Check-out
+
     // Use pre-computed matched shift from rowShiftMap (computed in state machine loop).
     // For check-out, this reuses the SAME shift that was matched during check-in,
     // ensuring a single Masuk-Pulang session evaluates against the same shift consistently.
