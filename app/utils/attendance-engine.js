@@ -461,9 +461,13 @@ export function detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTyp
       // Handle overnight shifts: if shift starts in the evening (e.g., 19:00)
       // and attendance time is in the early morning (e.g., 02:00), the attendance
       // is on the "next day" of the overnight shift. We add 1440 to normalize.
+      // The key insight: for overnight shifts (end < start), early morning times
+      // (0 to shiftEnd) belong to the "next day" and need +1440 adjustment.
+      // Times before shiftStart but after shiftEnd (e.g., 18:30 for a 19:00-07:00 shift)
+      // are simply early arrivals, NOT next-day arrivals — they should NOT be adjusted.
       const isOvernight = matched && matched.end < matched.start;
       let adjustedTotal = totalMinutes;
-      if (isOvernight && adjustedTotal < shiftStart) {
+      if (isOvernight && adjustedTotal < matched.end) {
         adjustedTotal += 1440;
       }
       const diff = adjustedTotal - shiftStart;

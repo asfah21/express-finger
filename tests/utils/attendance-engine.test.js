@@ -548,6 +548,150 @@ describe('detectAttendanceRemark()', () => {
     // early_arrival is missing from partialRemarks -> should use default
     expect(ket).toBe('Anomali (Terlalu Awal)');
   });
+
+  // ── Overnight shift (cross-midnight) tests ────────────────────────────────
+
+  it('night shift check-in at 18:30 (before start) is NOT late — early arrival within 60 min', () => {
+    // Night shift 19:00-07:00, check-in at 18:30 (1110 min)
+    // Before fix: adjustedTotal=1110 < shiftStart=1140 → +1440 → 2550 → diff=1410 → WRONG "Terlambat 1410 menit"
+    // After fix: adjustedTotal=1110 < shiftEnd=420? No → no adjustment → diff=1110-1140=-30 → within tolerance → OK
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T18:30:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe(''); // 30 min early, within 60 min threshold → no remark
+  });
+
+  it('night shift check-in at 18:00 (before start) is early arrival (>60 min before)', () => {
+    // Night shift 19:00-07:00, check-in at 18:00 (1080 min)
+    // Before fix: adjustedTotal=1080 < shiftStart=1140 → +1440 → 2520 → diff=1380 → WRONG
+    // After fix: adjustedTotal=1080 < shiftEnd=420? No → no adjustment → diff=1080-1140=-60 → not < -60 → within threshold
+    // Actually -60 is NOT < -60, so no early arrival. Let's use 17:55 for -65.
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T17:55:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Anomali (Terlalu Awal)'); // 65 min early → early arrival
+  });
+
+  it('night shift check-in at 20:00 (after start) is late by 60 min', () => {
+    // Night shift 19:00-07:00, check-in at 20:00 (1200 min)
+    // adjustedTotal=1200, shiftStart=1140, diff=60 > tolerance=5 → late
+    const row = makeRow({ id: 1, timestamp: '2025-06-01T20:00:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Terlambat 60 menit');
+  });
+
+  it('night shift check-in at 05:00 (early morning, next day) is late by 600 min', () => {
+    // Night shift 19:00-07:00, check-in at 05:00 (300 min)
+    // adjustedTotal=300 < shiftEnd=420 → +1440 → 1740, diff=1740-1140=600 → late
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T05:00:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Terlambat 600 menit');
+  });
+
+  it('night shift check-in at 06:30 (early morning, next day) is late by 690 min', () => {
+    // Night shift 19:00-07:00, check-in at 06:30 (390 min)
+    // adjustedTotal=390 < shiftEnd=420 → +1440 → 1830, diff=1830-1140=690 → late
+    // This is the scenario the user reported: "Terlambat 699 menit" (close to 690)
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T06:30:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Terlambat 690 menit');
+  });
+
+  it('night shift check-in at 06:55 (early morning, within tolerance of shift end) is late by 715 min', () => {
+    // Night shift 19:00-07:00, check-in at 06:55 (415 min)
+    // adjustedTotal=415 < shiftEnd=420 → +1440 → 1855, diff=1855-1140=715 → late
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T06:55:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Terlambat 715 menit');
+  });
+
+  it('night shift check-in at 07:00 (exactly at shift end) is NOT inside overnight shift', () => {
+    // Night shift 19:00-07:00, check-in at 07:00 (420 min)
+    // 07:00 is exclusive end of overnight shift → should NOT be matched to night shift
+    // This test verifies that the shift matching correctly excludes 07:00 from night shift
+    // If matched to night shift: adjustedTotal=420 < shiftEnd=420? No (not <) → no adjustment
+    // diff=420-1140=-720 → early arrival
+    // But actually 07:00 should match day shift (07:00-19:00), not night shift.
+    // This test uses a night shift shiftMap directly to verify the adjustment logic boundary.
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T07:00:00', type: 0 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    // 420 is NOT < 420 (end), so no adjustment. diff=420-1140=-720 → early arrival
+    expect(ket).toBe('Anomali (Terlalu Awal)');
+  });
+
+  it('night shift check-out at 06:00 (within shift) is not early departure', () => {
+    // Night shift 19:00-07:00, check-out at 06:00 (360 min)
+    // shiftEnd=420, diff=360-420=-60 → not < -60 → no remark
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T06:00:00', type: 1 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('');
+  });
+
+  it('night shift check-out at 04:00 (early within shift) is early departure', () => {
+    // Night shift 19:00-07:00, check-out at 04:00 (240 min)
+    // shiftEnd=420, diff=240-420=-180 < -60 → early departure
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T04:00:00', type: 1 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Pulang Cepat');
+  });
+
+  it('night shift check-out at 08:00 (after shift) is overtime within threshold', () => {
+    // Night shift 19:00-07:00, check-out at 08:00 (480 min)
+    // shiftEnd=420, diff=480-420=60 → not > 60 → no remark
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T08:00:00', type: 1 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('');
+  });
+
+  it('night shift check-out at 09:00 (after shift) is overtime', () => {
+    // Night shift 19:00-07:00, check-out at 09:00 (540 min)
+    // shiftEnd=420, diff=540-420=120 > 60 → overtime
+    const row = makeRow({ id: 1, timestamp: '2025-06-02T09:00:00', type: 1 });
+    const rowAnomalyMap = new Map([[1, { isAnomaly: false, anomalyType: null }]]);
+    const rowShiftMap = new Map([[1, { start: 19 * 60, end: 7 * 60 }]]); // 19:00-07:00 overnight
+    const shiftTypes = { Staff: staffShift };
+
+    const ket = detectAttendanceRemark(row, rowAnomalyMap, rowShiftMap, shiftTypes, defaultRemarks, 5);
+    expect(ket).toBe('Anomali (Lembur?)');
+  });
 });
 
 // ─── calculateShiftDiff ──────────────────────────────────────────────────────
