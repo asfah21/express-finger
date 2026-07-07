@@ -12,6 +12,8 @@ import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
+import { refreshLate, handleLateSearch } from './js/pages/late.js';
+
 
 // Expose to window for HTML onclick handlers
 window.toggleTheme = toggleTheme;
@@ -112,9 +114,15 @@ window.showSyncModal = showSyncModal;
 window.closeSyncModal = closeSyncModal;
 window.updateEmployeeDeviceStatus = function() {};
 
+// Late Page Functions
+window.refreshLate = refreshLate;
+window.handleLateSearch = handleLateSearch;
+window.applyLateFilter = () => { state.pagination.late.page = 0; refreshLate(); };
+
 // Metric Page Functions
 window.refreshCacheMetrics = refreshCacheMetrics;
 window.flushCache = flushCache;
+
 
 // For legacy code within this file that hasn't been moved yet
 const paginationState = state.pagination;
@@ -199,12 +207,13 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'hr', 'metric'];
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'activity', 'account', 'settings', 'hr', 'metric'];
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+
         state.allowedPageLabels = {};
     }
 }
@@ -302,8 +311,10 @@ function showPage(pageId) {
         'account': 'My Account',
         'settings': 'System Settings',
         'hr': 'HR Settings',
+        'late': 'Attendance Late',
         'metric': 'Cache Metrics'
     };
+
     // Use dynamic label from server if available, fallback to default
     const pageTitle = state.allowedPageLabels?.[pageId] || defaultTitles[pageId] || 'Dashboard';
     const titleEl = document.getElementById('page-title');
@@ -358,9 +369,12 @@ function showPage(pageId) {
             loadPagePermissions();
         }
 
+        if (pageId === 'late') refreshLate();
+
         if (pageId === 'hr') loadHrSettings();
 
         if (pageId === 'metric') refreshCacheMetrics();
+
     }
 
     if (window.innerWidth < 1024) {
@@ -465,6 +479,7 @@ function updatePageSize(type, val) {
     if (type === 'devices') refreshDevices();
     if (type === 'employees') refreshEmployees();
     if (type === 'logs') refreshLogs();
+    if (type === 'late') refreshLate();
     if (type === 'activity') refreshActivityLogs();
 }
 
@@ -476,6 +491,7 @@ function nextPage(type) {
         if (type === 'devices') refreshDevices();
         if (type === 'employees') refreshEmployees();
         if (type === 'logs') refreshLogs();
+        if (type === 'late') refreshLate();
         if (type === 'activity') refreshActivityLogs();
     }
 }
@@ -488,6 +504,7 @@ function prevPage(type) {
         if (type === 'devices') refreshDevices();
         if (type === 'employees') refreshEmployees();
         if (type === 'logs') refreshLogs();
+        if (type === 'late') refreshLate();
         if (type === 'activity') refreshActivityLogs();
     }
 }
@@ -499,7 +516,9 @@ function goToPage(type, p) {
     if (type === 'devices') refreshDevices();
     if (type === 'employees') refreshEmployees();
     if (type === 'logs') refreshLogs();
+    if (type === 'late') refreshLate();
     if (type === 'activity') refreshActivityLogs();
+
 }
 
 function updatePaginationUI(type) {
@@ -619,7 +638,9 @@ window.addEventListener('resize', () => {
         if (state.currentPath === 'overview') updatePaginationUI('overview');
         if (state.currentPath === 'employees') updatePaginationUI('employees');
         if (state.currentPath === 'logs') updatePaginationUI('logs');
+        if (state.currentPath === 'late') updatePaginationUI('late');
         if (state.currentPath === 'activity') updatePaginationUI('activity');
+
         
         // Remove collapsed class when entering mobile view
         if (window.innerWidth < 1024) {

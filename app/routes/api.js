@@ -29,7 +29,9 @@ router.put('/page-permissions/:id', requireSuperAdminPrivileges, pagePermissions
 // Get current user's accessible pages (any authenticated user)
 router.get('/my-permissions', requireApiKey, pagePermissionsController.getMyPermissions)
 
+router.get('/logs/late', apiController.getLateLogs)
 router.get('/logs', apiController.getLogs)
+
 router.get('/logs/summary', apiController.getAttendanceSummary)
 router.get('/pair', apiController.getPairSummary)
 router.get('/stats/daily', apiController.getDailyStats)

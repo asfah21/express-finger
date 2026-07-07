@@ -10,7 +10,118 @@ import { processAttendance } from '../utils/attendance-engine.js'
 
 // API controller
 export const apiController = {
+  async getLateLogs(req, res) {
+    try {
+      const { from, to, limit = 100, offset = 0, search } = req.query
+
+      const lim = Math.min(Number(limit) || 100, config.MAX_LIMIT)
+      const off = Math.max(Number(offset) || 0, 0)
+      const where = ['al.type = 0']
+      const params = []
+      let i = 1
+
+      if (from) { where.push(`al."timestamp" >= $${i++}`); params.push(new Date(String(from))) }
+      if (to) { where.push(`al."timestamp" <= $${i++}`); params.push(new Date(String(to))) }
+
+      if (search) {
+        where.push(`e.nama ILIKE $${i}`);
+        params.push(`%${search}%`);
+        i++;
+      }
+
+      const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
+
+      const dataQuery = {
+        text: `
+          WITH ranked_logs AS (
+            SELECT 
+              al.id, 
+              al.user_id, 
+              e.nik,
+              e.nama,
+              e.jabatan,
+              e.department,
+              e.divisi,
+              e.type as emp_type,
+              al.type, 
+              al.device_sn,
+              d.name as device_name,
+              al."timestamp", 
+              al.created_at,
+              LAG(al."timestamp") OVER (
+                PARTITION BY al.user_id, al.type
+                ORDER BY al."timestamp" ASC, al.id ASC
+              ) as prev_same_type_ts
+            FROM attendance_logs al
+            LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+            LEFT JOIN devices d ON al.device_sn = d.sn
+            ${whereSql}
+          )
+          SELECT *, (
+            prev_same_type_ts IS NOT NULL
+            AND EXTRACT(EPOCH FROM ("timestamp" - prev_same_type_ts)) <= 300
+          ) as is_duplicate
+          FROM ranked_logs
+          ORDER BY "timestamp" DESC
+          LIMIT $${i++} OFFSET $${i++}
+        `,
+        values: [...params, lim, off],
+      }
+      const countQuery = {
+        text: `
+          SELECT COUNT(*)::bigint AS total 
+          FROM attendance_logs al 
+          LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+          ${whereSql}
+        `,
+        values: params,
+      }
+
+      const [dataRes, countRes] = await Promise.all([
+        pool.query(dataQuery),
+        pool.query(countQuery)
+      ])
+
+      const paramSettings = await getSettingsData()
+      const tolerance = Number(paramSettings?.late_tolerance_mins || 5);
+      const shiftTypes = paramSettings?.shift_types || {};
+      const ruleInOut = paramSettings?.rule_in_out || null;
+      const remarks = paramSettings?.remarks_config || {
+        "late": "Terlambat {diff} menit",
+        "early_arrival": "Anomali (Terlalu Awal)",
+        "overtime_check": "Anomali (Lembur?)",
+        "early_departure": "Pulang Cepat",
+        "duplicate": "Duplikat Absensi",
+        "anomaly_masuk": "Anomali / Masuk",
+        "anomaly_pulang": "Anomali / Pulang"
+      };
+
+      const typeMap = paramSettings?.types || {
+        0: 'Masuk',
+        1: 'Pulang',
+        2: 'Break Out',
+        3: 'Break In',
+        4: 'Lembur Masuk',
+        5: 'Lembur Keluar'
+      }
+
+      // Process attendance to get remarks (including late detection)
+      const processedRows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut);
+
+      // Filter only late records (ket contains "Terlambat")
+      const lateRows = processedRows.filter(row => row.ket && row.ket.includes('Terlambat'));
+
+      const total = Number(countRes.rows[0]?.total || 0)
+
+      return sendPaginated(res, lateRows, total, Number(limit), Number(offset))
+    } catch (err) {
+      console.error('Error getLateLogs:', err)
+      return sendError(res, 'Gagal mengambil data keterlambatan', 500)
+    }
+  },
+
   async getLogs(req, res) {
+
     try {
       const { from, to, limit = 100, offset = 0, user_id, type, device_sn, search } = req.query
 

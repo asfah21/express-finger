@@ -149,7 +149,9 @@ export async function ensureSchema() {
       { page_id: 'account', page_label: 'My Account', roles: '{superadmin,admin,viewer}' },
       { page_id: 'settings', page_label: 'System Settings', roles: '{superadmin}' },
       { page_id: 'hr', page_label: 'HR Settings', roles: '{superadmin,admin}' },
+      { page_id: 'late', page_label: 'Attendance Late', roles: '{superadmin,admin,viewer}' },
       { page_id: 'metric', page_label: 'Cache Metrics', roles: '{superadmin}' }
+
     ]
     for (const perm of defaultPermissions) {
       await pool.query(
@@ -179,6 +181,16 @@ export async function ensureSchema() {
     )
     console.log('✅ HR Settings page permission updated to include admin')
   }
+
+  // Ensure late page exists in page_permissions for existing installations
+  const { rows: lateRows } = await pool.query(`SELECT allowed_roles FROM page_permissions WHERE page_id = 'late'`)
+  if (lateRows.length === 0) {
+    await pool.query(
+      `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('late', 'Attendance Late', '{superadmin,admin,viewer}')`
+    )
+    console.log('✅ Attendance Late page permission added')
+  }
+
 }
 
 

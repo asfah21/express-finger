@@ -14,7 +14,9 @@ export const state = {
         devices: { page: 0, size: 25, total: 0 },
         employees: { page: 0, size: 25, total: 0 },
         logs: { page: 0, size: 25, total: 0 },
+        late: { page: 0, size: 25, total: 0 },
         activity: { page: 0, size: 25, total: 0 }
+
     },
     // Maximum export limit - centralized to avoid hardcoded values
     EXPORT_LIMIT: 50000,
