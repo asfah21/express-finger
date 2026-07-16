@@ -124,10 +124,24 @@
                     <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
                         <i class="fas fa-cloud-download-alt" style="color: var(--primary);"></i> Auto Sync Employee
                     </h3>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5;">
-                        Automatically pull employee data from device <strong>OFFICE (10.10.62.181)</strong> 
+                    <!-- <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5;">
+                        Automatically pull employee data from a fingerprint device 
                         and sync to server database on a scheduled interval.
-                    </p>
+                    </p> -->
+
+                    <!-- Device Selector -->
+                    <div class="form-group">
+                        <label>Fingerprint Device</label>
+                        <div style="position: relative;">
+                            <i class="fas fa-fingerprint" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); z-index: 1;"></i>
+                            <select id="setting-auto-sync-device" style="padding-left: 2.8rem;">
+                                <option value="">-- Select Device --</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+                            <i class="fas fa-info-circle"></i> Choose which device to pull employee data from
+                        </div>
+                    </div>
                     
                     <!-- Toggle Switch -->
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--glass-border); margin-bottom: 1rem;">

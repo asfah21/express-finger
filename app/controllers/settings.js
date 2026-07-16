@@ -104,7 +104,8 @@ const defaultSettings = {
         "anomaly_pulang": "Anomali / Pulang"
     },
     auto_sync_employee_enabled: false,
-    auto_sync_employee_interval_minutes: 30
+    auto_sync_employee_interval_minutes: 30,
+    auto_sync_employee_device_id: null
 }
 
 export async function getSettingsData() {
@@ -144,7 +145,8 @@ export async function getSettingsData() {
 const ALLOWED_KEYS = new Set([
     'api_key', 'late_tolerance_mins', 'cleanup_age_days',
     'types', 'shift_types', 'remarks_config', 'rule_in_out',
-    'auto_sync_employee_enabled', 'auto_sync_employee_interval_minutes'
+    'auto_sync_employee_enabled', 'auto_sync_employee_interval_minutes',
+    'auto_sync_employee_device_id'
 ])
 
 const FIELD_VALIDATORS = {
@@ -156,7 +158,8 @@ const FIELD_VALIDATORS = {
     remarks_config: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
     rule_in_out: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
     auto_sync_employee_enabled: (val) => typeof val === 'boolean',
-    auto_sync_employee_interval_minutes: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 5 && val <= 1440
+    auto_sync_employee_interval_minutes: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 5 && val <= 1440,
+    auto_sync_employee_device_id: (val) => val === null || (typeof val === 'number' && Number.isInteger(val) && val > 0)
 }
 
 export const settingsController = {

@@ -136,14 +136,20 @@ async function runAutoEmployeeSyncTask() {
         isAutoSyncEmployeeRunning = true;
         console.log(`👤 [${new Date().toISOString()}] Auto Sync Employee: Starting (interval: ${intervalMinutes} min)...`);
 
-        // Find device OFFICE (10.10.62.181) from database
+        // Find selected device from database using device_id from settings
+        const deviceId = settings.auto_sync_employee_device_id;
+        if (!deviceId) {
+            console.warn('⚠️ Auto Sync Employee: No device selected in settings');
+            return;
+        }
+
         const { rows: devices } = await pool.query(
-            "SELECT * FROM devices WHERE ip = $1 OR sn = $2 LIMIT 1",
-            ['10.10.62.181', 'CKEB233960333']
+            "SELECT * FROM devices WHERE id = $1 AND is_active = true LIMIT 1",
+            [deviceId]
         );
 
         if (devices.length === 0) {
-            console.warn('⚠️ Auto Sync Employee: Device OFFICE (10.10.62.181) not found in database');
+            console.warn(`⚠️ Auto Sync Employee: Device with ID ${deviceId} not found or inactive`);
             return;
         }
 

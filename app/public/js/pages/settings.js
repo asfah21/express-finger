@@ -55,8 +55,34 @@ export async function loadSettings() {
             interval.value = s.auto_sync_employee_interval_minutes || 30;
         }
         
+        // Load devices into dropdown and restore saved selection
+        loadAutoSyncDeviceDropdown(s.auto_sync_employee_device_id);
+        
         // Show current status
         updateAutoSyncStatusUI(s.auto_sync_employee_enabled);
+    }
+}
+
+/**
+ * Load devices from API into the auto sync device dropdown
+ * and restore the previously selected device
+ */
+async function loadAutoSyncDeviceDropdown(savedDeviceId) {
+    const select = document.getElementById('setting-auto-sync-device');
+    if (!select) return;
+    
+    try {
+        const res = await fetch('/api/devices');
+        const data = await res.json();
+        const devices = data.data?.list || data.data || [];
+        
+        select.innerHTML = '<option value="">-- Select Device --</option>' + 
+            devices.map(d => {
+                const selected = d.id == savedDeviceId ? 'selected' : '';
+                return `<option value="${d.id}" ${selected}>${d.name || d.ip} (${d.sn})${d.ip ? ' - ' + d.ip : ''}</option>`;
+            }).join('');
+    } catch (err) {
+        console.error('Failed to load devices for auto sync dropdown', err);
     }
 }
 
@@ -121,11 +147,15 @@ function updateAutoSyncStatusUI(enabled) {
 export async function saveAutoSyncSettings() {
     const enabled = document.getElementById('setting-auto-sync-employee').checked;
     const interval = parseInt(document.getElementById('setting-auto-sync-interval').value) || 30;
+    const deviceId = document.getElementById('setting-auto-sync-device').value;
     
-    await updateSettings({
+    const payload = {
         auto_sync_employee_enabled: enabled,
-        auto_sync_employee_interval_minutes: Math.max(5, Math.min(1440, interval))
-    }, 'Auto sync employee settings saved');
+        auto_sync_employee_interval_minutes: Math.max(5, Math.min(1440, interval)),
+        auto_sync_employee_device_id: deviceId ? parseInt(deviceId) : null
+    };
+    
+    await updateSettings(payload, 'Auto sync employee settings saved');
     
     // Update status display
     updateAutoSyncStatusUI(enabled);
