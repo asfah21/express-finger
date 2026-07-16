@@ -2,10 +2,14 @@ import { SYNC_CONFIG } from '../config/sync.js';
 import { pullDeviceLogs, checkDeviceStatus } from './zklib.js';
 import { getDevices, pool } from './database.js';
 import { delCacheByPatterns, CACHE_PATTERNS } from './cache.js';
+import { getSettingsData } from '../controllers/settings.js';
+import { pullDeviceUsersSync } from './zklib-employee.js';
+import { recordActivity } from '../controllers/activity-log.js';
 
 
 let isRunning = false;
 let isPingRunning = false;
+let isAutoSyncEmployeeRunning = false;
 
 export async function startPullScheduler() {
     console.log(`⏰ Scheduler Started. Sync Interval: ${SYNC_CONFIG.PULL_INTERVAL / 60000} minutes.`);
@@ -23,6 +27,11 @@ export async function startPullScheduler() {
     setInterval(async () => {
         await runPingTask();
     }, 5 * 60000); 
+
+    // Set interval Auto Sync Employee - check every 1 minute
+    setInterval(async () => {
+        await runAutoEmployeeSyncTask();
+    }, 60000);
 }
 
 async function runPingTask() {
@@ -99,4 +108,72 @@ async function runSyncTask() {
         isRunning = false;
     }
 
+}
+
+/**
+ * Auto Sync Employee from Device OFFICE (10.10.62.181) to Server
+ * Reads settings: auto_sync_employee_enabled, auto_sync_employee_interval_minutes
+ */
+let lastAutoSyncEmployeeTime = 0;
+
+async function runAutoEmployeeSyncTask() {
+    if (isAutoSyncEmployeeRunning) return;
+
+    try {
+        // Read settings
+        const settings = await getSettingsData();
+        
+        // Check if auto sync is enabled
+        if (!settings.auto_sync_employee_enabled) return;
+
+        const intervalMinutes = settings.auto_sync_employee_interval_minutes || 30;
+        const now = Date.now();
+        const elapsedMinutes = (now - lastAutoSyncEmployeeTime) / 60000;
+
+        // Check if enough time has passed since last sync
+        if (elapsedMinutes < intervalMinutes) return;
+
+        isAutoSyncEmployeeRunning = true;
+        console.log(`👤 [${new Date().toISOString()}] Auto Sync Employee: Starting (interval: ${intervalMinutes} min)...`);
+
+        // Find device OFFICE (10.10.62.181) from database
+        const { rows: devices } = await pool.query(
+            "SELECT * FROM devices WHERE ip = $1 OR sn = $2 LIMIT 1",
+            ['10.10.62.181', 'CKEB233960333']
+        );
+
+        if (devices.length === 0) {
+            console.warn('⚠️ Auto Sync Employee: Device OFFICE (10.10.62.181) not found in database');
+            return;
+        }
+
+        const device = devices[0];
+        const port = device.port || 4370;
+
+        console.log(`👤 [Auto Sync Employee] Pulling from ${device.name || device.sn} (${device.ip}:${port})...`);
+
+        // Execute sync: Device -> Server
+        const result = await pullDeviceUsersSync(device.ip, port);
+
+        // Update last_sync timestamp
+        await pool.query('UPDATE devices SET last_sync = now() WHERE id = $1', [device.id]);
+
+        lastAutoSyncEmployeeTime = Date.now();
+
+        console.log(`✅ [Auto Sync Employee] Completed. Written: ${result.count}, Skipped (unchanged): ${result.skipped}`);
+
+        // Record activity log
+        await recordActivity({
+            username: 'system',
+            action: 'auto_sync_employee',
+            category: 'sync',
+            detail: `Auto Sync Device->Server: ${device.name || device.sn} (${device.ip}). Written: ${result.count}, Skipped (unchanged): ${result.skipped}`,
+            ip: '127.0.0.1'
+        });
+
+    } catch (err) {
+        console.error('❌ Auto Sync Employee error:', err.message);
+    } finally {
+        isAutoSyncEmployeeRunning = false;
+    }
 }

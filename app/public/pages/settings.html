@@ -100,21 +100,67 @@
 
         <!-- System Tab -->
         <div id="settings-tab-system" class="hr-tab-panel">
-            <div class="stat-card" style="max-width: 450px;">
-                <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-sliders-h" style="color: var(--secondary);"></i> System Preferences
-                </h3>
-                <div class="form-group">
-                    <label>API Key</label>
-                    <input type="text" id="setting-api-key" placeholder="Enter API Key">
+            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+                <!-- System Preferences Card -->
+                <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 450px;">
+                    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-sliders-h" style="color: var(--secondary);"></i> System Preferences
+                    </h3>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="text" id="setting-api-key" placeholder="Enter API Key">
+                    </div>
+                    <div class="form-group">
+                        <label>Log Cleanup (Days)</label>
+                        <input type="number" id="setting-cleanup-days" value="30">
+                    </div>
+                    <button class="btn-primary" style="margin-top: 1rem;" onclick="saveSystemSettings()">
+                        <i class="fas fa-save"></i> Save Config
+                    </button>
                 </div>
-                <div class="form-group">
-                    <label>Log Cleanup (Days)</label>
-                    <input type="number" id="setting-cleanup-days" value="30">
+
+                <!-- Auto Sync Employee Card -->
+                <div class="stat-card" style="flex: 1; min-width: 300px; max-width: 450px;">
+                    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fas fa-cloud-download-alt" style="color: var(--primary);"></i> Auto Sync Employee
+                    </h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5;">
+                        Automatically pull employee data from device <strong>OFFICE (10.10.62.181)</strong> 
+                        and sync to server database on a scheduled interval.
+                    </p>
+                    
+                    <!-- Toggle Switch -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--glass-border); margin-bottom: 1rem;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.9rem;">Enable Auto Sync</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Sync employee data automatically</div>
+                        </div>
+                        <label class="toggle-switch" style="position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0;">
+                            <input type="checkbox" id="setting-auto-sync-employee">
+                            <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.15); border-radius: 26px; transition: 0.3s;"></span>
+                        </label>
+                    </div>
+
+                    <!-- Interval Setting -->
+                    <div class="form-group">
+                        <label>Sync Interval (Minutes)</label>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="number" id="setting-auto-sync-interval" value="30" min="5" max="1440" style="flex: 1;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">min (5 - 1440)</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem;">
+                            <i class="fas fa-info-circle"></i> Recommended: 30-60 minutes
+                        </div>
+                    </div>
+
+                    <!-- Status Indicator -->
+                    <div id="auto-sync-status" style="display: none; margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem;">
+                    </div>
+
+                    <button class="btn-primary" style="margin-top: 1rem;" onclick="saveAutoSyncSettings()">
+                        <i class="fas fa-save"></i> Save Auto Sync Settings
+                    </button>
                 </div>
-                <button class="btn-primary" style="margin-top: 1rem;" onclick="saveSystemSettings()">
-                    <i class="fas fa-save"></i> Save Config
-                </button>
             </div>
         </div>
 

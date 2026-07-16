@@ -102,7 +102,9 @@ const defaultSettings = {
         "duplicate": "Duplikat Absensi",
         "anomaly_masuk": "Anomali / Masuk",
         "anomaly_pulang": "Anomali / Pulang"
-    }
+    },
+    auto_sync_employee_enabled: false,
+    auto_sync_employee_interval_minutes: 30
 }
 
 export async function getSettingsData() {
@@ -122,6 +124,13 @@ export async function getSettingsData() {
                 ...settings.remarks_config
             }
         }
+        // Ensure auto-sync keys exist in older saved settings
+        if (settings.auto_sync_employee_enabled === undefined) {
+            settings.auto_sync_employee_enabled = defaultSettings.auto_sync_employee_enabled
+        }
+        if (settings.auto_sync_employee_interval_minutes === undefined) {
+            settings.auto_sync_employee_interval_minutes = defaultSettings.auto_sync_employee_interval_minutes
+        }
         return settings
     } catch (error) {
         // Jika file belum ada, buat baru dengan default settings
@@ -134,7 +143,8 @@ export async function getSettingsData() {
 // Validasi tipe data untuk setiap field settings yang diizinkan
 const ALLOWED_KEYS = new Set([
     'api_key', 'late_tolerance_mins', 'cleanup_age_days',
-    'types', 'shift_types', 'remarks_config', 'rule_in_out'
+    'types', 'shift_types', 'remarks_config', 'rule_in_out',
+    'auto_sync_employee_enabled', 'auto_sync_employee_interval_minutes'
 ])
 
 const FIELD_VALIDATORS = {
@@ -144,7 +154,9 @@ const FIELD_VALIDATORS = {
     types: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
     shift_types: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
     remarks_config: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
-    rule_in_out: (val) => typeof val === 'object' && val !== null && !Array.isArray(val)
+    rule_in_out: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
+    auto_sync_employee_enabled: (val) => typeof val === 'boolean',
+    auto_sync_employee_interval_minutes: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 5 && val <= 1440
 }
 
 export const settingsController = {

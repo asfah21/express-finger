@@ -44,6 +44,19 @@ export async function loadSettings() {
         const s = data.data;
         document.getElementById('setting-api-key').value = s.api_key || '';
         document.getElementById('setting-cleanup-days').value = s.cleanup_age_days || 30;
+        
+        // Auto sync employee settings
+        const toggle = document.getElementById('setting-auto-sync-employee');
+        if (toggle) {
+            toggle.checked = s.auto_sync_employee_enabled === true;
+        }
+        const interval = document.getElementById('setting-auto-sync-interval');
+        if (interval) {
+            interval.value = s.auto_sync_employee_interval_minutes || 30;
+        }
+        
+        // Show current status
+        updateAutoSyncStatusUI(s.auto_sync_employee_enabled);
     }
 }
 
@@ -74,6 +87,52 @@ export async function saveSystemSettings() {
         cleanup_age_days: parseInt(cleanupDays)
     }, 'System preferences updated');
 }
+
+/**
+ * Update the auto-sync status indicator in the settings UI
+ */
+function updateAutoSyncStatusUI(enabled) {
+    const statusEl = document.getElementById('auto-sync-status');
+    if (!statusEl) return;
+    
+    if (enabled) {
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
+        statusEl.style.border = '1px solid rgba(16, 185, 129, 0.2)';
+        statusEl.style.color = 'var(--success)';
+        statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Auto sync is <strong>ACTIVE</strong>. Employee data will be pulled every <span id="auto-sync-status-interval">30</span> minutes.';
+        
+        // Update interval display
+        const intervalVal = document.getElementById('setting-auto-sync-interval')?.value || 30;
+        const intervalSpan = document.getElementById('auto-sync-status-interval');
+        if (intervalSpan) intervalSpan.textContent = intervalVal;
+    } else {
+        statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(239, 68, 68, 0.1)';
+        statusEl.style.border = '1px solid rgba(239, 68, 68, 0.2)';
+        statusEl.style.color = 'var(--error)';
+        statusEl.innerHTML = '<i class="fas fa-minus-circle"></i> Auto sync is <strong>DISABLED</strong>.';
+    }
+}
+
+/**
+ * Save auto sync employee settings
+ */
+export async function saveAutoSyncSettings() {
+    const enabled = document.getElementById('setting-auto-sync-employee').checked;
+    const interval = parseInt(document.getElementById('setting-auto-sync-interval').value) || 30;
+    
+    await updateSettings({
+        auto_sync_employee_enabled: enabled,
+        auto_sync_employee_interval_minutes: Math.max(5, Math.min(1440, interval))
+    }, 'Auto sync employee settings saved');
+    
+    // Update status display
+    updateAutoSyncStatusUI(enabled);
+}
+
+// Expose to window for HTML onclick handlers
+window.saveAutoSyncSettings = saveAutoSyncSettings;
 
 export function loadProfileInfo() {
     const user = state.currentUser;
