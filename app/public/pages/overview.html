@@ -10,32 +10,67 @@
                             </button>
                         </div>
                     </div> -->
+                    <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
+                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-wave-square" style="color: var(--warning);"></i>
+                            Another Apps
+                            <!-- <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Today
+                                Only</span> -->
+                        </h3>
+                    </div>
+
+                    <!-- Hidden iframe & form for HIKVISON auto-login -->
+                    <iframe id="hikvision-login-frame" name="hikvision-login-frame" style="display:none;"></iframe>
+                    <form id="hikvision-login-form" action="http://10.10.11.5:8081/login" method="POST" target="hikvision-login-frame" style="display:none;">
+                        <input type="hidden" name="username" value="admin">
+                        <input type="hidden" name="password" value="admin123">
+                    </form>
+                    <script>
+                    function openHikvision() {
+                        // 1. Submit hidden form to login (session cookie will be set in iframe)
+                        document.getElementById('hikvision-login-form').submit();
+                        // 2. Wait a moment for session cookie to be stored, then open dashboard
+                        setTimeout(() => {
+                            window.open('http://10.10.11.5:8081/admin/dashboard', '_blank');
+                        }, 800);
+                    }
+                    </script>
                     <!-- Other Apps Cards (Superadmin Only) -->
                     <div class="stats-grid superadmin-only" id="other-apps-grid" style="margin-bottom: 0;">
-                        <div class="stat-card other-app-card" style="border-left: 4px solid #6366f1; cursor: pointer;" onclick="window.open('http://10.10.11.5:8081', '_blank')" title="Open HIKVISON">
+                        <div class="stat-card other-app-card" style="border-left: 4px solid #6366f1; cursor: pointer;" onclick="openHikvision()" title="Open HIKVISON">
                             <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="fas fa-video" style="color: #6366f1;"></i>
                                 HIKVISON
                             </div>
-                            <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">CCTV System</div>
+                            <!-- <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">CCTV System</div> -->
                         </div>
                         <div class="stat-card other-app-card" style="border-left: 4px solid #a855f7; cursor: pointer;" onclick="window.open('http://10.10.11.2:8068', '_blank')" title="Open ODOO">
                             <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="fas fa-cubes" style="color: #a855f7;"></i>
                                 ODOO
                             </div>
-                            <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">ERP System</div>
+                            <!-- <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">ERP System</div> -->
                         </div>
                         <div class="stat-card other-app-card" style="border-left: 4px solid #f97316; cursor: pointer;" onclick="window.open('http://10.10.59.3:8069/', '_blank')" title="Open IT">
                             <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="fas fa-laptop-code" style="color: #f97316;"></i>
                                 IT
                             </div>
-                            <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">IT Support</div>
+                            <!-- <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">IT Support</div> -->
                         </div>
                     </div>
                     <!-- Divider between other apps and system stats -->
                     <hr class="superadmin-only" style="margin: 1rem 0; border-color: var(--border-color); opacity: 0.5;">
+                    
+                    <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
+                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i class="fas fa-wave-square" style="color: var(--warning);"></i>
+                            Device Overview
+                            <!-- <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Today
+                                Only</span> -->
+                        </h3>
+                    </div>
+                    
                     <div class="stats-grid">
                         <div class="stat-card" style="border-left: 4px solid #63d390;">
                             <div class="stat-label">Connected Devices</div>
