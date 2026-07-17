@@ -126,7 +126,7 @@ function updateAutoSyncStatusUI(enabled) {
         statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
         statusEl.style.border = '1px solid rgba(16, 185, 129, 0.2)';
         statusEl.style.color = 'var(--success)';
-        statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Auto sync is <strong>ACTIVE</strong>. Employee data will be pulled every <span id="auto-sync-status-interval">30</span> minutes.';
+        statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Auto sync is <strong>ACTIVE</strong>. Data will be pulled every <span id="auto-sync-status-interval">30</span> minutes.';
         
         // Update interval display
         const intervalVal = document.getElementById('setting-auto-sync-interval')?.value || 30;

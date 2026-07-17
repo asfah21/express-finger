@@ -1692,7 +1692,7 @@ select option {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255,255,255,0.15);
+    background: rgba(248, 113, 113, 0.3);
     border-radius: 26px;
     transition: 0.3s;
 }
@@ -1711,7 +1711,7 @@ select option {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-    background: var(--primary);
+    background: var(--success);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
