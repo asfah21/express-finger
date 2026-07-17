@@ -10,6 +10,32 @@
                             </button>
                         </div>
                     </div> -->
+                    <!-- Other Apps Cards (Superadmin Only) -->
+                    <div class="stats-grid superadmin-only" id="other-apps-grid" style="margin-bottom: 0;">
+                        <div class="stat-card other-app-card" style="border-left: 4px solid #6366f1; cursor: pointer;" onclick="window.open('http://10.10.11.5:8081', '_blank')" title="Open HIKVISON">
+                            <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-video" style="color: #6366f1;"></i>
+                                HIKVISON
+                            </div>
+                            <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">CCTV System</div>
+                        </div>
+                        <div class="stat-card other-app-card" style="border-left: 4px solid #a855f7; cursor: pointer;" onclick="window.open('http://10.10.11.2:8068', '_blank')" title="Open ODOO">
+                            <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-cubes" style="color: #a855f7;"></i>
+                                ODOO
+                            </div>
+                            <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">ERP System</div>
+                        </div>
+                        <div class="stat-card other-app-card" style="border-left: 4px solid #f97316; cursor: pointer;" onclick="window.open('http://10.10.59.3:8069/', '_blank')" title="Open IT">
+                            <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-laptop-code" style="color: #f97316;"></i>
+                                IT
+                            </div>
+                            <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">IT Support</div>
+                        </div>
+                    </div>
+                    <!-- Divider between other apps and system stats -->
+                    <hr class="superadmin-only" style="margin: 1rem 0; border-color: var(--border-color); opacity: 0.5;">
                     <div class="stats-grid">
                         <div class="stat-card" style="border-left: 4px solid #63d390;">
                             <div class="stat-label">Connected Devices</div>

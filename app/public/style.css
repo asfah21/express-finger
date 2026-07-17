@@ -650,6 +650,26 @@ body {
     font-weight: 700;
 }
 
+/* Other Apps Cards - Superadmin Quick Access */
+.other-app-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.other-app-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.3);
+}
+
+.other-app-card:active {
+    transform: translateY(-1px);
+}
+
+.other-app-card .stat-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
 /* Tables */
 .table-container {
     background: var(--card-bg);
