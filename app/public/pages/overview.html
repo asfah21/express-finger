@@ -37,26 +37,23 @@
                     </script>
                     <!-- Other Apps Cards (Superadmin Only) -->
                     <div class="stats-grid superadmin-only" id="other-apps-grid" style="margin-bottom: 2rem;">
-                        <div class="stat-card other-app-card" style="border-left: 4px solid #6366f1; cursor: pointer;" onclick="openHikvision()" title="Open HIKVISON">
-                            <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-video" style="color: #6366f1;"></i>
-                                HIKVISON
+                        <div class="stat-card other-app-card" onclick="openHikvision()" title="Open HIKVISON">
+                            <div class="other-app-icon" style="background: #6366f1;">
+                                <i class="fas fa-video"></i>
                             </div>
-                            <!-- <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">CCTV System</div> -->
+                            <span class="other-app-name">HIKVISON</span>
                         </div>
-                        <div class="stat-card other-app-card" style="border-left: 4px solid #a855f7; cursor: pointer;" onclick="window.open('http://10.10.11.2:8068', '_blank')" title="Open ODOO">
-                            <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-cubes" style="color: #a855f7;"></i>
-                                ODOO
+                        <div class="stat-card other-app-card" onclick="window.open('http://10.10.11.2:8068', '_blank')" title="Open ODOO">
+                            <div class="other-app-icon" style="background: #a855f7;">
+                                <i class="fas fa-cubes"></i>
                             </div>
-                            <!-- <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">ERP System</div> -->
+                            <span class="other-app-name">ODOO</span>
                         </div>
-                        <div class="stat-card other-app-card" style="border-left: 4px solid #f97316; cursor: pointer;" onclick="window.open('http://10.10.59.3:8069/', '_blank')" title="Open IT">
-                            <div class="stat-label" style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fas fa-laptop-code" style="color: #f97316;"></i>
-                                IT
+                        <div class="stat-card other-app-card" onclick="window.open('http://10.10.59.3:8069/', '_blank')" title="Open IT">
+                            <div class="other-app-icon" style="background: #f97316;">
+                                <i class="fas fa-laptop-code"></i>
                             </div>
-                            <!-- <div class="stat-value" style="font-size: 0.85rem; color: var(--text-muted);">IT Support</div> -->
+                            <span class="other-app-name">IT</span>
                         </div>
                     </div>
                     <!-- Divider between other apps and system stats -->
