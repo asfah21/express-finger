@@ -356,3 +356,40 @@ export const resetUserPassword = async (req, res) => {
         sendError(res, err.message)
     }
 }
+
+export const updateUserRole = async (req, res) => {
+    const { id } = req.params
+    const { role } = req.body
+    const ip = getClientIp(req)
+
+    const validRoles = ['superadmin', 'admin', 'viewer']
+    if (!role || !validRoles.includes(role)) {
+        return sendError(res, 'Invalid role. Must be one of: ' + validRoles.join(', '), 400)
+    }
+
+    try {
+        const { rows: userRows } = await pool.query('SELECT username, role FROM users WHERE id = $1', [id])
+        const targetUser = userRows[0]
+        if (!targetUser) return sendError(res, 'User not found', 404)
+
+        // Cannot change own role
+        if (parseInt(id) === req.user.id) {
+            return sendError(res, 'Cannot change your own role', 400)
+        }
+
+        await pool.query('UPDATE users SET role = $1 WHERE id = $2', [role, id])
+
+        await recordActivity({
+            username: req.user.username,
+            action: 'update_user_role',
+            category: 'auth',
+            detail: `Changed role for user "${targetUser.username}" from "${targetUser.role}" to "${role}"`,
+            ip
+        })
+
+        sendSuccess(res, { id: parseInt(id), username: targetUser.username, role }, `Role updated for "${targetUser.username}"`)
+    } catch (err) {
+        console.error('updateUserRole error:', err)
+        sendError(res, err.message)
+    }
+}

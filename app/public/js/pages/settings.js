@@ -256,28 +256,40 @@ export async function loadUserList() {
             return;
         }
 
+        // Role colors for the dropdown options
+        const roleColors = {
+            'superadmin': 'var(--secondary)',
+            'admin': 'var(--primary)',
+            'viewer': 'var(--text-muted)'
+        };
+
         const userRows = users.map(user => {
-            const roleBadgeColor = user.role === 'superadmin' ? 'var(--secondary)' : user.role === 'admin' ? 'var(--primary)' : 'var(--text-muted)';
+            const isSelf = state.currentUser?.username === user.username;
             return `
                 <tr style="border-bottom:1px solid var(--glass-border);">
                     <td style="padding:0.5rem;font-weight:600;">
                         <div style="display:flex;align-items:center;gap:0.5rem;">
                             <div style="width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0;">${user.username[0].toUpperCase()}</div>
                             <span style="white-space:nowrap;">${user.username}</span>
-                            ${state.currentUser?.username === user.username ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
+                            ${isSelf ? '<span class="badge" style="background:var(--success);color:#fff;font-size:0.6rem;padding:0.1rem 0.3rem;">You</span>' : ''}
                         </div>
                     </td>
                     <td style="padding:0.5rem;">
-                        <span class="badge" style="background:${roleBadgeColor};color:#fff;white-space:nowrap;">
-                            ${user.role}
-                        </span>
+                        <select class="role-select" data-user-id="${user.id}" data-username="${user.username}" data-original-role="${user.role}"
+                            ${isSelf ? 'disabled style="opacity:0.6;cursor:not-allowed;"' : ''}
+                            onchange="confirmRoleChange(this, ${user.id}, '${user.username}')"
+                            style="padding:0.25rem 0.5rem;border-radius:0.375rem;border:1px solid var(--glass-border);background:var(--card-bg);color:var(--text);font-size:0.8rem;cursor:pointer;">
+                            <option value="superadmin" ${user.role === 'superadmin' ? 'selected' : ''} style="background:${roleColors.superadmin};color:#fff;">superadmin</option>
+                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''} style="background:${roleColors.admin};color:#fff;">admin</option>
+                            <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''} style="background:${roleColors.viewer};color:#fff;">viewer</option>
+                        </select>
                     </td>
                     <td style="padding:0.5rem;text-align:right;white-space:nowrap;">
                         <button class="icon-btn" title="Reset Password" onclick="resetUserPasswordPrompt(${user.id}, '${user.username}')" style="margin-right:0.25rem;">
                             <i class="fas fa-key" style="color:var(--warning);"></i>
                         </button>
-                        <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${state.currentUser?.username === user.username ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
-                            <i class="fas fa-trash" style="${state.currentUser?.username !== user.username ? 'color:var(--error);' : ''}"></i>
+                        <button class="icon-btn" title="Delete User" onclick="deleteUserPrompt(${user.id}, '${user.username}')" ${isSelf ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
+                            <i class="fas fa-trash" style="${!isSelf ? 'color:var(--error);' : ''}"></i>
                         </button>
                     </td>
                 </tr>
@@ -405,6 +417,59 @@ export function resetUserPasswordPrompt(id, username) {
     toggleModal(true);
     setTimeout(() => document.getElementById('reset-password-input')?.focus(), 150);
 }
+
+/**
+ * Prompt confirmation before changing a user's role
+ */
+export function confirmRoleChange(selectEl, userId, username) {
+    const newRole = selectEl.value;
+    const oldRole = selectEl.dataset.originalRole || '';
+    
+    showConfirm({
+        title: 'Change User Role',
+        message: `Are you sure you want to change <strong>${username}</strong>'s role from <strong>${oldRole}</strong> to <strong>${newRole}</strong>?`,
+        icon: 'fa-user-shield',
+        confirmText: 'Change Role',
+        confirmColor: 'var(--warning)',
+        onConfirm: () => updateUserRole(userId, username, newRole),
+        onCancel: () => {
+            // Reset dropdown to original value
+            loadUserList();
+        }
+    });
+}
+
+// Expose to window for HTML onchange handlers
+window.confirmRoleChange = confirmRoleChange;
+
+/**
+ * Update a user's role when the dropdown changes
+ */
+export async function updateUserRole(userId, username, newRole) {
+    try {
+        const res = await fetch(`/auth/users/${userId}/role`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`Role updated for "${username}" to ${newRole}`, 'success');
+            // Re-fetch the user list to reflect changes
+            loadUserList();
+        } else {
+            showToast(data.message || 'Failed to update role', 'error');
+            // Re-fetch to reset the dropdown to original value
+            loadUserList();
+        }
+    } catch (err) {
+        showToast('Network error', 'error');
+        loadUserList();
+    }
+}
+
+// Expose to window for HTML onchange handlers
+window.updateUserRole = updateUserRole;
 
 export function openSettingsAuth() {
     document.getElementById('modal-title').innerText = 'Settings Authentication';

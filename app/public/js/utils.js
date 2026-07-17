@@ -51,10 +51,11 @@ export function toggleModal(show) {
     }
 }
 
-export function showConfirm({ title, message, icon, confirmText, confirmColor, onConfirm }) {
+export function showConfirm({ title, message, icon, confirmText, confirmColor, onConfirm, onCancel }) {
     const modalTitle = document.getElementById('modal-title');
     const modalContent = document.getElementById('modal-content');
     const saveBtn = document.getElementById('modal-save-btn');
+    const cancelBtn = document.querySelector('#modal-overlay .modal .btn-secondary');
 
     modalTitle.innerText = title || 'Confirm Action';
     modalContent.innerHTML = `
@@ -68,10 +69,26 @@ export function showConfirm({ title, message, icon, confirmText, confirmColor, o
     saveBtn.style.display = 'block';
     saveBtn.style.background = confirmColor || 'var(--primary)';
     
-    saveBtn.onclick = () => {
-        onConfirm();
+    // Remove previous event listeners by cloning and replacing
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    
+    newSaveBtn.onclick = () => {
+        if (onConfirm) onConfirm();
         toggleModal(false);
     };
 
+    // Override cancel button to call onCancel
+    if (cancelBtn) {
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        newCancelBtn.onclick = (e) => {
+            if (onCancel) {
+                onCancel();
+            }
+            toggleModal(false);
+        };
+    }
+    
     toggleModal(true);
 }
