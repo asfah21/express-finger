@@ -10,7 +10,7 @@
                             </button>
                         </div>
                     </div> -->
-                    <div class="header superadmin-only" style="margin-top: 2rem; margin-bottom: 0.75rem;">
+                    <div class="header superadmin-only" style="margin-bottom: 0.75rem;">
                         <h3 style="display: flex; align-items: center; gap: 0.75rem;">
                             <i class="fas fa-th-large" style="color: #a855f7;"></i>
                             Another Apps
@@ -38,20 +38,31 @@
                     <!-- Other Apps Cards (Superadmin Only) -->
                     <div class="stats-grid superadmin-only" id="other-apps-grid" style="margin-bottom: 2rem;">
                         <div class="stat-card other-app-card" onclick="openHikvision()" title="Open HIKVISON">
-                            <div class="other-app-icon" style="background: #6366f1;">
-                                <i class="fas fa-video"></i>
+                            <div class="other-app-icon" style="background: #2aa1a6;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                    <path d="M2 17l10 5 10-5"/>
+                                    <path d="M2 12l10 5 10-5"/>
+                                </svg>
                             </div>
                             <span class="other-app-name">HIKVISON</span>
                         </div>
                         <div class="stat-card other-app-card" onclick="window.open('http://10.10.11.2:8068', '_blank')" title="Open ODOO">
-                            <div class="other-app-icon" style="background: #a855f7;">
-                                <i class="fas fa-cubes"></i>
+                            <div class="other-app-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round">
+                                    <circle cx="12" cy="12" r="7"/>
+                                </svg>
                             </div>
                             <span class="other-app-name">ODOO</span>
                         </div>
                         <div class="stat-card other-app-card" onclick="window.open('http://10.10.59.3:8069/', '_blank')" title="Open IT">
-                            <div class="other-app-icon" style="background: #f97316;">
-                                <i class="fas fa-laptop-code"></i>
+                            <div class="other-app-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 8300 8300">
+                                    <path fill="#1A6F66" d="M1394.4 705.5h1033.3v1722.3H705.5v-1033.4c0-378.9 310-688.9 688.9-688.9z"/>
+                                    <path fill="#F86126" d="M2427.7 705.5h5166.8v1033.3c0 378.9-310 688.9-688.9 688.9H2427.7V705.5z"/>
+                                    <path fill="#962B48" d="M4149.9 7594.5V2427.7h1722.3v4477.9c0 378.9-310 688.9-688.9 688.9H4149.9z"/>
+                                    <path fill="#1AD3BB" d="M705.5 6905.6V2427.7h1722.3v5166.8H1394.4c-378.9 0-688.9-310-688.9-688.9z"/>
+                                </svg>
                             </div>
                             <span class="other-app-name">IT</span>
                         </div>
@@ -59,7 +70,7 @@
                     <!-- Divider between other apps and system stats -->
                     <hr class="superadmin-only" style="margin: 1rem 0; border-color: var(--border-color); opacity: 0.5;">
                     
-                    <div class="header" style="margin-bottom: 0.75rem;">
+                    <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
                         <h3 style="display: flex; align-items: center; gap: 0.75rem;">
                             <i class="fas fa-server" style="color: #63d390;"></i>
                             Device Overview
