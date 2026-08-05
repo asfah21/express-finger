@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AZRA - GSI Fingerprint Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23246196'/><path d='M50 20c-8 0-14 6-14 14 0 2 1 4 2 5l-2 2c-2-2-3-4-3-7 0-9 8-17 17-17s17 8 17 17c0 3-1 5-3 7l-2-2c1-1 2-3 2-5 0-8-6-14-14-14zm0 8c-4 0-7 3-7 7 0 1 0 2 1 3l-2 2c-1-1-2-3-2-5 0-5 4-10 10-10s10 5 10 10c0 2-1 4-2 5l-2-2c1-1 1-2 1-3 0-4-3-7-7-7zm-8 20l-2 2c-1-1-2-3-2-5 0-6 5-11 12-11s12 5 12 11c0 2-1 4-2 5l-2-2c1-1 1-2 1-3 0-4-4-8-9-8s-9 4-9 8c0 1 0 2 1 3zm8-2c-3 0-5 2-5 5v12c0 3 2 5 5 5s5-2 5-5V51c0-3-2-5-5-5z' fill='white'/></svg>">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23246196'/><path d='M50 20c-8 0-14 6-14 14 0 2 1 4 2 5l-2 2c-2-2-3-4-3-7 0-9 8-17 17-17s17 8 17 17c0 3-1 5-3 7l-2-2c1-1 2-3 2-5 0-8-6-14-14-14zm0 8c-4 0-7 3-7 7 0 1 0 2 1 3l-2 2c-1-1-2-3-2-5 0-5 4-10 10-10s10 5 10 10c0 2-1 4-2 5l-2-2c1-1 1-2 1-3 0-4-3-7-7-7zm-8 20l-2 2c-1-1-2-3-2-5 0-6 5-11 12-11s12 5 12 11c0 2-1 4-2 5l-2-2c1-1 1-2 1-3 0-4-4-8-9-8s-9 4-9 8c0 1 0 2 1 3zm8-2c-3 0-5 2-5 5v12c0 3 2 5 5 5s5-2 5-5V51c0-3-2-5-5-5z' fill='white'/></svg>">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/tabs.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -78,7 +79,7 @@
             <div class="mobile-header">
                 <div class="sidebar-logo" style="margin-bottom: 0;">
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
-                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.3.6</small></span>
+                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.0.7</small></span>
                 </div>
                 <div style="display: flex; gap: 0.75rem; align-items: center;">
                     <button class="icon-btn theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode"
@@ -97,7 +98,7 @@
             <nav class="sidebar">
                 <div class="sidebar-logo">
                     <div class="icon"><i class="fas fa-fingerprint"></i></div>
-                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.3.6</small></span>
+                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.0.7</small></span>
                 </div>
                 <div class="nav-item active" onclick="showPage('overview')">
                     <i class="fas fa-chart-line"></i>
@@ -145,7 +146,7 @@
                         <i class="fas fa-download"></i>
                         <span>Pull</span>
                     </div>
-                    
+
                 </div>
                 <div class="nav-item" onclick="showPage('activity')">
 
@@ -186,7 +187,8 @@
                 <!-- Top Navbar / Header -->
                 <div class="top-header">
                     <div class="top-header-left">
-                        <button class="icon-btn sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse Sidebar">
+                        <button class="icon-btn sidebar-collapse-btn" onclick="toggleSidebarCollapse()"
+                            title="Collapse Sidebar">
                             <i class="fas fa-bars"></i>
                         </button>
                         <div class="header-title" id="page-title">System Overview</div>
