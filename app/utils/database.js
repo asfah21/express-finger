@@ -35,6 +35,7 @@ export async function ensureSchema() {
       ip TEXT,
       port INT DEFAULT 4370,
       is_active BOOLEAN DEFAULT true,
+      is_template_master BOOLEAN NOT NULL DEFAULT false,
       sync_mode TEXT DEFAULT 'HYBRID',
       status TEXT DEFAULT 'offline',
       last_sync TIMESTAMPTZ,
@@ -48,6 +49,7 @@ export async function ensureSchema() {
     
     -- Ensure sync_mode column exists for existing installations
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS sync_mode TEXT DEFAULT 'HYBRID';
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS is_template_master BOOLEAN NOT NULL DEFAULT false;
     
     -- Ensure all existing devices have a sync_mode set (not NULL)
     UPDATE devices SET sync_mode = 'HYBRID' WHERE sync_mode IS NULL;
@@ -86,6 +88,75 @@ export async function ensureSchema() {
     
     CREATE INDEX IF NOT EXISTS idx_devices_ip ON devices (ip);
     CREATE INDEX IF NOT EXISTS idx_devices_active ON devices (is_active);
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_devices_single_template_master
+      ON devices ((is_template_master)) WHERE is_template_master = true;
+
+    CREATE TABLE IF NOT EXISTS employee_templates (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      template_type TEXT NOT NULL CHECK (template_type IN ('fingerprint', 'face')),
+      template_index INT NOT NULL,
+      template_data BYTEA NOT NULL,
+      size INT NOT NULL CHECK (size >= 0),
+      checksum TEXT NOT NULL,
+      source_device_id BIGINT REFERENCES devices(id) ON DELETE SET NULL,
+      source_device_sn TEXT,
+      template_version INT NOT NULL,
+      payload_format TEXT NOT NULL,
+      source_model TEXT,
+      source_firmware TEXT,
+      source_firmware_family TEXT,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      captured_at TIMESTAMPTZ,
+      last_verified_at TIMESTAMPTZ,
+      created_by TEXT,
+      valid BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      CONSTRAINT employee_templates_size_matches_data CHECK (octet_length(template_data) = size)
+    );
+
+    CREATE TABLE IF NOT EXISTS template_sync_logs (
+      id BIGSERIAL PRIMARY KEY,
+      operation TEXT NOT NULL CHECK (operation IN ('pull', 'dry_run', 'write', 'delete', 'reconcile', 'error')),
+      status TEXT NOT NULL,
+      device_id BIGINT REFERENCES devices(id) ON DELETE SET NULL,
+      source_device_id BIGINT REFERENCES devices(id) ON DELETE SET NULL,
+      user_id TEXT,
+      template_type TEXT CHECK (template_type IS NULL OR template_type IN ('fingerprint', 'face')),
+      template_index INT,
+      before_checksum TEXT,
+      after_checksum TEXT,
+      template_version INT,
+      payload_format TEXT,
+      action TEXT CHECK (action IS NULL OR action IN ('ADD', 'UPDATE', 'DELETE', 'SKIP', 'ERROR')),
+      error_code TEXT,
+      error_message TEXT,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      actor TEXT,
+      started_at TIMESTAMPTZ,
+      finished_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS device_operation_locks (
+      device_id BIGINT PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+      lock_type TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_employee_templates_current
+      ON employee_templates (user_id, template_type, template_index, template_version, payload_format)
+      WHERE valid = true;
+    CREATE INDEX IF NOT EXISTS idx_employee_templates_user ON employee_templates (user_id);
+    CREATE INDEX IF NOT EXISTS idx_employee_templates_source_device ON employee_templates (source_device_id);
+    CREATE INDEX IF NOT EXISTS idx_employee_templates_checksum ON employee_templates (checksum);
+    CREATE INDEX IF NOT EXISTS idx_template_sync_logs_device_time ON template_sync_logs (device_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_template_sync_logs_source_device ON template_sync_logs (source_device_id);
+    CREATE INDEX IF NOT EXISTS idx_template_sync_logs_checksum ON template_sync_logs (before_checksum, after_checksum);
     
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,

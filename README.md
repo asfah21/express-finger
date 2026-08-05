@@ -20,6 +20,11 @@ Now featuring a **Modern Web Dashboard (GUI)** for seamless management of device
 - **🔄 Hybrid Sync Worker**: Smart background PULL sync that auto-skips unroutable public IPs.
 - **👥 Employee Management**: GUI for managing employee directories and syncing them from devices.
 - **🐳 Docker Ready**: Includes `Dockerfile` and `docker-compose.yml` for instant deployment.
+- **🧬 Template Sync**: Admin-only, server-authoritative fingerprint/face template pull, dry-run, and push controls.
+
+Template Sync remains non-destructive by default. Configure and validate a single
+template master before using target reconciliation. See [`Documentation.md`](Documentation.md)
+for rollout, re-probe, and rollback procedures.
 
 ---
 
@@ -86,5 +91,14 @@ docker-compose up -d --build
 ---
 
 <p align="center">
-  Made with ❤️ by AAI (Antigravity AI) for PT GSI Fingerprint Systems.
+  Made with ❤️ for PT GSI Fingerprint Systems.
 </p>
+# Template Sync
+
+Template synchronization is admin-only and server-authoritative. Configure a
+template master, pull its templates, review a dry-run, and push to one or more
+compatible target devices. Auto-sync remains disabled until device capability
+validation and production verification are complete.
+
+See [`Documentation.md`](Documentation.md) for the rollout, safety, re-probe,
+and rollback procedure.

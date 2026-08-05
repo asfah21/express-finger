@@ -1,9 +1,61 @@
 import { showToast, toggleModal } from '../utils.js';
+import { showConfirm } from '../utils.js';
+
+function selectedTemplateDevice() {
+    const value = document.getElementById('pull-employee-device-select')?.value;
+    if (!value) throw new Error('Please select a device');
+    return value;
+}
+
+async function templateRequest(path, body = {}) {
+    const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status === 'error') throw new Error(data.message || data.error || 'Template sync request failed');
+    return data.data || data;
+}
+
+function renderTemplateSyncResult(result, title) {
+    const status = document.getElementById('template-sync-status');
+    if (!status) return;
+    const items = result.plan || result.results || [];
+    const counts = items.reduce((acc, item) => { acc[item.action || item.status || 'UNKNOWN'] = (acc[item.action || item.status || 'UNKNOWN'] || 0) + 1; return acc; }, {});
+    status.style.display = 'block';
+    status.innerHTML = `<strong>${title}</strong><br><span>${Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join(' · ') || `Templates: ${result.count || 0}`}</span>`;
+}
+
+export async function pullTemplateMaster() {
+    try { renderTemplateSyncResult(await templateRequest('/api/template-sync/pull-master'), 'Master templates pulled'); showToast('Master templates pulled', 'success'); }
+    catch (error) { showToast(error.message, 'error'); }
+}
+
+export async function dryRunTemplateSync() {
+    try { const result = await templateRequest(`/api/template-sync/dry-run/${selectedTemplateDevice()}`); renderTemplateSyncResult(result, 'Template sync dry-run'); showToast('Dry-run completed', 'success'); }
+    catch (error) { showToast(error.message, 'error'); }
+}
+
+export async function pushTemplateSync() {
+    try { const result = await templateRequest(`/api/template-sync/push/${selectedTemplateDevice()}`); renderTemplateSyncResult(result, 'Template push completed'); showToast('Template push completed', 'success'); }
+    catch (error) { showToast(error.message, 'error'); }
+}
+
+export function pushAllTemplateSync() {
+    showConfirm({
+        title: 'Push All Templates', message: 'Push server templates to every configured target device? Deletes remain disabled.', icon: 'fa-cloud-upload-alt', confirmText: 'Push All', onConfirm: async () => {
+            try { const result = await templateRequest('/api/template-sync/push-all'); renderTemplateSyncResult(result, 'Template push-all completed'); showToast('Template push-all completed', 'success'); }
+            catch (error) { showToast(error.message, 'error'); }
+        }
+    });
+}
+
+window.pullTemplateMaster = pullTemplateMaster;
+window.dryRunTemplateSync = dryRunTemplateSync;
+window.pushTemplateSync = pushTemplateSync;
+window.pushAllTemplateSync = pushAllTemplateSync;
 
 // Pull Employee Page State
 export let lastPulledEmployeeData = [];
-export let pullEmployeePageState = { 
-    page: 1, 
+export let pullEmployeePageState = {
+    page: 1,
     limit: 25,
     total: 0
 };
@@ -58,21 +110,21 @@ export async function refreshPullEmployee() {
         if (!select) return;
 
         const devices = data.data?.list || data.data || [];
-        
+
         // Check if we have saved state to restore
         const savedState = restoreStateFromStorage();
         const savedDeviceId = savedState?.deviceId || '';
-        
-        select.innerHTML = '<option value="">-- Select Device --</option>' + 
+
+        select.innerHTML = '<option value="">-- Select Device --</option>' +
             devices.map(d => `<option value="${d.id}" ${d.id == savedDeviceId ? 'selected' : ''}>${d.name || d.ip} (${d.sn})</option>`).join('');
-        
+
         // If we restored data from storage, re-render the results
         if (savedState && savedState.data && savedState.data.length > 0) {
             renderPullEmployeeResultsAfterRefresh();
         }
-        
+
         // Listen for device select changes to save to storage
-        select.onchange = function() {
+        select.onchange = function () {
             saveStateToStorage();
         };
     } catch (err) {
@@ -85,10 +137,10 @@ function renderPullEmployeeResultsAfterRefresh() {
     const statusDiv = document.getElementById('pull-employee-status');
     const btnExport = document.getElementById('btn-export-pull-employee');
     const btnJson = document.getElementById('btn-download-raw-employee');
-    
+
     if (resultsContainer) resultsContainer.style.display = 'block';
     if (statusDiv) statusDiv.style.display = 'none';
-    
+
     if (btnExport) {
         btnExport.style.display = 'inline-flex';
         btnExport.style.alignItems = 'center';
@@ -101,10 +153,10 @@ function renderPullEmployeeResultsAfterRefresh() {
         btnJson.style.gap = '0.5rem';
         btnJson.style.justifyContent = 'center';
     }
-    
+
     // Restore the active tab
     switchPullEmployeeView(_currentPullEmployeeView);
-    
+
     pullEmployeePageState.page = 1;
     renderPullEmployeeResults();
 }
@@ -113,24 +165,24 @@ function renderPullEmployeeResultsAfterRefresh() {
 export function showSyncModal() {
     const deviceId = document.getElementById('pull-employee-device-select').value;
     if (!deviceId) return showToast('Please select a device', 'warning');
-    
+
     const modalTitle = document.getElementById('modal-title');
     const modalContent = document.getElementById('modal-content');
     const saveBtn = document.getElementById('modal-save-btn');
-    
+
     if (!modalTitle || !modalContent) return;
-    
+
     modalTitle.innerHTML = '<i class="fas fa-sync-alt" style="margin-right: 0.5rem; color: var(--primary);"></i> Choose Sync Direction';
-    
+
     // Get the sync modal content template and clone it
     const syncContent = document.getElementById('sync-modal-content');
     if (syncContent) {
         modalContent.innerHTML = syncContent.innerHTML;
     }
-    
+
     // Hide the save button since we use the option buttons directly
     if (saveBtn) saveBtn.style.display = 'none';
-    
+
     toggleModal(true);
 }
 
@@ -171,7 +223,7 @@ export async function pullEmployeeDataFromDevice(mode = 'preview', syncMode = 'd
         btnSync.disabled = true;
         if (mode === 'sync') btnSync.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
     }
-    
+
     if (progressWrap) progressWrap.style.display = 'block';
     if (resultsContainer) resultsContainer.style.display = 'none';
     if (statusDiv) statusDiv.style.display = 'none';
@@ -216,14 +268,14 @@ export async function pullEmployeeDataFromDevice(mode = 'preview', syncMode = 'd
             setStage('emp-stage-done');
 
             lastPulledEmployeeData = data.data?.list || data.data?.users || [];
-            
+
             // Save state to storage for persistence across refreshes
             if (mode === 'preview' && lastPulledEmployeeData.length > 0) {
                 saveStateToStorage();
             } else if (mode === 'sync') {
                 clearSavedState();
             }
-            
+
             if (mode === 'sync') {
                 const syncLabel = syncMode === 'device-to-server' ? 'Device → Server' : 'Server → Device';
                 showToast(data.message || `Successfully synced`, 'success');
@@ -333,14 +385,14 @@ export function renderPullEmployeeResults() {
     // Update pagination info
     const total = sorted.length;
     pullEmployeePageState.total = total;
-    
+
     const totalPages = Math.ceil(total / pullEmployeePageState.limit);
     const info = document.getElementById('pull-employee-results-info');
     const start = (pullEmployeePageState.page - 1) * pullEmployeePageState.limit + 1;
     const end = Math.min(pullEmployeePageState.page * pullEmployeePageState.limit, total);
-    
+
     if (info) info.innerText = `Showing ${total ? start : 0}-${end} of ${total}`;
-    
+
     const prevBtn = document.getElementById('pull-employee-prev-btn');
     const nextBtn = document.getElementById('pull-employee-next-btn');
     if (prevBtn) prevBtn.disabled = pullEmployeePageState.page <= 1;
@@ -370,7 +422,7 @@ function renderPullEmployeePaginationNumbers(totalPages) {
     const container = document.getElementById('pull-employee-pagination-numbers');
     if (!container) return;
     container.innerHTML = '';
-    
+
     if (totalPages <= 1) return;
 
     const maxLinks = 5;
@@ -392,15 +444,15 @@ function renderPullEmployeePaginationNumbers(totalPages) {
 
 export function switchPullEmployeeView(view) {
     _currentPullEmployeeView = view;
-    
+
     const tabList = document.getElementById('tab-emp-list');
     if (tabList) {
         tabList.style.background = 'var(--primary)';
         tabList.style.color = 'white';
     }
-    
+
     document.getElementById('view-emp-list').style.display = 'block';
-    
+
     pullEmployeePageState.page = 1;
     renderPullEmployeeResults();
 }

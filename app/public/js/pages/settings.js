@@ -44,7 +44,7 @@ export async function loadSettings() {
         const s = data.data;
         document.getElementById('setting-api-key').value = s.api_key || '';
         document.getElementById('setting-cleanup-days').value = s.cleanup_age_days || 30;
-        
+
         // Auto sync employee settings
         const toggle = document.getElementById('setting-auto-sync-employee');
         if (toggle) {
@@ -54,10 +54,14 @@ export async function loadSettings() {
         if (interval) {
             interval.value = s.auto_sync_employee_interval_minutes || 30;
         }
-        
+        const templateEnabled = document.getElementById('setting-template-sync-enabled');
+        if (templateEnabled) templateEnabled.checked = s.template_sync_enabled === true;
+        const templateInterval = document.getElementById('setting-template-sync-interval');
+        if (templateInterval) templateInterval.value = s.template_sync_interval_minutes || 60;
+
         // Load devices into dropdown and restore saved selection
         loadAutoSyncDeviceDropdown(s.auto_sync_employee_device_id);
-        
+
         // Show current status
         updateAutoSyncStatusUI(s.auto_sync_employee_enabled);
     }
@@ -70,13 +74,13 @@ export async function loadSettings() {
 async function loadAutoSyncDeviceDropdown(savedDeviceId) {
     const select = document.getElementById('setting-auto-sync-device');
     if (!select) return;
-    
+
     try {
         const res = await fetch('/api/devices');
         const data = await res.json();
         const devices = data.data?.list || data.data || [];
-        
-        select.innerHTML = '<option value="">-- Select Device --</option>' + 
+
+        select.innerHTML = '<option value="">-- Select Device --</option>' +
             devices.map(d => {
                 const selected = d.id == savedDeviceId ? 'selected' : '';
                 return `<option value="${d.id}" ${selected}>${d.name || d.ip} (${d.sn})${d.ip ? ' - ' + d.ip : ''}</option>`;
@@ -120,14 +124,14 @@ export async function saveSystemSettings() {
 function updateAutoSyncStatusUI(enabled) {
     const statusEl = document.getElementById('auto-sync-status');
     if (!statusEl) return;
-    
+
     if (enabled) {
         statusEl.style.display = 'block';
         statusEl.style.background = 'rgba(16, 185, 129, 0.1)';
         statusEl.style.border = '1px solid rgba(16, 185, 129, 0.2)';
         statusEl.style.color = 'var(--success)';
         statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Auto sync is <strong>ACTIVE</strong>. Data will be pulled every <span id="auto-sync-status-interval">30</span> minutes.';
-        
+
         // Update interval display
         const intervalVal = document.getElementById('setting-auto-sync-interval')?.value || 30;
         const intervalSpan = document.getElementById('auto-sync-status-interval');
@@ -148,21 +152,28 @@ export async function saveAutoSyncSettings() {
     const enabled = document.getElementById('setting-auto-sync-employee').checked;
     const interval = parseInt(document.getElementById('setting-auto-sync-interval').value) || 30;
     const deviceId = document.getElementById('setting-auto-sync-device').value;
-    
+
     const payload = {
         auto_sync_employee_enabled: enabled,
         auto_sync_employee_interval_minutes: Math.max(5, Math.min(1440, interval)),
         auto_sync_employee_device_id: deviceId ? parseInt(deviceId) : null
     };
-    
+
     await updateSettings(payload, 'Auto sync employee settings saved');
-    
+
     // Update status display
     updateAutoSyncStatusUI(enabled);
 }
 
 // Expose to window for HTML onclick handlers
 window.saveAutoSyncSettings = saveAutoSyncSettings;
+
+export async function saveTemplateSyncSettings() {
+    const enabled = document.getElementById('setting-template-sync-enabled')?.checked === true;
+    const interval = Number.parseInt(document.getElementById('setting-template-sync-interval')?.value, 10) || 60;
+    await updateSettings({ template_sync_enabled: enabled, template_sync_interval_minutes: Math.max(5, Math.min(1440, interval)) }, 'Template sync settings saved');
+}
+window.saveTemplateSyncSettings = saveTemplateSyncSettings;
 
 export function loadProfileInfo() {
     const user = state.currentUser;
@@ -342,7 +353,7 @@ export async function addNewUser() {
             showToast('User created successfully', 'success');
             document.getElementById('new-user-username').value = '';
             document.getElementById('new-user-password').value = '';
-            loadUserList(); 
+            loadUserList();
         } else {
             showToast(data.message || 'Failed to create user', 'error');
         }
@@ -424,7 +435,7 @@ export function resetUserPasswordPrompt(id, username) {
 export function confirmRoleChange(selectEl, userId, username) {
     const newRole = selectEl.value;
     const oldRole = selectEl.dataset.originalRole || '';
-    
+
     showConfirm({
         title: 'Change User Role',
         message: `Are you sure you want to change <strong>${username}</strong>'s role from <strong>${oldRole}</strong> to <strong>${newRole}</strong>?`,
@@ -557,8 +568,8 @@ export async function loadPagePermissions() {
                     </thead>
                     <tbody>
                         ${permissions.map(perm => {
-                            const roles = perm.allowed_roles || [];
-                            return `
+            const roles = perm.allowed_roles || [];
+            return `
                                 <tr style="border-bottom:1px solid var(--glass-border);" data-perm-id="${perm.id}">
                                     <td style="padding:0.5rem;font-weight:600;white-space:nowrap;">
                                         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -585,7 +596,7 @@ export async function loadPagePermissions() {
                                     </td>
                                 </tr>
                             `;
-                        }).join('')}
+        }).join('')}
                     </tbody>
                 </table>
             </div>
@@ -634,4 +645,3 @@ export async function savePagePermission(permId) {
         showToast('Network error', 'error');
     }
 }
-

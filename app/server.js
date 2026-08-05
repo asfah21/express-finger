@@ -12,7 +12,7 @@ import {
   activityLogLimiter,
   verifyLimiter
 } from './middleware/index.js'
-import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes, pullEmployeeRoutes, syncRoutes } from './routes/index.js'
+import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes, pullEmployeeRoutes, syncRoutes, templateSyncRoutes } from './routes/index.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/index.js'
 import { ensureSchema, ensureRawDir, cleanupOldRawFiles, pool } from './utils/index.js'
 import { startPullScheduler } from './utils/scheduler.js'
@@ -50,6 +50,8 @@ app.use('/api/pull-employee', syncLimiter) // Pull employee (operasi berat)
 app.use('/api/pull-employee', pullEmployeeRoutes)
 app.use('/api/sync', syncLimiter) // Sync (operasi berat)
 app.use('/api/sync', syncRoutes)
+app.use('/api/template-sync', syncLimiter)
+app.use('/api/template-sync', templateSyncRoutes)
 
 // Health check endpoint komprehensif
 app.get('/health', async (_req, res) => {
@@ -106,7 +108,7 @@ let server
 
 function gracefulShutdown(signal) {
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`)
-  
+
   // Stop accepting new connections
   if (server) {
     server.close(() => {
@@ -133,36 +135,36 @@ function gracefulShutdown(signal) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
 process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
-// ============================================================
-// Inisialisasi dan startup
-// ============================================================
-;(async () => {
-  try {
-    await ensureSchema()
-    await ensureRawDir()
-    await cleanupOldRawFiles()
-    startPullScheduler()
+  // ============================================================
+  // Inisialisasi dan startup
+  // ============================================================
+  ; (async () => {
+    try {
+      await ensureSchema()
+      await ensureRawDir()
+      await cleanupOldRawFiles()
+      startPullScheduler()
 
-    // Setup cleanup interval
-    setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
+      // Setup cleanup interval
+      setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
 
-    // Cache warming — pre-cache data statis dan overview
-    warmCache({
-      getSettingsData,
-      getDevices,
-    }).then(warmed => {
-      console.log(`🔥 Cache warming complete: ${warmed.length} items cached`)
-    }).catch(err => {
-      console.warn(`⚠️ Cache warming partial: ${err.message}`)
-    })
+      // Cache warming — pre-cache data statis dan overview
+      warmCache({
+        getSettingsData,
+        getDevices,
+      }).then(warmed => {
+        console.log(`🔥 Cache warming complete: ${warmed.length} items cached`)
+      }).catch(err => {
+        console.warn(`⚠️ Cache warming partial: ${err.message}`)
+      })
 
-    server = app.listen(config.PORT, () => {
-      console.log(`✅ GSI ADMS listener ready on port ${config.PORT}`)
-      console.log(`🔗 Health check: http://localhost:${config.PORT}/health`)
-    })
+      server = app.listen(config.PORT, () => {
+        console.log(`✅ GSI ADMS listener ready on port ${config.PORT}`)
+        console.log(`🔗 Health check: http://localhost:${config.PORT}/health`)
+      })
 
-  } catch (error) {
-    console.error('Failed to start server:', error)
-    process.exit(1)
-  }
-})()
+    } catch (error) {
+      console.error('Failed to start server:', error)
+      process.exit(1)
+    }
+  })()

@@ -36,11 +36,11 @@ function encryptApiKey(plaintext) {
     const key = getEncryptionKey()
     const iv = crypto.randomBytes(IV_LENGTH)
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
-    
+
     let encrypted = cipher.update(plaintext, 'utf8', 'hex')
     encrypted += cipher.final('hex')
     const authTag = cipher.getAuthTag().toString('hex')
-    
+
     // Format: iv:authTag:ciphertext (all hex)
     return `${iv.toString('hex')}:${authTag}:${encrypted}`
 }
@@ -51,14 +51,14 @@ function decryptApiKey(encrypted) {
         const key = getEncryptionKey()
         const parts = encrypted.split(':')
         if (parts.length !== 3) return encrypted // Not encrypted, return as-is
-        
+
         const iv = Buffer.from(parts[0], 'hex')
         const authTag = Buffer.from(parts[1], 'hex')
         const ciphertext = parts[2]
-        
+
         const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
         decipher.setAuthTag(authTag)
-        
+
         let decrypted = decipher.update(ciphertext, 'hex', 'utf8')
         decrypted += decipher.final('utf8')
         return decrypted
@@ -105,7 +105,10 @@ const defaultSettings = {
     },
     auto_sync_employee_enabled: false,
     auto_sync_employee_interval_minutes: 30,
-    auto_sync_employee_device_id: null
+    auto_sync_employee_device_id: null,
+    template_sync_enabled: false,
+    template_sync_interval_minutes: 60,
+    template_sync_dry_run: true
 }
 
 export async function getSettingsData() {
@@ -132,6 +135,9 @@ export async function getSettingsData() {
         if (settings.auto_sync_employee_interval_minutes === undefined) {
             settings.auto_sync_employee_interval_minutes = defaultSettings.auto_sync_employee_interval_minutes
         }
+        if (settings.template_sync_enabled === undefined) settings.template_sync_enabled = defaultSettings.template_sync_enabled
+        if (settings.template_sync_interval_minutes === undefined) settings.template_sync_interval_minutes = defaultSettings.template_sync_interval_minutes
+        if (settings.template_sync_dry_run === undefined) settings.template_sync_dry_run = defaultSettings.template_sync_dry_run
         return settings
     } catch (error) {
         // Jika file belum ada, buat baru dengan default settings
@@ -146,7 +152,8 @@ const ALLOWED_KEYS = new Set([
     'api_key', 'late_tolerance_mins', 'cleanup_age_days',
     'types', 'shift_types', 'remarks_config', 'rule_in_out',
     'auto_sync_employee_enabled', 'auto_sync_employee_interval_minutes',
-    'auto_sync_employee_device_id'
+    'auto_sync_employee_device_id', 'template_sync_enabled',
+    'template_sync_interval_minutes', 'template_sync_dry_run'
 ])
 
 const FIELD_VALIDATORS = {
@@ -159,7 +166,10 @@ const FIELD_VALIDATORS = {
     rule_in_out: (val) => typeof val === 'object' && val !== null && !Array.isArray(val),
     auto_sync_employee_enabled: (val) => typeof val === 'boolean',
     auto_sync_employee_interval_minutes: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 5 && val <= 1440,
-    auto_sync_employee_device_id: (val) => val === null || (typeof val === 'number' && Number.isInteger(val) && val > 0)
+    auto_sync_employee_device_id: (val) => val === null || (typeof val === 'number' && Number.isInteger(val) && val > 0),
+    template_sync_enabled: (val) => typeof val === 'boolean',
+    template_sync_interval_minutes: (val) => typeof val === 'number' && Number.isInteger(val) && val >= 5 && val <= 1440,
+    template_sync_dry_run: (val) => typeof val === 'boolean'
 }
 
 export const settingsController = {
@@ -221,13 +231,13 @@ export const settingsController = {
 
             const username = req.user?.username || 'api'
             const ip = getClientIp(req)
-            
+
             // Audit trail detail: catat perubahan spesifik
             const changes = []
             for (const key of Object.keys(body)) {
                 const oldVal = currentSettings[key]
                 const newVal = body[key]
-                
+
                 // Sembunyikan nilai sensitif di log
                 if (key === 'api_key') {
                     const oldHidden = oldVal ? oldVal.substring(0, 4) + '****' : '(empty)'
@@ -239,7 +249,7 @@ export const settingsController = {
                     changes.push(`${key}: "${oldVal}" → "${newVal}"`)
                 }
             }
-            
+
             await recordActivity({
                 username, action: 'update_settings', category: 'settings',
                 detail: `Settings updated: ${changes.join('; ')}`,

@@ -130,3 +130,33 @@ express-finger/
 -   **Gagal Login**: Pastikan koneksi database PostgreSQL stabil dan tabel `users` telah terbuat otomatis.
 -   **Mesin Offline di Dashboard**: Pastikan Port 4370 di mesin bisa diakses oleh server atau menggunakan VPN/ZeroTier jika mesin berada di jaringan berbeda.
 -   **Waktu Tidak Sesuai**: Cek pengaturan Timezone pada server dan mesin fingerprint.
+# Template Sync Operations
+
+Template Sync keeps the server-side template store authoritative. The configured
+template master is read during **Pull Master**, while target devices are only
+changed by an explicit **Push** or **Push All** operation.
+
+## Safety rules
+
+- Capability status must be `SUPPORTED` before a template write is attempted.
+- Unknown or unprobed device/model/firmware combinations are denied by default.
+- Dry-run performs reads and diff planning only; it does not write or delete.
+- Deletes require both `allowDelete=true` and `confirmDelete=true` in the request.
+- Logs contain checksums, sizes, status, and limited evidence metadata; raw biometric payloads are not logged.
+- Auto-sync is disabled by default and uses the same device lock as other ZK operations.
+
+## Recommended rollout
+
+1. Configure exactly one active template master in the Devices page.
+2. Run **Pull Master** and verify the returned count and audit log.
+3. Select one target device and run **Dry Run**; review `ADD`, `UPDATE`, `SKIP_UNCHANGED`, and `SKIP_INCOMPATIBLE` results.
+4. Run **Push** for that device and verify fingerprints/faces on hardware.
+5. Expand to a limited target group, then use **Push All** after operational validation.
+
+## Re-probe procedure
+
+Run the probe procedure again whenever a device model, firmware, or serial number changes. Do not copy capability results between models. Keep probe fixtures outside production storage and remove temporary test templates after validation.
+
+## Rollback
+
+Disable template auto-sync, stop the rollout, and restore the prior server template snapshot through the configured storage backup. Do not delete target templates as a rollback shortcut; deletion remains an explicit, separately approved operation.

@@ -1,6 +1,7 @@
 import ZKLib from 'node-zklib'
 import { pool } from './database.js'
 import { createRequire } from 'module'
+import { readFingerprintTemplates } from './zklib-templates.js'
 const require = createRequire(import.meta.url)
 const { createTCPHeader, removeTcpHeader } = require('node-zklib/utils.js')
 const COMMANDS = require('node-zklib/constants.js').COMMANDS
@@ -48,8 +49,8 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
         });
 
         await zk.disconnect();
-        return { 
-            formattedUsers, 
+        return {
+            formattedUsers,
             rawCount: userData.length,
             deviceInfo: deviceInfo ? {
                 userCounts: deviceInfo.userCounts,
@@ -68,52 +69,17 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
  * Try to fetch fingerprint counts for each user from device
  * Uses CMD_USERTEMP_RRQ to read user template data
  */
-async function fetchFingerprintCounts(zk) {
+export async function fetchFingerprintCounts(zk, options = {}) {
     const fpCounts = {};
-    
     try {
-        // Use readWithBuffer approach via executeCmd
-        // First free any existing data buffer
-        try { await zk.freeData(); } catch (e) { /* ignore */ }
-        
-        // Send USERTEMP_RRQ command to request user template data
-        // The request data format: 0x01, 0x09 (CMD_USERTEMP_RRQ), 0x00, 0x05, 0x00...
-        const reqData = Buffer.from([0x01, 0x09, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        
-        // Use executeCmd with CMD_DATA_WRRQ to request the data
-        // But since we can't easily parse the response, we'll use a simpler approach
-        // Try to get user template info via the TCP layer
-        
-        // Alternative: use the internal readWithBuffer via functionWrapper
-        // Since we can't access it directly, we'll try executeCmd with CMD_USERTEMP_RRQ
-        const COMMAND_USERTEMP_RRQ = 9;
-        const result = await zk.executeCmd(COMMAND_USERTEMP_RRQ, reqData);
-        
-        if (result && result.length > 4) {
-            // Parse template records
-            // Each template record is typically 6 bytes (uid 2 bytes + fingerprint id 1 byte + ...)
-            const TEMPLATE_RECORD_SIZE = 6;
-            let data = result.subarray(4); // Skip first 4 bytes (status/header)
-            
-            while (data.length >= TEMPLATE_RECORD_SIZE) {
-                const uid = data.readUInt16LE(0);
-                const fpId = data.readUInt8(2);
-                
-                if (!fpCounts[uid]) fpCounts[uid] = 0;
-                fpCounts[uid]++;
-                
-                data = data.subarray(TEMPLATE_RECORD_SIZE);
-            }
+        const result = await readFingerprintTemplates({ zk }, options)
+        for (const template of result.templates || []) {
+            fpCounts[template.uid] = (fpCounts[template.uid] || 0) + 1
         }
-        
-        // Free data buffer after reading
-        try { await zk.freeData(); } catch (e) { /* ignore */ }
-        
     } catch (e) {
         console.warn('⚠️ Could not fetch fingerprint counts:', e.message);
-        // Return empty counts - fingerprint count will be 0 for all users
     }
-    
+
     return fpCounts;
 }
 
@@ -152,7 +118,7 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
                 const name = (u.name || '').trim() || 'Unknown';
                 const uid = u.uid || 0;
                 const fpCount = fpCounts[uid] || 0;
-                
+
                 // Check if data already exists and is the same
                 const existing = existingMap[userId];
                 if (existing) {
@@ -166,7 +132,7 @@ export async function pullDeviceUsersSync(ip, port = 4370) {
                 } else {
                     console.log(`🆕 [Sync Device->Server] New user ${userId} (${name}) not found in database, adding...`);
                 }
-                
+
                 // Upsert to employee table with fingerprint count
                 await pool.query(`
                     INSERT INTO employee (user_id, nama, fingerprint_count, created_at)
@@ -208,23 +174,23 @@ async function writeUserToDevice(zk, userData) {
     if (!zkTcp || !zkTcp.socket) {
         throw new Error('TCP socket not available');
     }
-    
+
     // Increment replyId manually
     zkTcp.replyId++;
-    
+
     // Build the TCP packet: CMD_USER_WRQ (8) with user data as payload
     const buf = createTCPHeader(COMMANDS.CMD_USER_WRQ, zkTcp.sessionId, zkTcp.replyId, userData);
 
-    
+
     // Send and wait for reply
     const reply = await new Promise((resolve, reject) => {
         let timer = null;
-        
+
         zkTcp.socket.once('data', (data) => {
             if (timer) clearTimeout(timer);
             resolve(data);
         });
-        
+
         zkTcp.socket.write(buf, null, (err) => {
             if (err) reject(err);
             else {
@@ -234,7 +200,7 @@ async function writeUserToDevice(zk, userData) {
             }
         });
     });
-    
+
     // Parse reply to check if successful
     const rReply = removeTcpHeader(reply);
     if (rReply && rReply.length >= 8) {
@@ -245,7 +211,7 @@ async function writeUserToDevice(zk, userData) {
             console.warn(`⚠️ CMD_USER_WRQ reply command: ${cmdId} (expected ${COMMANDS.CMD_ACK_OK})`);
         }
     }
-    
+
     return true; // Assume success if we got any reply
 }
 
@@ -266,11 +232,11 @@ export async function syncServerToDevice(ip, port = 4370) {
     const zk = new ZKLib(ip, parseInt(port), 15000, 5200 + Math.floor(Math.random() * 1000));
     try {
         await zk.createSocket();
-        
+
         // Get all employees from database
         const { rows: employees } = await pool.query('SELECT * FROM employee ORDER BY user_id');
         console.log(`👤 [Sync Server->Device] Found ${employees.length} employees in database`);
-        
+
         if (employees.length === 0) {
             await zk.disconnect();
             return { success: true, count: 0, message: 'No employees in database' };
@@ -312,12 +278,12 @@ export async function syncServerToDevice(ip, port = 4370) {
         let totalWritten = 0;
         let totalSkipped = 0;
         let nextUid = maxUid + 1;
-        
+
         for (let i = 0; i < employees.length; i++) {
             const emp = employees[i];
             const userId = String(emp.user_id || '').trim();
             const name = (emp.nama || '').trim() || 'Unknown';
-            
+
             // Check if user exists on device and data is the same
             const existingUser = deviceUserMap[userId];
             if (existingUser) {
@@ -331,38 +297,38 @@ export async function syncServerToDevice(ip, port = 4370) {
             } else {
                 console.log(`🆕 [Sync] New user ${userId} (${name}) not found on device, adding...`);
             }
-            
+
             try {
                 // Build user data packet (72 bytes format) matching decodeUserData72 structure
                 const userData = Buffer.alloc(USER_RECORD_SIZE);
                 userData.fill(0);
-                
+
                 // uid (2 bytes at offset 0) - use existing UID if user already on device, otherwise new sequential
                 const uid = existingUser ? existingUser.uid : nextUid++;
                 userData.writeUInt16LE(uid, 0);
-                
+
                 // role (1 byte at offset 2) - 0 = user, 14 = admin
                 userData.writeUInt8(0, 2);
-                
+
                 // password (8 bytes at offset 3) - keep empty to not disturb existing password
                 const pwBuf = Buffer.from('', 'ascii');
                 pwBuf.copy(userData, 3);
-                
+
                 // name (24 bytes at offset 11)
                 const nameBuf = Buffer.from(name, 'ascii');
                 nameBuf.copy(userData, 11, 0, Math.min(nameBuf.length, 24));
-                
+
                 // cardno (4 bytes at offset 35) - set to 0 to not disturb existing card
                 userData.writeUInt32LE(0, 35);
-                
+
                 // userId (9 bytes at offset 48)
                 const userIdBuf = Buffer.from(userId, 'ascii');
                 userIdBuf.copy(userData, 48, 0, Math.min(userIdBuf.length, 9));
-                
+
                 // Send CMD_USER_WRQ (command 8) to write user to device using proper protocol
                 await writeUserToDevice(zk, userData);
                 totalWritten++;
-                
+
             } catch (e) {
                 console.warn(`⚠️ Failed to write user ${emp.user_id} to device:`, e.message);
             }

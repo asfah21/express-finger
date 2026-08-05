@@ -21,8 +21,7 @@
         <!-- Action Buttons -->
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn-primary" id="btn-pull-employee-preview"
-                style="width: auto; height: 42px; padding: 0 1.2rem;"
-                onclick="pullEmployeeDataFromDevice('preview')">
+                style="width: auto; height: 42px; padding: 0 1.2rem;" onclick="pullEmployeeDataFromDevice('preview')">
                 <i class="fas fa-search"></i> Preview
             </button>
             <button class="btn-primary admin-only" id="btn-pull-employee-sync"
@@ -40,13 +39,29 @@
                 onclick="downloadRawEmployeeData()">
                 <i class="fas fa-file-code"></i> JSON
             </button>
+            <button class="btn-primary admin-only" id="btn-template-pull-master"
+                style="width: auto; height: 42px; padding: 0 1rem; background: #8b5cf6;" onclick="pullTemplateMaster()">
+                <i class="fas fa-database"></i> Pull Master
+            </button>
+            <button class="btn-primary admin-only" id="btn-template-dry-run"
+                style="width: auto; height: 42px; padding: 0 1rem; background: #f59e0b;" onclick="dryRunTemplateSync()">
+                <i class="fas fa-search"></i> Dry Run
+            </button>
+            <button class="btn-primary admin-only" id="btn-template-push"
+                style="width: auto; height: 42px; padding: 0 1rem; background: #10b981;" onclick="pushTemplateSync()">
+                <i class="fas fa-upload"></i> Push
+            </button>
+            <button class="btn-primary admin-only" id="btn-template-push-all"
+                style="width: auto; height: 42px; padding: 0 1rem; background: #ef4444;"
+                onclick="pushAllTemplateSync()">
+                <i class="fas fa-cloud-upload-alt"></i> Push All
+            </button>
         </div>
     </div>
 
     <!-- Progress Bar -->
     <div id="pull-employee-progress-wrap" style="display: none; margin-top: 1.25rem;">
-        <div
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
             <span id="pull-employee-progress-label"
                 style="font-size: 0.8rem; color: var(--text-muted);">Initializing...</span>
             <span id="pull-employee-progress-pct"
@@ -84,6 +99,9 @@
 
     <div id="pull-employee-status"
         style="margin-top: 1rem; padding: 1rem; border-radius: 0.5rem; display: none; font-size: 0.875rem; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);">
+    </div>
+    <div id="template-sync-status"
+        style="display:none; margin-top:1rem; padding:1rem; border-radius:.5rem; background:rgba(139,92,246,.1); border:1px solid var(--glass-border); font-size:.85rem;">
     </div>
 
     <!-- Results Section (Tabs & Table) -->
@@ -144,32 +162,34 @@
             Select how you want to synchronize employee data:
         </p>
         <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <button onclick="pullEmployeeDataFromDevice('sync', 'device-to-server')" 
-                class="sync-option-btn"
+            <button onclick="pullEmployeeDataFromDevice('sync', 'device-to-server')" class="sync-option-btn"
                 style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border: 2px solid var(--glass-border); background: var(--card-bg); cursor: pointer; transition: all 0.2s; text-align: left; width: 100%; color: var(--text);"
                 onmouseover="this.style.borderColor='#3b82f6'; this.style.background='rgba(59,130,246,0.08)';"
                 onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='var(--card-bg)';">
-                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div
+                    style="width: 48px; height: 48px; border-radius: 50%; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <i class="fas fa-cloud-download-alt" style="font-size: 1.3rem; color: #3b82f6;"></i>
                 </div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Device → Server</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">Pull employee data from fingerprint device and save to server database</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Pull employee data from fingerprint device
+                        and save to server database</div>
                 </div>
                 <i class="fas fa-chevron-right" style="flex-shrink: 0; color: var(--text-muted);"></i>
             </button>
 
-            <button onclick="pullEmployeeDataFromDevice('sync', 'server-to-device')" 
-                class="sync-option-btn"
+            <button onclick="pullEmployeeDataFromDevice('sync', 'server-to-device')" class="sync-option-btn"
                 style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; border-radius: 0.75rem; border: 2px solid var(--glass-border); background: var(--card-bg); cursor: pointer; transition: all 0.2s; text-align: left; width: 100%; color: var(--text);"
                 onmouseover="this.style.borderColor='#10b981'; this.style.background='rgba(16,185,129,0.08)';"
                 onmouseout="this.style.borderColor='var(--glass-border)'; this.style.background='var(--card-bg)';">
-                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <div
+                    style="width: 48px; height: 48px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <i class="fas fa-cloud-upload-alt" style="font-size: 1.3rem; color: #10b981;"></i>
                 </div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem;">Server → Device</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">Push employee data from server database to fingerprint device</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Push employee data from server database to
+                        fingerprint device</div>
                 </div>
                 <i class="fas fa-chevron-right" style="flex-shrink: 0; color: var(--text-muted);"></i>
             </button>

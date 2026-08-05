@@ -2,16 +2,16 @@ import { state } from './js/state.js';
 import { getWitaDateString, showToast, toggleModal, showConfirm } from './js/utils.js';
 import { refreshOverview } from './js/pages/overview.js';
 import { checkAuth, handleLogin, logout, silentTokenCheck } from './js/auth.js';
-import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice } from './js/pages/devices.js';
+import { refreshDevices, syncDevice, openAddDevice, openEditDevice, deleteDevice, toggleTemplateMaster } from './js/pages/devices.js';
 import { refreshEmployees, handleEmployeeSearch, editEmployee, deleteEmployee, openAddEmployee, exportEmployees, showImportModal, handleImport, downloadImportTemplate, syncEmployeeToDevice } from './js/pages/employees.js';
 import { refreshLogs, handleLogSearch, showExportMenu } from './js/pages/logs.js';
 import { refreshActivityLogs, handleActivitySearch, applyActivityFilter, clearOldActivityLogs, exportActivityLogs, recordClientActivity } from './js/pages/activity.js';
-import { loadSettings, saveSystemSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission, switchSettingsTab, switchAccountTab } from './js/pages/settings.js';
+import { loadSettings, saveSystemSettings, saveTemplateSyncSettings, updateAccount, toggleNewUserPassword, loadUserList, addNewUser, deleteUserPrompt, resetUserPasswordPrompt, loadProfileInfo, toggleProfilePassword, loadPagePermissions, savePagePermission, switchSettingsTab, switchAccountTab } from './js/pages/settings.js';
 import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHrShiftSettings, switchHrTab } from './js/pages/hr.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
-import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
+import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/pull-employee.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
 
 
@@ -41,6 +41,7 @@ window.syncDevice = syncDevice;
 window.openAddDevice = openAddDevice;
 window.openEditDevice = openEditDevice;
 window.deleteDevice = deleteDevice;
+window.toggleTemplateMaster = toggleTemplateMaster;
 
 // Employee Page Functions
 window.refreshEmployees = refreshEmployees;
@@ -83,6 +84,7 @@ window.loadPagePermissions = loadPagePermissions;
 window.savePagePermission = savePagePermission;
 window.switchSettingsTab = switchSettingsTab;
 window.switchAccountTab = switchAccountTab;
+window.saveTemplateSyncSettings = saveTemplateSyncSettings;
 
 // HR Page Functions
 window.loadHrSettings = loadHrSettings;
@@ -113,7 +115,11 @@ window.exportPulledEmployeeData = exportPulledEmployeeData;
 window.downloadRawEmployeeData = downloadRawEmployeeData;
 window.showSyncModal = showSyncModal;
 window.closeSyncModal = closeSyncModal;
-window.updateEmployeeDeviceStatus = function() {};
+window.pullTemplateMaster = pullTemplateMaster;
+window.dryRunTemplateSync = dryRunTemplateSync;
+window.pushTemplateSync = pushTemplateSync;
+window.pushAllTemplateSync = pushAllTemplateSync;
+window.updateEmployeeDeviceStatus = function () { };
 
 // Late Page Functions
 window.refreshLate = refreshLate;
@@ -406,7 +412,7 @@ function toggleTheme() {
             icon.classList.add('fa-moon');
         });
     }
-    
+
     // Refresh chart to update colors when theme changes
     if (state.currentPath === 'overview' && typeof refreshOverview === 'function') {
         refreshOverview();
@@ -437,12 +443,12 @@ function toggleSidebar() {
 function toggleSidebarCollapse() {
     const sidebar = document.querySelector('.sidebar');
     if (!sidebar) return;
-    
+
     // Only works on desktop (>= 1024px)
     if (window.innerWidth < 1024) return;
-    
+
     sidebar.classList.toggle('collapsed');
-    
+
     // Update button icon and title
     const btn = document.querySelector('.sidebar-collapse-btn');
     const icon = btn ? btn.querySelector('i') : null;
@@ -455,7 +461,7 @@ function toggleSidebarCollapse() {
             btn.title = 'Collapse Sidebar';
         }
     }
-    
+
     // Persist state
     const isCollapsed = sidebar.classList.contains('collapsed');
     localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
@@ -599,12 +605,12 @@ let autoRefreshCount = 0;
 function startAutoRefresh() {
     if (autoRefreshInterval) clearInterval(autoRefreshInterval);
     autoRefreshCount = 0;
-    
+
     autoRefreshInterval = setInterval(() => {
         if (state.currentUser && state.currentPath === 'overview') {
             autoRefreshCount++;
             refreshOverview(true); // Force refresh untuk auto-refresh
-            
+
             // Show subtle indicator that auto-refresh happened
             const indicator = document.getElementById('auto-refresh-indicator');
             if (indicator) {
@@ -644,7 +650,7 @@ window.addEventListener('resize', () => {
         if (state.currentPath === 'late') updatePaginationUI('late');
         if (state.currentPath === 'activity') updatePaginationUI('activity');
 
-        
+
         // Remove collapsed class when entering mobile view
         if (window.innerWidth < 1024) {
             const sidebar = document.querySelector('.sidebar');

@@ -267,3 +267,51 @@ The API uses standard HTTP status codes to indicate the success or failure of an
   "message": "Authentication required (API Key or Token)"
 }
 ```
+# Template Sync API
+
+All template sync endpoints require authentication, API access, and admin privileges.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/template-sync/pull-master` | Read templates from the active master and store checksummed records. |
+| POST | `/api/template-sync/dry-run/:deviceId` | Return a side-effect-free reconciliation plan. |
+| POST | `/api/template-sync/push/:deviceId` | Reconcile templates to one target; writes are limited to supported capabilities. |
+| POST | `/api/template-sync/push-all` | Reconcile all active non-master targets independently. |
+| GET | `/api/template-sync/status` | Return device capability/master state and recent safe audit entries. |
+
+Request JSON options for dry-run and push operations:
+
+```json
+{
+  "allowDelete": false,
+  "confirmDelete": false,
+  "lockTimeoutMs": 120000
+}
+```
+
+Deletes occur only when both delete flags are `true`; the default is non-destructive.
+Responses contain operation status, actions, counts, checksums, and reasons for skipped/error items. Raw biometric payloads are never returned in sync logs.
+# Template Sync API
+
+All template sync endpoints require authentication, API access, and admin privileges.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/template-sync/pull-master` | Read templates from the active master and store checksummed records. |
+| POST | `/api/template-sync/dry-run/:deviceId` | Return a side-effect-free reconciliation plan. |
+| POST | `/api/template-sync/push/:deviceId` | Reconcile templates to one target; writes are limited to supported capabilities. |
+| POST | `/api/template-sync/push-all` | Reconcile all active non-master targets independently. |
+| GET | `/api/template-sync/status` | Return device capability/master state and recent safe audit entries. |
+
+Request JSON options for dry-run and push operations:
+
+```json
+{
+  "allowDelete": false,
+  "confirmDelete": false,
+  "lockTimeoutMs": 120000
+}
+```
+
+Deletes occur only when both delete flags are `true`; the default is non-destructive.
+Responses contain operation status, actions, counts, checksums, and reasons for skipped/error items. Raw biometric payloads are never returned in sync logs.

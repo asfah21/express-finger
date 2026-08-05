@@ -5,11 +5,14 @@ import { delCacheByPatterns, CACHE_PATTERNS } from './cache.js';
 import { getSettingsData } from '../controllers/settings.js';
 import { pullDeviceUsersSync } from './zklib-employee.js';
 import { recordActivity } from '../controllers/activity-log.js';
+import { dryRunDeviceSync, reconcileTemplatesToDevice } from './template-sync.js';
 
 
 let isRunning = false;
 let isPingRunning = false;
 let isAutoSyncEmployeeRunning = false;
+let isTemplateSyncRunning = false;
+let lastTemplateSyncTime = 0;
 
 export async function startPullScheduler() {
     console.log(`⏰ Scheduler Started. Sync Interval: ${SYNC_CONFIG.PULL_INTERVAL / 60000} minutes.`);
@@ -26,25 +29,29 @@ export async function startPullScheduler() {
     // Set interval Ping (Status Check) - Default 5 minutes
     setInterval(async () => {
         await runPingTask();
-    }, 5 * 60000); 
+    }, 5 * 60000);
 
     // Set interval Auto Sync Employee - check every 1 minute
     setInterval(async () => {
         await runAutoEmployeeSyncTask();
+    }, 60000);
+
+    setInterval(async () => {
+        await runTemplateSyncTask();
     }, 60000);
 }
 
 async function runPingTask() {
     if (isPingRunning) return;
     isPingRunning = true;
-    
+
     try {
         const devices = await getDevices();
         for (const device of devices) {
             const isOnline = await checkDeviceStatus(device.ip, device.port || 4370);
             const status = isOnline ? 'online' : 'offline';
             const lastOnlineSql = isOnline ? ', last_online = now()' : '';
-            
+
             await pool.query(
                 `UPDATE devices SET status = $1 ${lastOnlineSql} WHERE id = $2`,
                 [status, device.id]
@@ -122,7 +129,7 @@ async function runAutoEmployeeSyncTask() {
     try {
         // Read settings
         const settings = await getSettingsData();
-        
+
         // Check if auto sync is enabled
         if (!settings.auto_sync_employee_enabled) return;
 
@@ -181,5 +188,31 @@ async function runAutoEmployeeSyncTask() {
         console.error('❌ Auto Sync Employee error:', err.message);
     } finally {
         isAutoSyncEmployeeRunning = false;
+    }
+}
+
+async function runTemplateSyncTask() {
+    if (isTemplateSyncRunning) return;
+    try {
+        const settings = await getSettingsData();
+        if (!settings.template_sync_enabled) return;
+        const intervalMinutes = settings.template_sync_interval_minutes || 60;
+        if ((Date.now() - lastTemplateSyncTime) / 60000 < intervalMinutes) return;
+        isTemplateSyncRunning = true;
+        const { rows: devices } = await pool.query('SELECT id FROM devices WHERE is_active = true AND is_template_master = false ORDER BY id');
+        for (const device of devices) {
+            try {
+                const result = settings.template_sync_dry_run !== false ? await dryRunDeviceSync(device.id) : await reconcileTemplatesToDevice(device.id);
+                await recordActivity({ username: 'system', action: settings.template_sync_dry_run !== false ? 'template_sync_dry_run' : 'template_sync_push', category: 'template_sync', detail: `Scheduled template sync for device ${device.id}: ${result.success !== false ? 'success' : 'failed'}`, ip: '127.0.0.1' });
+            } catch (error) {
+                console.error(`❌ Template sync failed for device ${device.id}:`, error.message);
+                await recordActivity({ username: 'system', action: 'template_sync_error', category: 'template_sync', detail: `Scheduled template sync failed for device ${device.id}: ${error.message}`, ip: '127.0.0.1' });
+            }
+        }
+        lastTemplateSyncTime = Date.now();
+    } catch (error) {
+        console.error('❌ Template sync scheduler error:', error.message);
+    } finally {
+        isTemplateSyncRunning = false;
     }
 }

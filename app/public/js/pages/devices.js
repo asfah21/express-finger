@@ -14,7 +14,7 @@ export async function refreshDevices() {
     s.total = data.data?.total || 0;
     const body = document.getElementById('devices-body');
     const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
-    
+
     body.innerHTML = (data.data?.list || []).map(dev => `
         <tr>
             <td>
@@ -27,6 +27,7 @@ export async function refreshDevices() {
             <td>${dev.ip}</td>
             <td>${dev.sn || '-'}</td>
             <td><span class="badge">${dev.sync_mode || 'HYBRID'}</span></td>
+            <td>${dev.is_template_master ? '<span class="badge badge-success"><i class="fas fa-star"></i> Master</span>' : '<span class="badge">Target</span>'}</td>
             <td>
                 <div style="font-size: 0.85rem;">
                     <div>Sync: ${dev.last_sync ? new Date(dev.last_sync).toLocaleString() : 'Never'}</div>
@@ -43,6 +44,7 @@ export async function refreshDevices() {
                     <div class="action-menu">
                         <button class="action-item" onclick="syncDevice('${dev.sn}')"><i class="fas fa-sync"></i> Sync Device</button>
                         ${isAdmin ? `
+                        <button class="action-item" onclick="toggleTemplateMaster(${dev.id}, ${dev.is_template_master ? 'false' : 'true'})"><i class="fas fa-star"></i> ${dev.is_template_master ? 'Unset Template Master' : 'Set Template Master'}</button>
                         <button class="action-item" onclick="openEditDevice(${dev.id}, '${dev.name || ''}')"><i class="fas fa-edit"></i> Edit Name</button>
                         <button class="action-item delete" onclick="deleteDevice(${dev.id})"><i class="fas fa-trash"></i> Delete</button>
                         ` : ''}
@@ -50,9 +52,36 @@ export async function refreshDevices() {
                 </div>
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="7" style="text-align: center;">No devices found</td></tr>';
+    `).join('') || '<tr><td colspan="8" style="text-align: center;">No devices found</td></tr>';
 
     window.updatePaginationUI('devices');
+}
+
+export async function toggleTemplateMaster(id, enabled) {
+    const message = enabled
+        ? 'Set this device as the template master? Any existing master will be unset.'
+        : 'Unset this device as the template master?';
+    showConfirm({
+        title: enabled ? 'Set Template Master' : 'Unset Template Master',
+        message,
+        icon: 'fa-star',
+        confirmText: enabled ? 'Set Master' : 'Unset Master',
+        onConfirm: async () => {
+            try {
+                const res = await fetch(`/api/devices/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_template_master: enabled })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.message || data.error || 'Failed to update template master');
+                showToast(enabled ? 'Template master set' : 'Template master unset', 'success');
+                refreshDevices();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+    });
 }
 
 export async function syncDevice(sn) {
