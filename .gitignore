@@ -6,6 +6,9 @@ app/node_modules/
 .env
 app/.env
 
+# Codebase memory
+.codebase-memory/
+
 #Docker
 docker-compose.yml
 
