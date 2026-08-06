@@ -253,6 +253,19 @@ export async function ensureSchema() {
     console.log('✅ HR Settings page permission updated to include admin')
   }
 
+  const { rows: biometricRows } = await pool.query(`SELECT allowed_roles FROM page_permissions WHERE page_id = 'biometrics'`)
+  if (biometricRows.length === 0) {
+    await pool.query(
+      `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('biometrics', 'Biometrics', '{superadmin,admin}')`
+    )
+    console.log('✅ Biometrics page permission added')
+  } else if (!biometricRows[0].allowed_roles.includes('admin')) {
+    await pool.query(
+      `UPDATE page_permissions SET allowed_roles = ARRAY['superadmin','admin'], updated_at = now() WHERE page_id = 'biometrics'`
+    )
+    console.log('✅ Biometrics page permission updated to include admin')
+  }
+
   // Ensure late page exists in page_permissions for existing installations
   const { rows: lateRows } = await pool.query(`SELECT allowed_roles FROM page_permissions WHERE page_id = 'late'`)
   if (lateRows.length === 0) {

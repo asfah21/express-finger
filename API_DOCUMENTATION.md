@@ -291,6 +291,19 @@ Request JSON options for dry-run and push operations:
 
 Deletes occur only when both delete flags are `true`; the default is non-destructive.
 Responses contain operation status, actions, counts, checksums, and reasons for skipped/error items. Raw biometric payloads are never returned in sync logs.
+
+# Manual Biometrics API
+
+All manual biometric endpoints require authentication, API access, and admin privileges. Raw template data is only returned by the explicit download endpoint.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/biometrics?userId=<user_id>` | List active fingerprint/face template metadata for one employee. |
+| POST | `/api/biometrics` | Store or update a template using `userId`, `templateType`, `templateIndex`, and base64 `base64` data. Optional `originalFilename`. |
+| DELETE | `/api/biometrics/:id` | Soft-delete an active template record while preserving its history. |
+| GET | `/api/biometrics/:id/download` | Download template metadata and base64 data for an explicit backup. |
+
+`templateType` must be `fingerprint` or `face`; `templateIndex` must be an integer from 0 through 255. Manual uploads are limited to 1 MiB per template.
 # Template Sync API
 
 All template sync endpoints require authentication, API access, and admin privileges.

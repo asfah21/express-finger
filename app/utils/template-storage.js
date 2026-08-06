@@ -43,6 +43,17 @@ export class TemplateStorage {
         return rows[0] || null
     }
 
+    async invalidateTemplate(id) {
+        const { rows } = await this.db.query(
+            `UPDATE employee_templates
+             SET valid = false, updated_at = now()
+             WHERE id = $1 AND valid = true
+             RETURNING id, user_id, template_type, template_index, checksum, size`,
+            [id]
+        )
+        return rows[0] || null
+    }
+
     async listTemplates(filters = {}) {
         const values = []
         const clauses = ['valid = true']

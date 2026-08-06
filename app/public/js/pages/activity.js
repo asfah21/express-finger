@@ -56,10 +56,12 @@ export async function refreshActivityLogs() {
             update_account: 'fa-user-cog',
             export_attendance: 'fa-file-excel',
             export_employees: 'fa-file-excel',
+            add_biometric_template: 'fa-fingerprint',
+            delete_biometric_template: 'fa-trash',
         };
 
         const logs = data.data?.list || data.data?.logs || [];
-        
+
         if (logs.length === 0) {
             body.innerHTML = `<tr><td colspan="7" class="empty-state">
                 <i class="fas fa-shield-alt"></i>
@@ -156,10 +158,10 @@ export async function clearOldActivityLogs() {
     saveBtn.onclick = async () => {
         const days = parseInt(document.getElementById('clear-logs-days').value) || 90;
         if (days < 1) return showToast('Minimum 1 day', 'warning');
-        
+
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
-        
+
         try {
             const res = await fetch(`/api/activity-logs/old?days=${days}`, { method: 'DELETE' });
             if (res.ok) {

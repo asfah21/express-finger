@@ -1,0 +1,81 @@
+<div id="page-biometrics" class="page" style="display:none; padding-bottom:2rem;">
+    <div class="stat-card" style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+            <div>
+                <h3 style="display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem;"><i
+                        class="fas fa-fingerprint" style="color:var(--secondary);"></i> Manual Biometrics</h3>
+                <p style="color:var(--text-muted); font-size:.85rem; max-width:68ch;">Simpan template fingerprint atau
+                    face secara manual untuk karyawan. Data biometrik ditampilkan sebagai metadata dan checksum, bukan
+                    raw payload.</p>
+            </div>
+            <button class="btn-primary" style="width:auto;" onclick="openBiometricModal()"><i class="fas fa-plus"></i>
+                Add Template</button>
+        </div>
+    </div>
+
+    <div class="stat-card" style="margin-bottom:1.25rem;">
+        <div class="form-row">
+            <div class="form-group" style="flex:2;">
+                <label for="biometric-employee-select">Employee</label>
+                <select id="biometric-employee-select" onchange="loadBiometricTemplates()">
+                    <option value="">-- Select Employee --</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:.6rem; align-items:flex-end; flex-wrap:wrap;">
+                <div class="badge" style="padding:.6rem .8rem; background:rgba(36,97,150,.16); color:var(--primary);"><i
+                        class="fas fa-fingerprint"></i> Fingerprints: <strong
+                        id="biometric-fingerprint-count">0</strong></div>
+                <div class="badge"
+                    style="padding:.6rem .8rem; background:rgba(119,160,68,.16); color:var(--secondary);"><i
+                        class="fas fa-user-circle"></i> Faces: <strong id="biometric-face-count">0</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Index</th>
+                    <th>Size</th>
+                    <th>Checksum</th>
+                    <th>Format</th>
+                    <th>Source</th>
+                    <th>Captured</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="biometrics-body">
+                <tr>
+                    <td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">Select an employee
+                        to view templates.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="biometric-modal-content" style="display:none;">
+        <div class="form-group"><label for="biometric-modal-employee">Employee</label><select
+                id="biometric-modal-employee"></select></div>
+        <div class="form-row">
+            <div class="form-group"><label for="biometric-modal-type">Template Type</label><select
+                    id="biometric-modal-type">
+                    <option value="fingerprint">Fingerprint</option>
+                    <option value="face">Face</option>
+                </select></div>
+            <div class="form-group"><label for="biometric-modal-index">Template Index</label><input
+                    id="biometric-modal-index" type="number" min="0" max="255" value="0"></div>
+        </div>
+        <div class="form-group"><label for="biometric-modal-file">Template File <span
+                    style="color:var(--text-muted);font-weight:400;">(optional)</span></label><input
+                id="biometric-modal-file" type="file" accept=".bin,.dat,.template,.raw,application/octet-stream></div>
+        <div class=" form-group"><label for="biometric-modal-base64">Or Base64 Template</label><textarea
+                id="biometric-modal-base64" rows="5" placeholder="Paste base64 encoded template data..."></textarea>
+        </div>
+        <div
+            style="font-size:.78rem;color:var(--text-muted);padding:.7rem;background:rgba(255,255,255,.04);border:1px solid var(--glass-border);border-radius:.5rem;">
+            <i class="fas fa-shield-alt" style="color:var(--secondary);"></i> Uploading the same employee/type/index
+            updates the existing current record. Raw data is not shown in the list or activity log.</div>
+    </div>
+</div>
