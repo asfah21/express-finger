@@ -22,6 +22,28 @@ export function parseFingerprintTemplates(payload) {
         const uid = data.readUInt16LE(offset + 2)
         const templateIndex = data.readUInt8(offset + 4)
         const valid = data.readUInt8(offset + 5)
+        if (size < 6 || offset + size > data.length) {
+            // A few ZKTeco firmware versions return a record stream without
+            // the usual 4-byte prefix. Retry from byte zero before declaring
+            // that no fingerprints were found.
+            if (offset === 4) return parseFingerprintTemplatesWithoutHeader(data)
+            break
+        }
+        const templateData = data.subarray(offset + 6, offset + size)
+        records.push({ uid, templateIndex, valid: Boolean(valid), data: Buffer.from(templateData), evidence: evidence('fingerprint', templateData, { recordSize: size }) })
+        offset += size
+    }
+    return records
+}
+
+function parseFingerprintTemplatesWithoutHeader(data) {
+    const records = []
+    let offset = 0
+    while (offset + 6 <= data.length) {
+        const size = data.readUInt16LE(offset)
+        const uid = data.readUInt16LE(offset + 2)
+        const templateIndex = data.readUInt8(offset + 4)
+        const valid = data.readUInt8(offset + 5)
         if (size < 6 || offset + size > data.length) break
         const templateData = data.subarray(offset + 6, offset + size)
         records.push({ uid, templateIndex, valid: Boolean(valid), data: Buffer.from(templateData), evidence: evidence('fingerprint', templateData, { recordSize: size }) })

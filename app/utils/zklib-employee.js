@@ -22,9 +22,6 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
         const userData = users?.data || [];
         console.log(`📦 [Employee Preview] Received ${userData.length} users from device ${sn || ip}`);
 
-        // Try to get biometric counts for each user
-        const { fpCounts, faceCounts } = await fetchBiometricCounts(zk, deviceInfo);
-
         // Get device info
         let deviceInfo = null;
         try {
@@ -33,9 +30,18 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
             console.warn('⚠️ Could not get device info:', e.message);
         }
 
+        // Try to get biometric counts for each user. Some devices expose the
+        // count directly on each getUsers() record as `10fingercount`; keep
+        // the protocol-derived count as a fallback for devices that do not.
+        const { fpCounts, faceCounts } = await fetchBiometricCounts(zk, deviceInfo);
+
         const formattedUsers = userData.map(u => {
             const uid = u.uid || 0;
-            const fingerprintCount = fpCounts[uid] || 0;
+            const deviceFingerprintCount = Number(u['10fingercount']);
+            const templateFingerprintCount = fpCounts[uid] || 0;
+            const fingerprintCount = templateFingerprintCount > 0
+                ? templateFingerprintCount
+                : (Number.isFinite(deviceFingerprintCount) ? deviceFingerprintCount : 0);
             const faceCount = faceCounts[uid] || 0;
             return {
                 uid: uid,

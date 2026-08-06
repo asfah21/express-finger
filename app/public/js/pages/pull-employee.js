@@ -413,7 +413,7 @@ export function renderPullEmployeeResults() {
                 <td><strong>${user.userId}</strong></td>
                 <td>${user.name}</td>
                 <td><span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">${roleLabel}</span></td>
-                <td>${user.fingerprintCount || 0}</td>
+                <td>${user.fingerprintCount ?? user['10fingercount'] ?? 0}</td>
                 <td>${user.faceCount || 0}</td>
             </tr>`;
         }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
@@ -489,8 +489,8 @@ export function exportPulledEmployeeData() {
         const exportData = lastPulledEmployeeData.map(u => ({
             'User ID': u.userId,
             'Name': u.name,
-            'Fingerprint Count': u.fingerprintCount || 0,
-            'Has Fingerprint': (u.fingerprintCount || 0) > 0 ? 'Yes' : 'No',
+            'Fingerprint Count': u.fingerprintCount ?? u['10fingercount'] ?? 0,
+            'Has Fingerprint': (u.fingerprintCount ?? u['10fingercount'] ?? 0) > 0 ? 'Yes' : 'No',
             'Card Number': u.cardno || 0,
             'Role': u.role ?? 0
         }));

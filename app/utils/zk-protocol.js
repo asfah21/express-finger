@@ -36,6 +36,8 @@ export async function readBuffered(zk, request, options = {}) {
     await freeData(zk)
     if (!result?.data) throw new Error('ZK buffered read returned no data')
     return {
+        // node-zklib's buffered response includes the 4-byte data header;
+        // callers parsing template records expect the records themselves.
         data: Buffer.from(result.data),
         error: result.err || null,
         evidence: {
