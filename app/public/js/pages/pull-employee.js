@@ -413,8 +413,10 @@ export function renderPullEmployeeResults() {
                 <td><strong>${user.userId}</strong></td>
                 <td>${user.name}</td>
                 <td><span class="badge" style="background: rgba(99,102,241,0.2); color: #818cf8;">${roleLabel}</span></td>
+                <td>${user.fingerprintCount || 0}</td>
+                <td>${user.faceCount || 0}</td>
             </tr>`;
-        }).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No data found</td></tr>';
     }
 }
 

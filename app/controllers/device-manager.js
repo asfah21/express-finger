@@ -81,7 +81,7 @@ export const deviceManagerController = {
 
     async updateDevice(req, res) {
         const { id } = req.params
-        const { sn, name, ip, port, is_active } = req.body
+        const { sn, name, ip, port, is_active, is_template_master } = req.body
         const username = req.user?.username || 'api'
         const clientIp = getClientIp(req)
 
@@ -97,9 +97,10 @@ export const deviceManagerController = {
              name = COALESCE($2, name), 
              ip = COALESCE($3, ip), 
              port = COALESCE($4, port), 
-             is_active = COALESCE($5, is_active)
-         WHERE id = $6 RETURNING *`,
-                [sn, name, ip, port, is_active, id]
+             is_active = COALESCE($5, is_active),
+             is_template_master = COALESCE($6, is_template_master)
+         WHERE id = $7 RETURNING *`,
+                [sn, name, ip, port, is_active, is_template_master, id]
             )
 
             // Hapus cache devices list
@@ -113,7 +114,8 @@ export const deviceManagerController = {
                 { label: 'Name', key: 'name' },
                 { label: 'IP', key: 'ip' },
                 { label: 'Port', key: 'port' },
-                { label: 'Active', key: 'is_active' }
+                { label: 'Active', key: 'is_active' },
+                { label: 'Template Master', key: 'is_template_master' }
             ]
             for (const field of fields) {
                 const oldVal = old[field.key]

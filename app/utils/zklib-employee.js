@@ -1,7 +1,7 @@
 import ZKLib from 'node-zklib'
 import { pool } from './database.js'
 import { createRequire } from 'module'
-import { readFingerprintTemplates } from './zklib-templates.js'
+import { readFingerprintTemplates, readFaceTemplates } from './zklib-templates.js'
 const require = createRequire(import.meta.url)
 const { createTCPHeader, removeTcpHeader } = require('node-zklib/utils.js')
 const COMMANDS = require('node-zklib/constants.js').COMMANDS
@@ -22,8 +22,8 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
         const userData = users?.data || [];
         console.log(`📦 [Employee Preview] Received ${userData.length} users from device ${sn || ip}`);
 
-        // Try to get fingerprint counts for each user
-        const fpCounts = await fetchFingerprintCounts(zk);
+        // Try to get biometric counts for each user
+        const { fpCounts, faceCounts } = await fetchBiometricCounts(zk, deviceInfo);
 
         // Get device info
         let deviceInfo = null;
@@ -35,7 +35,8 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
 
         const formattedUsers = userData.map(u => {
             const uid = u.uid || 0;
-            const fpCount = fpCounts[uid] || 0;
+            const fingerprintCount = fpCounts[uid] || 0;
+            const faceCount = faceCounts[uid] || 0;
             return {
                 uid: uid,
                 userId: String(u.userId || '').trim(),
@@ -43,8 +44,10 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
                 password: (u.password || '').trim(),
                 role: u.role ?? 0,
                 cardno: u.cardno ?? 0,
-                fingerprintCount: fpCount,
-                hasFingerprint: fpCount > 0
+                fingerprintCount,
+                hasFingerprint: fingerprintCount > 0,
+                faceCount,
+                hasFace: faceCount > 0
             };
         });
 
@@ -81,6 +84,22 @@ export async function fetchFingerprintCounts(zk, options = {}) {
     }
 
     return fpCounts;
+}
+
+/** Fetch both fingerprint and face template counts, keeping unsupported biometric types at zero. */
+export async function fetchBiometricCounts(zk, deviceInfo = null, options = {}) {
+    const fpCounts = await fetchFingerprintCounts(zk, { ...options, deviceInfo });
+    const faceCounts = {};
+    try {
+        const result = await readFaceTemplates({ zk }, { ...options, deviceInfo });
+        for (const template of result.templates || []) {
+            const uid = template.uid ?? template.userId;
+            if (uid !== undefined && uid !== null) faceCounts[uid] = (faceCounts[uid] || 0) + 1;
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not fetch face counts:', e.message);
+    }
+    return { fpCounts, faceCounts };
 }
 
 /**
