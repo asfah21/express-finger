@@ -81,7 +81,13 @@ export async function fetchDeviceUsersFormatted(ip, port = 4370, sn = null) {
 export async function fetchFingerprintCounts(zk, options = {}) {
     const fpCounts = {};
     try {
-        const result = await readFingerprintTemplates({ zk }, options)
+        // Probe devices whose capability cannot be identified. The preview
+        // endpoint is read-only, so the command is safe to test here and the
+        // response tells us whether this firmware supports templates.
+        const result = await readFingerprintTemplates(
+            { zk },
+            { ...options, allowProbeRequired: true }
+        )
         console.log(`🖐️ [Employee Preview] Fingerprint template read: ${result.templates?.length || 0} templates (status=${result.evidence?.status || 'unknown'}, response=${result.evidence?.size || 0} bytes, reason=${result.evidence?.reason || 'none'})`)
         for (const template of result.templates || []) {
             fpCounts[template.uid] = (fpCounts[template.uid] || 0) + 1
