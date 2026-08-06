@@ -82,11 +82,12 @@ export async function fetchFingerprintCounts(zk, options = {}) {
     const fpCounts = {};
     try {
         const result = await readFingerprintTemplates({ zk }, options)
+        console.log(`🖐️ [Employee Preview] Fingerprint template read: ${result.templates?.length || 0} templates (status=${result.evidence?.status || 'unknown'}, response=${result.evidence?.size || 0} bytes, reason=${result.evidence?.reason || 'none'})`)
         for (const template of result.templates || []) {
             fpCounts[template.uid] = (fpCounts[template.uid] || 0) + 1
         }
     } catch (e) {
-        console.warn('⚠️ Could not fetch fingerprint counts:', e.message);
+        console.warn('⚠️ Could not fetch fingerprint counts:', e?.message || e || 'unknown error');
     }
 
     return fpCounts;
