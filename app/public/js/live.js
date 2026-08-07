@@ -2,7 +2,8 @@ const state = {
     stream: null,
     busy: false,
     resetTimer: null,
-    mode: 'kiosk'
+    mode: 'kiosk',
+    initialized: false
 }
 
 const $ = (id) => document.getElementById(id)
@@ -21,6 +22,22 @@ function setBusy(busy) {
     })
     const capture = $('live-capture')
     if (capture) capture.classList.toggle('is-processing', busy)
+}
+
+function showResult(employeeName, type) {
+    const result = $('live-result')
+    const name = $('live-result-name')
+    if (!result || !name) return
+    name.textContent = employeeName || 'Karyawan'
+    result.querySelector('small').textContent = type === 0 ? 'Absensi masuk berhasil' : 'Absensi pulang berhasil'
+    result.classList.add('is-visible')
+    result.setAttribute('aria-hidden', 'false')
+    clearTimeout(state.resetTimer)
+    state.resetTimer = setTimeout(() => {
+        result.classList.remove('is-visible')
+        result.setAttribute('aria-hidden', 'true')
+        setStatus('Pilih tombol di bawah untuk memulai.', 'neutral')
+    }, 500)
 }
 
 async function startCamera() {
@@ -93,7 +110,7 @@ async function submitAttendance(type) {
         const data = await response.json().catch(() => ({}))
         if (response.ok) {
             const employee = data.data || {}
-            setStatus(`${employee.nama || 'Karyawan'} — ${type === 0 ? 'Masuk' : 'Pulang'} berhasil dicatat`, 'success')
+            showResult(employee.nama, type)
         } else if (response.status === 409) {
             setStatus('Sudah absen untuk jenis kehadiran ini hari ini.', 'warning')
         } else {
@@ -104,12 +121,14 @@ async function submitAttendance(type) {
         setStatus('Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
     } finally {
         setBusy(false)
-        scheduleReset()
+        if (!response?.ok) scheduleReset()
     }
 }
 
 export async function initLivePage(mode = 'kiosk') {
     state.mode = mode
+    if (state.initialized) return
+    state.initialized = true
     document.querySelectorAll('[data-live-type]').forEach((button) => {
         button.addEventListener('click', () => submitAttendance(Number(button.dataset.liveType)))
     })

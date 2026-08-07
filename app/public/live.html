@@ -13,14 +13,15 @@
 <body class="live-kiosk-body">
     <main class="live-kiosk-shell">
         <header class="live-kiosk-header">
-            <div class="live-brand"><span><i class="fas fa-fingerprint"></i></span><strong>AZRA</strong></div>
+            <div class="live-brand"><span><i class="fas fa-fingerprint"></i></span><strong>AZRA</strong><small>KIOSK
+                    ABSENSI</small></div>
             <div class="live-clock" id="live-clock"></div>
         </header>
         <section class="live-panel" data-live-root>
-            <div class="live-intro">
+            <div class="live-kiosk-heading">
                 <div class="live-kicker"><span class="live-pulse"></span> LIVE ATTENDANCE</div>
-                <h1>Absen dengan wajah</h1>
-                <p>Pilih jenis kehadiran, lalu lihat ke kamera. Tidak perlu memasukkan ID atau password.</p>
+                <h1>Silakan pilih jenis absensi</h1>
+                <p>Pilih Masuk atau Pulang untuk memulai pengenalan wajah.</p>
             </div>
             <div class="live-workspace">
                 <div class="live-camera-frame" id="live-camera-frame"><video id="live-video" autoplay muted playsinline
@@ -31,7 +32,8 @@
                         id="live-canvas" hidden></canvas>
                 </div>
                 <div class="live-actions">
-                    <div class="live-status" id="live-status" role="status" aria-live="polite">Kamera belum aktif.</div>
+                    <div class="live-status" id="live-status" role="status" aria-live="polite">Pilih tombol di bawah
+                        untuk memulai.</div>
                     <div class="live-action-buttons"><button class="live-action live-action-in" type="button"
                             data-live-type="0"><i
                                 class="fas fa-arrow-right-to-bracket"></i><span><strong>Masuk</strong><small>Mulai
@@ -43,6 +45,11 @@
                     <p class="live-privacy"><i class="fas fa-shield-halved"></i> Foto hanya digunakan untuk mengenali
                         wajah dan mencatat kehadiran.</p>
                 </div>
+            </div>
+            <div class="live-result" id="live-result" role="status" aria-live="assertive" aria-hidden="true">
+                <span class="live-result-icon"><i class="fas fa-check"></i></span>
+                <small>Absensi berhasil</small>
+                <strong id="live-result-name">-</strong>
             </div>
         </section>
         <footer class="live-kiosk-footer">Sistem absensi AZRA · Hadir tepat waktu, pulang dengan tenang</footer>
