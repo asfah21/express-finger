@@ -186,8 +186,9 @@ async function showDashboard() {
     // Apply dynamic sidebar visibility based on permissions
     applyDynamicSidebar();
 
-    // Sembunyikan elemen superadmin-only jika user bukan superadmin
+    // Apply role-specific visibility after permissions are loaded.
     applySuperAdminVisibility();
+    applyLiveVisibility();
 
 
     // Restore sidebar collapsed state from localStorage
@@ -227,12 +228,12 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'live', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'live', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
 
         state.allowedPageLabels = {};
     }
@@ -306,8 +307,26 @@ function applySuperAdminVisibility() {
     });
 }
 
+/**
+ * Live is intentionally visible only to the kiosk/public role and superadmin.
+ * The backend page permission remains the source of truth; this prevents the
+ * menu from appearing for admin/viewer users even when fallback permissions
+ * are used during a transient API failure.
+ */
+function applyLiveVisibility() {
+    const role = state.currentUser?.role;
+    const canUseLive = role === 'public' || role === 'superadmin';
+    document.querySelectorAll('.live-access-only').forEach(el => {
+        el.style.display = canUseLive && state.allowedPages.includes('live') ? '' : 'none';
+    });
+}
+
 
 function showPage(pageId) {
+    if (pageId === 'live' && !['public', 'superadmin'].includes(state.currentUser?.role)) {
+        showToast('Access denied: Live is available only for public and superadmin users', 'error');
+        return;
+    }
     // Dynamic permission guard using allowedPages from server
     if (state.allowedPages && !state.allowedPages.includes(pageId)) {
         showToast('Access denied: You do not have permission to access this page', 'error');

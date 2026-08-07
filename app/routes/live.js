@@ -1,6 +1,6 @@
 import express from 'express'
 import { liveController } from '../controllers/live.js'
-import { requireApiKey, requireSuperAdminPrivileges } from '../middleware/index.js'
+import { requireApiKey, requireAuth, requireSuperAdminPrivileges } from '../middleware/index.js'
 
 const router = express.Router()
 
@@ -8,7 +8,7 @@ const router = express.Router()
 router.post('/attendance', liveController.attendance)
 
 router.use(requireApiKey)
-router.get('/health', liveController.health)
+router.get('/health', requireAuth, liveController.pageAccess, liveController.health)
 router.post('/reload', requireSuperAdminPrivileges, liveController.reload)
 
 export default router

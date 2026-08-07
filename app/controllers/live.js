@@ -28,6 +28,11 @@ async function recognize(image) {
 }
 
 export const liveController = {
+    async pageAccess(req, res, next) {
+        if (req.user?.role === 'public' || req.user?.role === 'superadmin') return next()
+        return sendError(res, 'Forbidden: Live is available only to public and superadmin users', 403)
+    },
+
     async attendance(req, res) {
         const type = Number(req.body?.type)
         const image = normalizeImage(req.body?.image)

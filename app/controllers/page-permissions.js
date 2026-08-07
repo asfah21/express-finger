@@ -71,7 +71,11 @@ export const pagePermissionsController = {
         try {
             const userRole = req.user?.role || 'viewer'
             const { rows } = await pool.query(
-                'SELECT page_id, page_label FROM page_permissions WHERE $1 = ANY(allowed_roles) ORDER BY id ASC',
+                `SELECT page_id, page_label
+                 FROM page_permissions
+                 WHERE $1 = ANY(allowed_roles)
+                   AND (page_id <> 'live' OR $1 IN ('public', 'superadmin'))
+                 ORDER BY id ASC`,
                 [userRole]
             )
             sendSuccess(res, rows)
