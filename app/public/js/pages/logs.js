@@ -23,7 +23,7 @@ export async function refreshLogs() {
     const body = document.getElementById('logs-body');
 
     const logs = data.data?.list || data.data?.logs || [];
-    
+
     if (logs.length === 0) {
         body.innerHTML = `<tr><td colspan="7" class="empty-state">
             <i class="fas fa-clipboard-list"></i>
@@ -33,9 +33,13 @@ export async function refreshLogs() {
     } else {
         body.innerHTML = logs.map(log => {
             const dt = new Date(log.timestamp);
-            const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
-            const timeStr = dt.toISOString().split('T')[1].substring(0, 5); 
-            const secondsStr = dt.toISOString().split('T')[1].substring(6, 8); 
+            const witaParts = new Intl.DateTimeFormat('id-ID', {
+                timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            }).formatToParts(dt).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+            const dateStr = `${witaParts.day}/${witaParts.month}/${witaParts.year}`;
+            const timeStr = `${witaParts.hour}:${witaParts.minute}`;
+            const secondsStr = witaParts.second;
 
             return `
                 <tr>
@@ -159,8 +163,8 @@ export async function showPrintSlipModal() {
             return;
         }
 
-        const filtered = employees.filter(emp => 
-            emp.nama.toLowerCase().includes(val) || 
+        const filtered = employees.filter(emp =>
+            emp.nama.toLowerCase().includes(val) ||
             (emp.nik && emp.nik.toLowerCase().includes(val)) ||
             emp.user_id.toString().includes(val)
         ).slice(0, 10);
@@ -238,7 +242,7 @@ async function generatePDFSlip() {
         }
 
         const employee = logs[0]; // Info employee dari log pertama
-        
+
         // Generate PDF in landscape
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
@@ -310,7 +314,7 @@ async function generatePDFSlip() {
         doc.text(`Period        :  ${periodLabel}`, col2X, infoY);
         doc.text(`User ID      :  ${employee.user_id}`, col2X, infoY + lineH);
         doc.text(`Total Logs  :  ${logs.length} entries`, col2X, infoY + lineH * 2);
-        
+
         // Count check-in vs check-out
         const checkIn = logs.filter(l => l.type == 0).length;
         const checkOut = logs.filter(l => l.type == 1).length;
@@ -337,20 +341,20 @@ async function generatePDFSlip() {
         summaryItems.forEach((item, i) => {
             const cx = startX + i * (cardW + 3);
             const cy = summaryY;
-            
+
             // Card background
             doc.setFillColor(...alphaBlend(item.color, 0.08));
             doc.roundedRect(cx, cy, cardW, 10, 2, 2, 'F');
-            
+
             doc.setDrawColor(item.color[0], item.color[1], item.color[2]);
             doc.setLineWidth(0.3);
             doc.roundedRect(cx, cy, cardW, 10, 2, 2, 'S');
-            
+
             doc.setFontSize(9);
             doc.setTextColor(item.color[0], item.color[1], item.color[2]);
             doc.setFont(undefined, 'bold');
             doc.text(item.value.toString(), cx + cardW / 2, cy + 4, { align: 'center' });
-            
+
             doc.setFontSize(5);
             doc.setTextColor(TEXT_MUTED[0], TEXT_MUTED[1], TEXT_MUTED[2]);
             doc.setFont(undefined, 'normal');
@@ -385,7 +389,7 @@ async function generatePDFSlip() {
                 doc.text(`Page ${doc.internal.getNumberOfPages()} | AZRA System | ${new Date().toLocaleString('id-ID')}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
                 doc.addPage();
                 yPos = 12;
-                
+
                 doc.setFillColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
                 doc.roundedRect(startX, yPos, totalTableWidth, 6, 2, 2, 'F');
                 doc.setFontSize(6);
@@ -490,7 +494,7 @@ async function performExport(range) {
             last3.setDate(last3.getDate() - 3);
             fromDate = last3.toISOString();
             toDate = now.toISOString();
-            search = ''; 
+            search = '';
         } else if (range === 'all_absolute') {
             fromDate = '';
             toDate = '';
@@ -518,7 +522,7 @@ async function performExport(range) {
 
         const exportData = logs.map(log => {
             const dt = new Date(log.timestamp);
-            const timeFull = dt.toISOString().split('T')[1].substring(0, 8); 
+            const timeFull = dt.toISOString().split('T')[1].substring(0, 8);
             return {
                 NIK: log.nik,
                 Name: log.nama,
@@ -540,7 +544,7 @@ async function performExport(range) {
 
         XLSX.writeFile(workbook, `attendance_${range}_${today}.xlsx`);
         showToast('Export successful', 'success');
-        
+
         if (window.recordClientActivity) {
             await window.recordClientActivity('export_attendance', 'export', `Exported attendance logs (range: ${range}, count: ${logs.length})`);
         }

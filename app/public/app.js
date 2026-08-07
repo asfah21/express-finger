@@ -328,12 +328,12 @@ function applyLiveVisibility() {
 
 
 function showPage(pageId) {
-    if (pageId === 'live') {
-        window.location.assign('/live.html');
-        return;
-    }
     if (pageId === 'live' && !['public', 'superadmin'].includes(state.currentUser?.role)) {
         showToast('Access denied: Live is available only for public and superadmin users', 'error');
+        return;
+    }
+    if (pageId === 'live') {
+        window.location.assign('/live.html');
         return;
     }
     // Dynamic permission guard using allowedPages from server

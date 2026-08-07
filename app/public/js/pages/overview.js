@@ -12,7 +12,7 @@ const OVERVIEW_CACHE_TTL = 120000; // 2 menit
 
 export async function refreshOverview(force = false) {
     const now = Date.now();
-    
+
     // Jika tidak dipaksa refresh dan cache masih valid, skip fetch API
     if (!force && overviewCache.data && (now - overviewCache.timestamp < OVERVIEW_CACHE_TTL)) {
         // Tampilkan data dari cache
@@ -58,7 +58,7 @@ export async function refreshOverview(force = false) {
         }
         return; // Skip fetch API
     }
-    
+
     try {
         const s = state.pagination.overview;
         const today = getWitaDateString();
@@ -87,7 +87,7 @@ export async function refreshOverview(force = false) {
         const statDevices = document.getElementById('stat-devices');
         const statEmployees = document.getElementById('stat-employees');
         const statLogs = document.getElementById('stat-logs');
-        
+
         if (statDevices) { statDevices.innerText = devicesData.data?.total || 0; statDevices.classList.remove('loading'); }
         if (statEmployees) { statEmployees.innerText = employeesData.data?.total || 0; statEmployees.classList.remove('loading'); }
         if (statLogs) { statLogs.innerText = logsData.data?.total || 0; statLogs.classList.remove('loading'); }
@@ -157,18 +157,18 @@ async function refreshChart() {
     try {
         // Show skeleton while chart data is loading
         showChartLoading(true);
-        
+
         const rangeSelect = document.getElementById('chart-range');
         const daysCount = rangeSelect ? parseInt(rangeSelect.value) : 7;
-        
+
         const labels = [];
         const checkinData = [];
         const checkoutData = [];
         const isMobile = window.innerWidth < 640;
-        
+
         // For mobile with 30 days, use weekly aggregation to avoid clutter
         const useWeekly = isMobile && daysCount > 14;
-        
+
         if (useWeekly) {
             // Aggregate by week for mobile 30-day view
             const weeks = Math.ceil(daysCount / 7);
@@ -177,12 +177,12 @@ async function refreshChart() {
                 let checkoutTotal = 0;
                 const weekStart = new Date();
                 weekStart.setDate(weekStart.getDate() - (daysCount - w * 7));
-                
+
                 for (let d = 0; d < 7; d++) {
                     const day = new Date(weekStart);
                     day.setDate(day.getDate() + d);
                     if (day > new Date()) break;
-                    
+
                     const dateStr = day.toISOString().split('T')[0];
                     // OPTIMIZED: Single API call per day, filter by type on client side
                     const res = await fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&limit=1`);
@@ -192,7 +192,7 @@ async function refreshChart() {
                     // Fallback: use the total as check-in count (most logs are check-ins)
                     checkinTotal += data.data?.total || 0;
                 }
-                
+
                 labels.push(`W${w + 1}`);
                 checkinData.push(checkinTotal);
                 checkoutData.push(0); // Weekly view shows only total
@@ -203,13 +203,13 @@ async function refreshChart() {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
                 const dateStr = d.toISOString().split('T')[0];
-                
+
                 // On mobile with 14 days, show day+month; otherwise show weekday
-                const label = isMobile 
+                const label = isMobile
                     ? `${d.getDate()}/${d.getMonth() + 1}`
                     : d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
                 labels.push(label);
-                
+
                 // OPTIMIZED: Single API call per day, get all logs then count by type
                 const res = await fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&limit=5000`);
                 if (res.ok) {
@@ -230,7 +230,7 @@ async function refreshChart() {
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        
+
         // Destroy existing chart if it exists
         if (attendanceChart) {
             attendanceChart.destroy();
@@ -285,7 +285,7 @@ async function refreshChart() {
                 scales: {
                     x: {
                         grid: { color: gridColor },
-                        ticks: { 
+                        ticks: {
                             color: textColor,
                             maxRotation: isMobile ? 45 : 0,
                             font: { size: isMobile ? 9 : 11 }
@@ -294,7 +294,7 @@ async function refreshChart() {
                     y: {
                         beginAtZero: true,
                         grid: { color: gridColor },
-                        ticks: { 
+                        ticks: {
                             color: textColor,
                             stepSize: 1,
                             font: { size: isMobile ? 9 : 11 }
@@ -316,8 +316,11 @@ function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
     body.innerHTML = logs.map(log => {
         const dt = new Date(log.timestamp);
-        const timeStr = dt.toISOString().split('T')[1].substring(0, 5);
-        const secondsStr = dt.toISOString().split('T')[1].substring(6, 8);
+        const witaParts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        }).formatToParts(dt).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+        const timeStr = `${witaParts.hour}:${witaParts.minute}`;
+        const secondsStr = witaParts.second;
 
         return `
             <tr>

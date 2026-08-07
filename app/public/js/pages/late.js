@@ -24,7 +24,7 @@ export async function refreshLate() {
     const body = document.getElementById('late-body');
 
     const logs = data.data?.list || data.data?.logs || [];
-    
+
     if (logs.length === 0) {
         body.innerHTML = `<tr><td colspan="7" class="empty-state">
             <i class="fas fa-clock"></i>
@@ -34,9 +34,13 @@ export async function refreshLate() {
     } else {
         body.innerHTML = logs.map(log => {
             const dt = new Date(log.timestamp);
-            const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`;
-            const timeStr = dt.toISOString().split('T')[1].substring(0, 5); 
-            const secondsStr = dt.toISOString().split('T')[1].substring(6, 8); 
+            const witaParts = new Intl.DateTimeFormat('id-ID', {
+                timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            }).formatToParts(dt).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+            const dateStr = `${witaParts.day}/${witaParts.month}/${witaParts.year}`;
+            const timeStr = `${witaParts.hour}:${witaParts.minute}`;
+            const secondsStr = witaParts.second;
 
             return `
                 <tr>
