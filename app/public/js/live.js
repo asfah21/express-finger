@@ -153,7 +153,13 @@ export async function initLivePage(mode = 'kiosk') {
     if (state.initialized) return
     state.initialized = true
     document.querySelectorAll('[data-live-type]').forEach((button) => {
-        button.addEventListener('click', () => window.location.assign(`/cam_live.html?type=${Number(button.dataset.liveType)}`))
+        button.addEventListener('click', () => {
+            const type = Number(button.dataset.liveType)
+            const target = window.location.pathname.endsWith('/live.html')
+                ? 'pages/cam_live.html'
+                : 'cam_live.html'
+            window.location.assign(`${target}?type=${type}`)
+        })
     })
     setStatus('Pilih Masuk atau Pulang untuk melanjutkan.', 'neutral')
 }

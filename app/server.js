@@ -19,10 +19,14 @@ import { startPullScheduler } from './utils/scheduler.js'
 import { warmCache } from './utils/cache.js'
 import { getSettingsData } from './controllers/settings.js'
 import { getDevices } from './utils/database.js'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 
 const app = express()
 app.set('trust proxy', true)
+
+const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'public')
 
 // Middleware global
 app.use(compression())
@@ -35,14 +39,14 @@ app.use(securityMiddleware)
 app.use(loggerMiddleware)
 
 // Serve static files
-app.use(express.static('public'))
+app.use(express.static(publicDir))
 
 // `cam_live.html` is a static kiosk page, but it is also commonly opened
 // directly after selecting an attendance type. Keep this explicit fallback
 // so deployments with a static-file mount/configuration cannot send the
 // request to the JSON 404 handler merely because the query string is present.
 app.get('/cam_live.html', (_req, res) => {
-  res.sendFile('cam_live.html', { root: 'public' })
+  res.sendFile(path.join(publicDir, 'cam_live.html'))
 })
 
 // Routes
