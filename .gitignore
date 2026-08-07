@@ -72,8 +72,8 @@ typings/
 .env.test
 
 # Data storage (local)
-data/
-app/data/
+# data/
+# app/data/
 
 # IDE files
 .idea/
