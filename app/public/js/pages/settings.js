@@ -543,11 +543,16 @@ export async function loadPagePermissions() {
             return;
         }
 
-        const allRoles = ['superadmin', 'admin', 'viewer'];
+        // Keep this list aligned with the roles accepted by the permissions API.
+        // `public` is a real role used by the Live Attendance kiosk; omitting it
+        // here made the UI appear to support only three roles and made existing
+        // public permissions impossible to manage from Settings.
+        const allRoles = ['superadmin', 'admin', 'viewer', 'public'];
         const roleColors = {
             'superadmin': 'var(--secondary)',
             'admin': 'var(--primary)',
-            'viewer': 'var(--text-muted)'
+            'viewer': 'var(--text-muted)',
+            'public': 'var(--success)'
         };
 
         container.innerHTML = `
