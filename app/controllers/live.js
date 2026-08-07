@@ -16,12 +16,17 @@ function normalizeImage(image) {
 }
 
 async function recognize(image) {
-    const response = await fetch(`${config.FACE_SERVICE_URL}/recognize`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...(config.FACE_SERVICE_TOKEN ? { 'x-face-service-token': config.FACE_SERVICE_TOKEN } : {}) },
-        body: JSON.stringify({ image }),
-        signal: AbortSignal.timeout(config.FACE_SERVICE_TIMEOUT_MS)
-    })
+    let response
+    try {
+        response = await fetch(`${config.FACE_SERVICE_URL}/recognize`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', ...(config.FACE_SERVICE_TOKEN ? { 'x-face-service-token': config.FACE_SERVICE_TOKEN } : {}) },
+            body: JSON.stringify({ image }),
+            signal: AbortSignal.timeout(config.FACE_SERVICE_TIMEOUT_MS)
+        })
+    } catch (error) {
+        throw new Error(`Face service connection failed: ${error.message}`)
+    }
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || `Face service returned ${response.status}`)
     return data

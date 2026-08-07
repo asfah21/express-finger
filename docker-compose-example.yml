@@ -5,7 +5,8 @@ services:
       dockerfile: ../Dockerfile
     container_name: express-finger
     restart: unless-stopped
-    network_mode: "host"
+    networks:
+      - express-finger-net
     environment:
       - PGUSER=your_username
       - PGPASSWORD=your_password
@@ -15,7 +16,7 @@ services:
       - API_KEY=your_api_key
       - JWT_SECRET=your-strong-random-secret-key-min-32-chars
       - RAW_DIR=/data/raw
-      - FACE_SERVICE_URL=http://127.0.0.1:8090
+      - FACE_SERVICE_URL=http://face-service:8090
       - FACE_SERVICE_TOKEN=change-this-internal-token
       - CORS_ORIGINS= # Daftar origin yang diizinkan, pisah koma. Contoh: https://app.example.com,https://admin.example.com
     volumes:
@@ -43,3 +44,7 @@ services:
       - ./models:/models
     expose:
       - "8090"
+
+networks:
+  express-finger-net:
+    driver: bridge
