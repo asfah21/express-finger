@@ -16,10 +16,9 @@
         <header class="live-kiosk-header">
             <div class="live-brand">
                 <span aria-hidden="true"><i class="fas fa-fingerprint"></i></span>
-                <div><strong>AZRA</strong><small>v.0.7</small></div>
+                <div class="live-brand-name"><strong>AZRA</strong><small>v.0.7</small></div>
             </div>
             <div class="live-header-meta">
-                <span class="live-online"><i class="fas fa-circle" aria-hidden="true"></i> Online</span>
                 <div class="live-clock" id="live-clock"></div>
             </div>
         </header>
@@ -27,7 +26,7 @@
             <div class="live-kiosk-heading">
                 <div class="live-kicker"><span class="live-pulse"></span> ABSENSI HARI INI</div>
                 <div class="live-main-clock" aria-hidden="true"><span id="live-time">00:00</span></div>
-                <h1>Pilih jenis absensi</h1>
+                <h1 id="live-date">Hari dan tanggal</h1>
                 <p>Sentuh salah satu tombol untuk memulai verifikasi wajah.</p>
             </div>
             <div class="live-action-buttons live-choice-buttons"><button class="live-action live-action-in"
@@ -46,7 +45,7 @@
         import { initLivePage } from './js/live.js';
         initLivePage('kiosk');
         const clock = document.getElementById('live-clock');
-        const updateClock = () => { const now = new Date(); clock.textContent = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(now); document.getElementById('live-time').textContent = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(now); };
+        const updateClock = () => { const now = new Date(); clock.textContent = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(now); document.getElementById('live-time').textContent = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(now); document.getElementById('live-date').textContent = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(now); };
         updateClock(); setInterval(updateClock, 1000);
     </script>
 </body>

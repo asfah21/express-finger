@@ -27,7 +27,7 @@
 }
 
 .live-kiosk-shell {
-    width: min(1180px, calc(100% - 32px));
+    width: min(1180px, calc(100% - 40px));
     margin: 0 auto;
     min-height: 100vh;
     display: flex;
@@ -38,7 +38,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 0;
+    padding: 18px 0;
     border-bottom: 1px solid var(--live-line);
     color: var(--live-muted);
 }
@@ -64,19 +64,28 @@
 }
 
 .live-brand strong {
+    display: inline-block;
     color: var(--live-ink);
     font-size: inherit;
     font-weight: inherit;
 }
 
 .live-brand small {
-    display: block;
-    margin-left: .25rem;
+    display: inline-block;
+    margin-left: .35rem;
+    white-space: nowrap;
     color: var(--live-muted);
     font-size: .6rem;
     font-weight: 400;
     letter-spacing: normal;
     opacity: .7;
+}
+
+.live-brand-name {
+    display: flex;
+    align-items: baseline;
+    min-width: max-content;
+    white-space: nowrap;
 }
 
 .live-clock {
@@ -104,7 +113,7 @@
 
 .live-panel {
     position: relative;
-    padding: clamp(28px, 4vw, 48px) clamp(20px, 4vw, 52px);
+    padding: clamp(28px, 4vw, 44px) clamp(24px, 4vw, 52px);
     border: 1px solid var(--live-line);
     border-radius: var(--live-radius-panel);
     background: var(--live-surface);
@@ -115,19 +124,19 @@
 
 .live-choice-panel {
     width: 100%;
-    max-width: 880px;
+    max-width: 900px;
     margin: auto;
 }
 
 .live-choice-buttons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     max-width: 680px;
-    margin: 32px auto 0;
+    margin: 28px auto 0;
 }
 
 .live-choice-buttons .live-action {
-    min-height: 148px;
-    padding: 24px;
+    min-height: 156px;
+    padding: 22px;
     justify-content: center;
     flex-direction: column;
     gap: 10px;
@@ -687,7 +696,7 @@
 
 .live-kiosk-heading h1 {
     margin: 16px 0 8px;
-    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-size: clamp(1.35rem, 3vw, 2rem);
     line-height: 1;
     letter-spacing: -.03em;
     text-wrap: balance;
@@ -695,13 +704,14 @@
 
 .live-kiosk-heading p {
     margin: 0 auto;
+    max-width: 42ch;
     color: var(--live-muted);
 }
 
 .live-main-clock {
-    margin: 30px 0 10px;
+    margin: 26px 0 12px;
     color: var(--live-ink);
-    font-size: clamp(4rem, 12vw, 8.5rem);
+    font-size: clamp(4rem, 10vw, 7.2rem);
     font-weight: 800;
     line-height: .9;
     letter-spacing: -.055em;
@@ -710,7 +720,7 @@
 
 @media (max-width: 760px) {
     .live-kiosk-shell {
-        width: min(100% - 28px, 560px);
+        width: min(100% - 24px, 600px);
     }
 
     .live-kiosk-header {
@@ -724,16 +734,104 @@
     }
 
     .live-panel {
-        padding: 34px 16px;
+        padding: 28px 18px;
     }
 
     .live-choice-buttons .live-action {
-        min-height: 150px;
+        min-height: 136px;
     }
 
     .live-brand small {
         display: block;
         font-size: .56rem;
+    }
+}
+
+/* Samsung Galaxy Tab A9: 800x1340 portrait and 1340x800 landscape. */
+@media (min-width: 761px) and (max-width: 1400px) {
+    .live-kiosk-shell {
+        width: min(1180px, calc(100% - 48px));
+    }
+
+    .live-kiosk-header {
+        padding: 20px 0;
+    }
+
+    .live-choice-panel {
+        max-width: 940px;
+        padding: 38px 48px;
+    }
+
+    .live-main-clock {
+        margin-top: 30px;
+        font-size: clamp(5rem, 9vw, 7.5rem);
+    }
+
+    .live-choice-buttons {
+        max-width: 720px;
+        gap: 16px;
+        margin-top: 34px;
+    }
+
+    .live-choice-buttons .live-action {
+        min-height: 172px;
+        padding: 26px;
+    }
+}
+
+@media (min-width: 761px) and (max-width: 1000px) and (orientation: portrait) {
+    .live-kiosk-shell {
+        width: min(100% - 36px, 680px);
+    }
+
+    .live-kiosk-header {
+        padding: 16px 0;
+    }
+
+    .live-header-meta {
+        gap: 10px;
+    }
+
+    .live-choice-panel {
+        padding: 32px 28px;
+    }
+
+    .live-main-clock {
+        margin: 24px 0 10px;
+        font-size: clamp(4.5rem, 15vw, 6.5rem);
+    }
+
+    .live-choice-buttons {
+        max-width: 600px;
+        margin-top: 26px;
+    }
+
+    .live-choice-buttons .live-action {
+        min-height: 148px;
+    }
+}
+
+@media (min-width: 1001px) and (max-width: 1400px) and (orientation: landscape) {
+    .live-choice-panel {
+        padding-top: 30px;
+        padding-bottom: 30px;
+    }
+
+    .live-main-clock {
+        margin-top: 18px;
+        font-size: clamp(4rem, 10vw, 6rem);
+    }
+
+    .live-choice-buttons {
+        margin-top: 24px;
+    }
+
+    .live-choice-buttons .live-action {
+        min-height: 144px;
+    }
+
+    .live-kiosk-footer {
+        padding: 16px 0;
     }
 }
 
