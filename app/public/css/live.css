@@ -6,6 +6,9 @@
     --live-line: var(--glass-border, rgba(255, 255, 255, .08));
     --live-accent: var(--secondary, #77a044);
     --live-blue: var(--primary, #246196);
+    --live-focus: #9ed8ff;
+    --live-radius-panel: 18px;
+    --live-radius-control: 12px;
 }
 
 .live-kiosk-body {
@@ -13,12 +16,14 @@
     min-height: 100vh;
     color: var(--live-ink);
     background-color: var(--live-bg);
-    background-image: radial-gradient(circle at 50% -20%, rgba(36, 97, 150, .18), transparent 48%);
+    background-image:
+        radial-gradient(circle at 50% -20%, rgba(36, 97, 150, .22), transparent 48%),
+        linear-gradient(180deg, rgba(255, 255, 255, .018), transparent 30%);
     font-family: 'Roboto', sans-serif;
 }
 
 .live-kiosk-shell {
-    width: min(1180px, calc(100% - 64px));
+    width: min(1180px, calc(100% - 32px));
     margin: 0 auto;
     min-height: 100vh;
     display: flex;
@@ -29,7 +34,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 28px 0;
+    padding: 20px 0;
     border-bottom: 1px solid var(--live-line);
     color: var(--live-muted);
 }
@@ -37,15 +42,15 @@
 .live-brand {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     letter-spacing: .08em;
 }
 
 .live-brand span {
     display: grid;
     place-items: center;
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     border: 1px solid var(--live-line);
     border-radius: 12px;
     color: var(--live-accent);
@@ -71,7 +76,7 @@
 .live-header-meta {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 16px;
 }
 
 .live-online {
@@ -89,65 +94,66 @@
 
 .live-panel {
     position: relative;
-    padding: clamp(34px, 6vw, 72px) clamp(20px, 5vw, 72px);
+    padding: clamp(28px, 4vw, 48px) clamp(20px, 4vw, 52px);
     border: 1px solid var(--live-line);
-    border-radius: 16px;
-    background: rgba(16, 31, 41, .72);
+    border-radius: var(--live-radius-panel);
+    background: rgba(16, 31, 41, .82);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
 }
 
 .live-choice-panel {
     width: 100%;
-    max-width: 960px;
+    max-width: 880px;
     margin: auto;
 }
 
 .live-choice-buttons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: 760px;
-    margin: 42px auto 0;
+    max-width: 680px;
+    margin: 32px auto 0;
 }
 
 .live-choice-buttons .live-action {
-    min-height: 190px;
-    padding: 28px;
+    min-height: 148px;
+    padding: 24px;
     justify-content: center;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
     text-align: center;
 }
 
 .live-choice-buttons .live-action strong {
-    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-size: 1.45rem;
 }
 
 .live-choice-buttons .live-action small {
-    font-size: 1rem;
+    font-size: .88rem;
 }
 
 .cam-live-panel {
     width: 100%;
-    max-width: 1120px;
+    max-width: 1080px;
     margin: auto;
-    padding: clamp(24px, 4vw, 52px);
+    padding: clamp(24px, 3vw, 40px);
 }
 
 .cam-live-header {
     display: flex;
     justify-content: space-between;
-    gap: 24px;
+    gap: 16px;
     align-items: flex-start;
-    text-align: center;
-    justify-content: center;
+    text-align: left;
+    justify-content: space-between;
 }
 
 .cam-live-header>div {
     display: grid;
-    justify-items: center;
+    justify-items: start;
 }
 
 .cam-live-header h1 {
-    margin: 14px 0 8px;
-    font-size: 2.4rem;
+    margin: 10px 0 6px;
+    font-size: 2rem;
     line-height: 1.05;
     letter-spacing: -.03em;
     text-wrap: balance;
@@ -157,16 +163,17 @@
     margin: 0;
     max-width: 58ch;
     color: var(--live-muted);
-    line-height: 1.55;
+    line-height: 1.4;
 }
 
 .live-back-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
+    min-height: 42px;
+    padding: 10px 14px;
     border: 1px solid var(--live-line);
-    border-radius: 9px;
+    border-radius: var(--live-radius-control);
     color: var(--live-ink);
     text-decoration: none;
     white-space: nowrap;
@@ -179,15 +186,16 @@
 }
 
 .cam-live-workspace {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-    margin-top: 32px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(230px, .65fr);
+    gap: clamp(16px, 3vw, 28px);
+    align-items: start;
+    margin-top: 28px;
 }
 
 .cam-live-actions {
-    gap: 16px;
+    gap: 12px;
+    align-items: stretch;
 }
 
 .cam-live-actions .live-camera-start {
@@ -263,10 +271,11 @@
 .live-camera-frame {
     position: relative;
     width: min(100%, 820px);
-    min-height: min(58vh, 560px);
+    aspect-ratio: 4 / 3;
+    min-height: 0;
     overflow: hidden;
     border: 1px solid var(--live-line);
-    border-radius: 14px;
+    border-radius: var(--live-radius-panel);
     background: #071016;
 }
 
@@ -274,7 +283,7 @@
     display: block;
     width: 100%;
     height: 100%;
-    min-height: min(58vh, 560px);
+    min-height: 0;
     object-fit: cover;
     transform: scaleX(-1);
     opacity: .72;
@@ -288,7 +297,7 @@
 .live-face-guide {
     position: absolute;
     inset: 10% 30%;
-    border: 3px solid rgba(103, 214, 193, .85);
+    border: 2px solid rgba(103, 214, 193, .9);
     border-radius: 48% 48% 44% 44%;
     box-shadow: 0 0 0 999px rgba(4, 10, 14, .32);
 }
@@ -299,9 +308,9 @@
     bottom: 16px;
     color: #d8e8ed;
     font-size: .82rem;
-    background: rgba(7, 16, 22, .72);
-    padding: 9px 12px;
-    border-radius: 8px;
+    background: rgba(7, 16, 22, .84);
+    padding: 10px 13px;
+    border-radius: 10px;
     font-size: .95rem;
 }
 
@@ -377,7 +386,7 @@
 .live-actions {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 12px;
     width: min(100%, 820px);
     align-items: center;
 }
@@ -391,7 +400,7 @@
     line-height: 1.4;
     width: 100%;
     text-align: center;
-    background: rgba(255, 255, 255, .035);
+    background: rgba(255, 255, 255, .045);
 }
 
 .live-status[data-tone="success"] {
@@ -420,20 +429,28 @@
 .live-action {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
     width: 100%;
-    padding: 16px;
+    padding: 12px;
     border: 1px solid var(--live-line);
-    border-radius: 14px;
+    border-radius: var(--live-radius-control);
     color: var(--live-ink);
     cursor: pointer;
     text-align: left;
-    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+    transition: transform .18s ease-out, border-color .18s ease-out, background .18s ease-out;
 }
 
 .live-action:hover:not(:disabled),
 .live-action:focus-visible {
     transform: translateY(-2px);
+    border-color: rgba(158, 216, 255, .72);
+}
+
+.live-action:focus-visible,
+.live-back-link:focus-visible,
+.live-camera-start:focus-visible {
+    outline: 3px solid rgba(158, 216, 255, .42);
+    outline-offset: 3px;
 }
 
 .live-action:disabled {
@@ -444,10 +461,10 @@
 .live-action i {
     display: grid;
     place-items: center;
-    width: 66px;
-    height: 66px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    font-size: 1.65rem;
+    font-size: 1.2rem;
 }
 
 .live-action strong,
@@ -481,9 +498,10 @@
 }
 
 .live-camera-start {
-    padding: 12px;
+    min-height: 44px;
+    padding: 12px 16px;
     border: 1px solid var(--live-line);
-    border-radius: 9px;
+    border-radius: var(--live-radius-control);
     color: var(--live-muted);
     background: transparent;
     cursor: pointer;
@@ -538,6 +556,10 @@
         margin-top: 30px;
     }
 
+    .cam-live-workspace {
+        grid-template-columns: 1fr;
+    }
+
     .live-choice-buttons,
     .cam-live-workspace {
         grid-template-columns: 1fr;
@@ -546,10 +568,19 @@
     .cam-live-header {
         flex-direction: column;
         align-items: center;
+        text-align: center;
+    }
+
+    .cam-live-header>div {
+        justify-items: center;
     }
 
     .cam-live-header h1 {
         font-size: 2rem;
+    }
+
+    .cam-live-header p {
+        max-width: 42ch;
     }
 
     .cam-live-header .live-back-link {
@@ -558,7 +589,7 @@
 
     .live-camera-frame,
     .live-camera-frame video {
-        min-height: clamp(240px, 58vw, 360px);
+        min-height: 0;
     }
 
     .live-face-guide {
@@ -659,4 +690,21 @@
         display: block;
         font-size: .56rem;
     }
+}
+
+@media (min-width: 761px) and (max-width: 1100px) {
+    .live-kiosk-shell {
+        width: min(100% - 28px, 920px);
+    }
+
+    .cam-live-workspace {
+        grid-template-columns: minmax(0, 1.25fr) minmax(210px, .75fr);
+    }
+}
+
+.live-privacy {
+    max-width: 62ch;
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
 }
