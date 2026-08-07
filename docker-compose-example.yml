@@ -28,8 +28,8 @@ services:
 
   face-service:
     build:
-      context: ./face-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: face-service/Dockerfile
     container_name: express-finger-face-service
     restart: unless-stopped
     environment:
