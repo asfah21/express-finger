@@ -14,6 +14,7 @@ import { refreshPair } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/pull-employee.js';
 import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate } from './js/pages/biometrics.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
+import { initLivePage } from './js/live.js';
 
 
 
@@ -35,6 +36,7 @@ window.updatePaginationUI = updatePaginationUI;
 window.showDashboard = showDashboard;
 window.showLogin = showLogin;
 window.toggleActions = toggleActions;
+window.initLivePage = initLivePage;
 
 // Device Page Functions
 window.refreshDevices = refreshDevices;
@@ -225,12 +227,12 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+            state.allowedPages = ['overview', 'live', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+        state.allowedPages = ['overview', 'live', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
 
         state.allowedPageLabels = {};
     }
@@ -319,6 +321,7 @@ function showPage(pageId) {
 
     const defaultTitles = {
         'overview': 'System Overview',
+        'live': 'Live Attendance',
         'devices': 'Devices & Sync',
         'employees': 'Employee List',
         'logs': 'Attendance Log',
@@ -374,6 +377,7 @@ function showPage(pageId) {
         activePage.style.display = 'block';
 
         if (pageId === 'overview') refreshOverview(false); // Pakai cache agar tidak boros API
+        if (pageId === 'live') initLivePage('dashboard');
         if (pageId === 'devices') refreshDevices();
         if (pageId === 'employees') refreshEmployees();
         if (pageId === 'logs') refreshLogs();

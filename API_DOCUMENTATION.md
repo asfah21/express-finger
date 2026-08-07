@@ -328,3 +328,34 @@ Request JSON options for dry-run and push operations:
 
 Deletes occur only when both delete flags are `true`; the default is non-destructive.
 Responses contain operation status, actions, counts, checksums, and reasons for skipped/error items. Raw biometric payloads are never returned in sync logs.
+# Live Face Attendance
+
+The public kiosk is available at `GET /live.html` and does not require a dashboard login. It uses the browser `getUserMedia` camera API and sends a captured JPEG image to `POST /api/live/attendance`. Unlike an RTSP worker, the Python service does not open a camera stream: the browser owns the camera permission and sends a current frame only when Masuk or Pulang is selected.
+
+## `POST /api/live/attendance`
+
+Request body:
+
+```json
+{ "type": 0, "image": "data:image/jpeg;base64,..." }
+```
+
+`type` is `0` for Masuk and `1` for Pulang. The service runs YOLO detection using `yolov8n.pt`, extracts one or more face candidates, generates `buffalo_l` embeddings, and compares them using cosine similarity against numeric filenames in `data/faces`, such as `1.jpg`, `2.png`. The matched filename is mapped to `employee.user_id`. A user cannot submit the same type more than once on the same WITA calendar date; the endpoint returns `409` with `Sudah absen`.
+
+The recognition parameters can be tuned through `YOLO_CONF_THRESHOLD`, `FACE_SIM_THRESHOLD`, and `FACE_DET_SIZE`. The reference-inspired defaults are `0.40`, `0.35`, and `640`. Lowering the similarity threshold increases recall but also increases the risk of false matches; tune it using representative employee photos and real kiosk lighting.
+
+For browser camera access, use HTTPS in production (or `localhost` during development), grant camera permission to the kiosk origin, keep the face centered in the guide, and ensure the reference photos contain one clear, front-facing face.
+
+Successful response:
+
+```json
+{ "status": "success", "message": "Absensi berhasil", "data": { "fid": "1", "nama": "Employee", "type": 0 } }
+```
+
+## `GET /api/live/health`
+
+Requires the normal API key or dashboard JWT and reports the face-service health and indexed reference count.
+
+## `POST /api/live/reload`
+
+Requires superadmin privileges. Reloads the reference embeddings after files in `data/faces` have changed.

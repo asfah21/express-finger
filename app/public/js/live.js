@@ -1,0 +1,120 @@
+const state = {
+    stream: null,
+    busy: false,
+    resetTimer: null,
+    mode: 'kiosk'
+}
+
+const $ = (id) => document.getElementById(id)
+
+function setStatus(message, tone = 'neutral') {
+    const status = $('live-status')
+    if (!status) return
+    status.textContent = message
+    status.dataset.tone = tone
+}
+
+function setBusy(busy) {
+    state.busy = busy
+    document.querySelectorAll('[data-live-type]').forEach((button) => {
+        button.disabled = busy
+    })
+    const capture = $('live-capture')
+    if (capture) capture.classList.toggle('is-processing', busy)
+}
+
+async function startCamera() {
+    if (state.stream) return true
+    if (!navigator.mediaDevices?.getUserMedia) {
+        setStatus('Browser tidak mendukung kamera. Gunakan Chrome atau Edge terbaru.', 'error')
+        return false
+    }
+    try {
+        state.stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+        })
+        const video = $('live-video')
+        video.srcObject = state.stream
+        await video.play()
+        $('live-camera-frame')?.classList.add('is-ready')
+        setStatus('Kamera siap. Posisikan wajah di dalam bingkai.', 'ready')
+        return true
+    } catch (error) {
+        console.error('Camera access failed:', error)
+        setStatus('Akses kamera ditolak atau tidak tersedia. Izinkan kamera lalu coba lagi.', 'error')
+        return false
+    }
+}
+
+function captureImage() {
+    const video = $('live-video')
+    const canvas = $('live-canvas')
+    if (!video.videoWidth || !video.videoHeight) return null
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const context = canvas.getContext('2d', { alpha: false })
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL('image/jpeg', 0.86)
+}
+
+function hasUsableFrame() {
+    const video = $('live-video')
+    return Boolean(video?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth >= 320 && video.videoHeight >= 240)
+}
+
+function scheduleReset() {
+    clearTimeout(state.resetTimer)
+    state.resetTimer = setTimeout(() => {
+        setStatus('Kamera siap. Posisikan wajah di dalam bingkai.', 'ready')
+    }, 6500)
+}
+
+async function submitAttendance(type) {
+    if (state.busy) return
+    if (!await startCamera()) return
+    if (!hasUsableFrame()) {
+        setStatus('Kamera sedang menyiapkan gambar. Tunggu sebentar lalu coba lagi.', 'warning')
+        return
+    }
+    const image = captureImage()
+    if (!image) {
+        setStatus('Kamera belum siap. Coba lagi.', 'error')
+        return
+    }
+    setBusy(true)
+    setStatus(type === 0 ? 'Memproses Masuk…' : 'Memproses Pulang…', 'processing')
+    try {
+        const response = await fetch('/api/live/attendance', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ type, image })
+        })
+        const data = await response.json().catch(() => ({}))
+        if (response.ok) {
+            const employee = data.data || {}
+            setStatus(`${employee.nama || 'Karyawan'} — ${type === 0 ? 'Masuk' : 'Pulang'} berhasil dicatat`, 'success')
+        } else if (response.status === 409) {
+            setStatus('Sudah absen untuk jenis kehadiran ini hari ini.', 'warning')
+        } else {
+            setStatus(data.message || 'Wajah tidak dikenali. Coba posisikan wajah dengan lebih jelas.', 'error')
+        }
+    } catch (error) {
+        console.error('Attendance request failed:', error)
+        setStatus('Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
+    } finally {
+        setBusy(false)
+        scheduleReset()
+    }
+}
+
+export async function initLivePage(mode = 'kiosk') {
+    state.mode = mode
+    document.querySelectorAll('[data-live-type]').forEach((button) => {
+        button.addEventListener('click', () => submitAttendance(Number(button.dataset.liveType)))
+    })
+    $('live-camera-start')?.addEventListener('click', startCamera)
+    setStatus('Klik Masuk atau Pulang untuk mengaktifkan kamera.', 'neutral')
+}
+
+window.initLivePage = initLivePage

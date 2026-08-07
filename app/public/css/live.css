@@ -1,0 +1,347 @@
+:root {
+    --live-ink: #eaf2f7;
+    --live-muted: #9cafbe;
+    --live-bg: #0b141b;
+    --live-surface: #101f29;
+    --live-line: rgba(179, 216, 232, .14);
+    --live-accent: #67d6c1;
+    --live-blue: #76a9ff;
+}
+
+.live-kiosk-body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--live-ink);
+    background: radial-gradient(circle at 50% -10%, #193443 0, var(--live-bg) 52%);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.live-kiosk-shell {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.live-kiosk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 28px 0;
+    color: var(--live-muted);
+}
+
+.live-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: .08em;
+}
+
+.live-brand span {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--live-line);
+    border-radius: 10px;
+    color: var(--live-accent);
+}
+
+.live-brand strong {
+    color: var(--live-ink);
+}
+
+.live-clock {
+    font-size: .88rem;
+}
+
+.live-panel {
+    padding: clamp(24px, 5vw, 64px);
+    border: 1px solid var(--live-line);
+    border-radius: 16px;
+    background: rgba(16, 31, 41, .86);
+}
+
+.live-intro {
+    max-width: 560px;
+}
+
+.live-kicker {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--live-accent);
+    font-size: .72rem;
+    font-weight: 750;
+    letter-spacing: .12em;
+}
+
+.live-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--live-accent);
+    box-shadow: 0 0 0 5px rgba(103, 214, 193, .12);
+}
+
+.live-intro h1 {
+    margin: 16px 0 10px;
+    font-size: clamp(2rem, 5vw, 4rem);
+    line-height: .98;
+    letter-spacing: -.035em;
+    text-wrap: balance;
+}
+
+.live-intro p {
+    margin: 0;
+    color: var(--live-muted);
+    line-height: 1.6;
+    max-width: 58ch;
+}
+
+.live-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr);
+    gap: clamp(22px, 4vw, 52px);
+    align-items: center;
+    margin-top: 44px;
+}
+
+.live-camera-frame {
+    position: relative;
+    min-height: 360px;
+    overflow: hidden;
+    border: 1px solid var(--live-line);
+    border-radius: 14px;
+    background: #071016;
+}
+
+.live-camera-frame video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    object-fit: cover;
+    transform: scaleX(-1);
+    opacity: .72;
+}
+
+.live-camera-frame.is-ready video {
+    opacity: 1;
+}
+
+.live-face-guide {
+    position: absolute;
+    inset: 15% 27%;
+    border: 2px solid rgba(103, 214, 193, .7);
+    border-radius: 48% 48% 44% 44%;
+    box-shadow: 0 0 0 999px rgba(4, 10, 14, .32);
+}
+
+.live-camera-hint {
+    position: absolute;
+    left: 18px;
+    bottom: 16px;
+    color: #d8e8ed;
+    font-size: .82rem;
+    background: rgba(7, 16, 22, .72);
+    padding: 9px 12px;
+    border-radius: 8px;
+}
+
+.live-camera-processing {
+    display: none;
+    position: absolute;
+    inset: 0;
+    place-items: center;
+    background: rgba(7, 16, 22, .54);
+    font-weight: 700;
+}
+
+.live-camera-processing span {
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--live-accent);
+    animation: live-blink 1s infinite;
+}
+
+.live-camera-processing.is-processing {
+    display: flex;
+}
+
+.live-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.live-status {
+    min-height: 48px;
+    padding: 13px 15px;
+    border: 1px solid var(--live-line);
+    border-radius: 9px;
+    color: var(--live-muted);
+    line-height: 1.4;
+}
+
+.live-status[data-tone="success"] {
+    color: #b8f6e6;
+    border-color: rgba(103, 214, 193, .5);
+    background: rgba(103, 214, 193, .09);
+}
+
+.live-status[data-tone="warning"] {
+    color: #ffe3a3;
+    border-color: rgba(255, 211, 111, .5);
+    background: rgba(255, 211, 111, .08);
+}
+
+.live-status[data-tone="error"] {
+    color: #ffc0bc;
+    border-color: rgba(255, 126, 118, .5);
+    background: rgba(255, 126, 118, .08);
+}
+
+.live-action-buttons {
+    display: grid;
+    gap: 11px;
+}
+
+.live-action {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--live-line);
+    border-radius: 10px;
+    color: var(--live-ink);
+    cursor: pointer;
+    text-align: left;
+    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+}
+
+.live-action:hover:not(:disabled),
+.live-action:focus-visible {
+    transform: translateY(-2px);
+}
+
+.live-action:disabled {
+    opacity: .55;
+    cursor: wait;
+}
+
+.live-action i {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    font-size: 1rem;
+}
+
+.live-action strong,
+.live-action small {
+    display: block;
+}
+
+.live-action small {
+    margin-top: 3px;
+    color: var(--live-muted);
+}
+
+.live-action-in {
+    background: rgba(103, 214, 193, .11);
+}
+
+.live-action-in i {
+    color: var(--live-accent);
+    background: rgba(103, 214, 193, .14);
+}
+
+.live-action-out {
+    background: rgba(118, 169, 255, .1);
+}
+
+.live-action-out i {
+    color: var(--live-blue);
+    background: rgba(118, 169, 255, .14);
+}
+
+.live-camera-start {
+    padding: 12px;
+    border: 1px solid var(--live-line);
+    border-radius: 9px;
+    color: var(--live-muted);
+    background: transparent;
+    cursor: pointer;
+}
+
+.live-privacy {
+    margin: 0;
+    color: var(--live-muted);
+    font-size: .76rem;
+    line-height: 1.5;
+}
+
+.live-privacy i {
+    margin-right: 5px;
+    color: var(--live-accent);
+}
+
+.live-kiosk-footer {
+    margin-top: auto;
+    padding: 26px 0;
+    color: var(--live-muted);
+    font-size: .75rem;
+    text-align: center;
+}
+
+@keyframes live-blink {
+    50% {
+        opacity: .35;
+        transform: scale(.7);
+    }
+}
+
+@media (max-width: 760px) {
+    .live-kiosk-shell {
+        width: min(100% - 20px, 560px);
+    }
+
+    .live-kiosk-header {
+        padding: 18px 0;
+    }
+
+    .live-panel {
+        padding: 22px 16px;
+    }
+
+    .live-workspace {
+        grid-template-columns: 1fr;
+        margin-top: 30px;
+    }
+
+    .live-camera-frame,
+    .live-camera-frame video {
+        min-height: 270px;
+    }
+
+    .live-face-guide {
+        inset: 12% 25%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-action {
+        transition: none;
+    }
+
+    .live-camera-processing span {
+        animation: none;
+    }
+}

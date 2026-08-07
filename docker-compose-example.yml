@@ -18,5 +18,26 @@ services:
       - CORS_ORIGINS= # Daftar origin yang diizinkan, pisah koma. Contoh: https://app.example.com,https://admin.example.com
     volumes:
       - ./data/raw:/data/raw
+    depends_on:
+      - face-service
     working_dir: /app
     command: ["node", "server.js"]
+
+  face-service:
+    build:
+      context: ./face-service
+      dockerfile: Dockerfile
+    container_name: express-finger-face-service
+    restart: unless-stopped
+    environment:
+      - FACE_SERVICE_TOKEN=change-this-internal-token
+      - FACES_DIR=/data/faces
+      - YOLO_MODEL_PATH=/models/yolov8n.pt
+      - YOLO_CONF_THRESHOLD=0.40
+      - FACE_SIM_THRESHOLD=0.35
+      - FACE_DET_SIZE=640
+    volumes:
+      - ./data/faces:/data/faces
+      - ./models:/models
+    expose:
+      - "8090"

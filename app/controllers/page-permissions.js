@@ -34,7 +34,7 @@ export const pagePermissionsController = {
             }
 
             // Validate roles
-            const validRoles = ['superadmin', 'admin', 'viewer']
+            const validRoles = ['superadmin', 'admin', 'viewer', 'public']
             const invalidRoles = allowed_roles.filter(r => !validRoles.includes(r))
             if (invalidRoles.length > 0) {
                 return sendError(res, `Invalid roles: ${invalidRoles.join(', ')}. Valid roles: ${validRoles.join(', ')}`, 400)

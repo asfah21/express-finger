@@ -16,4 +16,7 @@ export const config = {
   CLEANUP_AGE_DAYS: 7,
   WORKER_ENABLED: process.env.WORKER_ENABLED !== 'false', // Default true
   SYNC_INTERVAL_MS: Number(process.env.SYNC_INTERVAL_MS || 5 * 60 * 1000), // Default 5 menit
+  FACE_SERVICE_URL: process.env.FACE_SERVICE_URL || 'http://127.0.0.1:8090',
+  FACE_SERVICE_TOKEN: process.env.FACE_SERVICE_TOKEN || '',
+  FACE_SERVICE_TIMEOUT_MS: Number(process.env.FACE_SERVICE_TIMEOUT_MS || 15_000),
 }

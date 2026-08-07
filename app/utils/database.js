@@ -221,7 +221,8 @@ export async function ensureSchema() {
       { page_id: 'settings', page_label: 'System Settings', roles: '{superadmin}' },
       { page_id: 'hr', page_label: 'HR Settings', roles: '{superadmin,admin}' },
       { page_id: 'late', page_label: 'Attendance Late', roles: '{superadmin,admin,viewer}' },
-      { page_id: 'metric', page_label: 'Cache Metrics', roles: '{superadmin}' }
+      { page_id: 'metric', page_label: 'Cache Metrics', roles: '{superadmin}' },
+      { page_id: 'live', page_label: 'Live Attendance', roles: '{superadmin,public}' }
 
     ]
     for (const perm of defaultPermissions) {
@@ -273,6 +274,30 @@ export async function ensureSchema() {
       `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('late', 'Attendance Late', '{superadmin,admin,viewer}')`
     )
     console.log('✅ Attendance Late page permission added')
+  }
+
+  // Ensure Live Attendance is available to superadmins and public kiosk accounts.
+  const { rows: liveRows } = await pool.query(`SELECT allowed_roles FROM page_permissions WHERE page_id = 'live'`)
+  if (liveRows.length === 0) {
+    await pool.query(
+      `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('live', 'Live Attendance', '{superadmin,public}')`
+    )
+  } else if (!liveRows[0].allowed_roles.includes('public') || !liveRows[0].allowed_roles.includes('superadmin')) {
+    await pool.query(
+      `UPDATE page_permissions SET allowed_roles = ARRAY['superadmin','public'], updated_at = now() WHERE page_id = 'live'`
+    )
+  }
+
+  // Create a non-admin public account when no public user exists. The standalone
+  // /live kiosk does not require this account, but it enables an optional login.
+  const { rowCount: publicUserCount } = await pool.query(`SELECT 1 FROM users WHERE role = 'public' LIMIT 1`)
+  if (publicUserCount === 0) {
+    const hashedPassword = await bcrypt.hash(process.env.PUBLIC_USER_PASSWORD || 'public123', 10)
+    await pool.query(
+      `INSERT INTO users (username, password, role) VALUES ($1, $2, 'public') ON CONFLICT (username) DO NOTHING`,
+      [process.env.PUBLIC_USERNAME || 'public', hashedPassword]
+    )
+    console.log('✅ Public kiosk user ensured (change PUBLIC_USER_PASSWORD in production)')
   }
 
 }
