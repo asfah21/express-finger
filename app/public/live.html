@@ -14,33 +14,39 @@
 <body class="live-kiosk-body">
     <main class="live-kiosk-shell">
         <header class="live-kiosk-header">
-            <div class="live-brand"><span><i class="fas fa-fingerprint"></i></span><strong>AZRA</strong><small>KIOSK
-                    ABSENSI</small></div>
-            <div class="live-clock" id="live-clock"></div>
+            <div class="live-brand">
+                <span aria-hidden="true"><i class="fas fa-fingerprint"></i></span>
+                <div><strong>GSI</strong><small>ATTENDANCE</small></div>
+            </div>
+            <div class="live-header-meta">
+                <span class="live-online"><i class="fas fa-circle" aria-hidden="true"></i> Online</span>
+                <div class="live-clock" id="live-clock"></div>
+            </div>
         </header>
         <section class="live-panel live-choice-panel" data-live-root>
             <div class="live-kiosk-heading">
-                <div class="live-kicker"><span class="live-pulse"></span> LIVE ATTENDANCE</div>
-                <h1>Silakan pilih jenis absensi</h1>
-                <p>Pilih Masuk atau Pulang untuk memulai pengenalan wajah.</p>
+                <div class="live-kicker"><span class="live-pulse"></span> ABSENSI HARI INI</div>
+                <div class="live-main-clock" aria-hidden="true"><span id="live-time">00:00</span></div>
+                <h1>Pilih jenis absensi</h1>
+                <p>Sentuh salah satu tombol untuk memulai verifikasi wajah.</p>
             </div>
             <div class="live-action-buttons live-choice-buttons"><button class="live-action live-action-in"
-                    type="button" data-live-type="0"><i
-                        class="fas fa-arrow-right-to-bracket"></i><span><strong>Masuk</strong><small>Mulai
+                    type="button" data-live-type="0"><i class="fas fa-arrow-right-to-bracket"
+                        aria-hidden="true"></i><span><strong>MASUK</strong><small>Mulai
                             bekerja</small></span></button><button class="live-action live-action-out" type="button"
-                    data-live-type="1"><i
-                        class="fas fa-arrow-right-from-bracket"></i><span><strong>Pulang</strong><small>Selesai
+                    data-live-type="1"><i class="fas fa-arrow-right-from-bracket"
+                        aria-hidden="true"></i><span><strong>PULANG</strong><small>Selesai
                             bekerja</small></span></button></div>
-            <p class="live-privacy"><i class="fas fa-shield-halved"></i> Setelah memilih, Anda akan diarahkan ke halaman
-                kamera untuk verifikasi wajah.</p>
+            <p class="live-privacy"><i class="fas fa-shield-halved" aria-hidden="true"></i> Verifikasi wajah aman dan
+                cepat.</p>
         </section>
-        <footer class="live-kiosk-footer">Sistem absensi AZRA · Hadir tepat waktu, pulang dengan tenang</footer>
+        <footer class="live-kiosk-footer">Absensi Anda adalah cerminan disiplin dan tanggung jawab</footer>
     </main>
     <script type="module">
         import { initLivePage } from './js/live.js';
         initLivePage('kiosk');
         const clock = document.getElementById('live-clock');
-        const updateClock = () => { clock.textContent = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date()); };
+        const updateClock = () => { const now = new Date(); clock.textContent = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(now); document.getElementById('live-time').textContent = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(now); };
         updateClock(); setInterval(updateClock, 1000);
     </script>
 </body>

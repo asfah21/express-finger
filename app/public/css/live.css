@@ -13,14 +13,12 @@
     min-height: 100vh;
     color: var(--live-ink);
     background-color: var(--live-bg);
-    background-image:
-        radial-gradient(circle at 0% 0%, rgba(36, 97, 150, .15) 0%, transparent 40%),
-        radial-gradient(circle at 100% 100%, rgba(119, 160, 68, .08) 0%, transparent 40%);
+    background-image: radial-gradient(circle at 50% -20%, rgba(36, 97, 150, .18), transparent 48%);
     font-family: 'Roboto', sans-serif;
 }
 
 .live-kiosk-shell {
-    width: min(960px, calc(100% - 32px));
+    width: min(1180px, calc(100% - 64px));
     margin: 0 auto;
     min-height: 100vh;
     display: flex;
@@ -31,24 +29,25 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 18px 0;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--live-line);
     color: var(--live-muted);
 }
 
 .live-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
     letter-spacing: .08em;
 }
 
 .live-brand span {
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 42px;
+    height: 42px;
     border: 1px solid var(--live-line);
-    border-radius: 10px;
+    border-radius: 12px;
     color: var(--live-accent);
 }
 
@@ -57,7 +56,9 @@
 }
 
 .live-brand small {
-    margin-left: 4px;
+    display: block;
+    margin-top: 3px;
+    margin-left: 0;
     color: var(--live-accent);
     font-size: .65rem;
     letter-spacing: .12em;
@@ -67,41 +68,67 @@
     font-size: .88rem;
 }
 
+.live-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.live-online {
+    color: #b8f6e6;
+    font-size: .84rem;
+    font-weight: 700;
+}
+
+.live-online i {
+    margin-right: 6px;
+    color: #54d39a;
+    font-size: .55rem;
+    vertical-align: middle;
+}
+
 .live-panel {
     position: relative;
-    padding: clamp(22px, 4vw, 42px);
+    padding: clamp(34px, 6vw, 72px) clamp(20px, 5vw, 72px);
     border: 1px solid var(--live-line);
     border-radius: 16px;
-    background: rgba(16, 31, 41, .86);
+    background: rgba(16, 31, 41, .72);
 }
 
 .live-choice-panel {
-    max-width: 640px;
+    width: 100%;
+    max-width: 960px;
     margin: auto;
 }
 
 .live-choice-buttons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: 540px;
-    margin: 28px auto 0;
+    max-width: 760px;
+    margin: 42px auto 0;
 }
 
 .live-choice-buttons .live-action {
-    min-height: 104px;
-    padding: 18px;
+    min-height: 190px;
+    padding: 28px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
 }
 
 .live-choice-buttons .live-action strong {
-    font-size: 1.25rem;
+    font-size: clamp(1.5rem, 3vw, 2rem);
 }
 
 .live-choice-buttons .live-action small {
-    font-size: .9rem;
+    font-size: 1rem;
 }
 
 .cam-live-panel {
-    max-width: 1050px;
+    width: 100%;
+    max-width: 1120px;
     margin: auto;
+    padding: clamp(24px, 4vw, 52px);
 }
 
 .cam-live-header {
@@ -109,6 +136,13 @@
     justify-content: space-between;
     gap: 24px;
     align-items: flex-start;
+    text-align: center;
+    justify-content: center;
+}
+
+.cam-live-header>div {
+    display: grid;
+    justify-items: center;
 }
 
 .cam-live-header h1 {
@@ -145,15 +179,21 @@
 }
 
 .cam-live-workspace {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr);
-    gap: clamp(22px, 4vw, 48px);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
     align-items: center;
-    margin-top: 36px;
+    margin-top: 32px;
 }
 
 .cam-live-actions {
     gap: 16px;
+}
+
+.cam-live-actions .live-camera-start {
+    min-height: 54px;
+    padding: 14px 24px;
+    font-size: 1rem;
 }
 
 .cam-live-checklist {
@@ -222,7 +262,8 @@
 
 .live-camera-frame {
     position: relative;
-    min-height: 360px;
+    width: min(100%, 820px);
+    min-height: min(58vh, 560px);
     overflow: hidden;
     border: 1px solid var(--live-line);
     border-radius: 14px;
@@ -233,7 +274,7 @@
     display: block;
     width: 100%;
     height: 100%;
-    min-height: 360px;
+    min-height: min(58vh, 560px);
     object-fit: cover;
     transform: scaleX(-1);
     opacity: .72;
@@ -246,8 +287,8 @@
 
 .live-face-guide {
     position: absolute;
-    inset: 15% 27%;
-    border: 2px solid rgba(103, 214, 193, .7);
+    inset: 10% 30%;
+    border: 3px solid rgba(103, 214, 193, .85);
     border-radius: 48% 48% 44% 44%;
     box-shadow: 0 0 0 999px rgba(4, 10, 14, .32);
 }
@@ -261,6 +302,7 @@
     background: rgba(7, 16, 22, .72);
     padding: 9px 12px;
     border-radius: 8px;
+    font-size: .95rem;
 }
 
 .live-camera-processing {
@@ -336,6 +378,8 @@
     display: flex;
     flex-direction: column;
     gap: 18px;
+    width: min(100%, 820px);
+    align-items: center;
 }
 
 .live-status {
@@ -345,6 +389,9 @@
     border-radius: 9px;
     color: var(--live-muted);
     line-height: 1.4;
+    width: 100%;
+    text-align: center;
+    background: rgba(255, 255, 255, .035);
 }
 
 .live-status[data-tone="success"] {
@@ -377,7 +424,7 @@
     width: 100%;
     padding: 16px;
     border: 1px solid var(--live-line);
-    border-radius: 10px;
+    border-radius: 14px;
     color: var(--live-ink);
     cursor: pointer;
     text-align: left;
@@ -397,10 +444,10 @@
 .live-action i {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 9px;
-    font-size: 1rem;
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    font-size: 1.65rem;
 }
 
 .live-action strong,
@@ -414,21 +461,23 @@
 }
 
 .live-action-in {
-    background: rgba(119, 160, 68, .11);
+    background: rgba(44, 182, 112, .15);
+    border-color: rgba(84, 211, 154, .42);
 }
 
 .live-action-in i {
-    color: var(--live-accent);
-    background: rgba(119, 160, 68, .14);
+    color: #09281b;
+    background: #54d39a;
 }
 
 .live-action-out {
-    background: rgba(36, 97, 150, .14);
+    background: rgba(229, 178, 48, .16);
+    border-color: rgba(246, 201, 75, .48);
 }
 
 .live-action-out i {
-    color: var(--live-blue);
-    background: rgba(36, 97, 150, .18);
+    color: #382702;
+    background: #f6c94b;
 }
 
 .live-camera-start {
@@ -454,9 +503,9 @@
 
 .live-kiosk-footer {
     margin-top: auto;
-    padding: 26px 0;
+    padding: 28px 0;
     color: var(--live-muted);
-    font-size: .75rem;
+    font-size: .85rem;
     text-align: center;
 }
 
@@ -496,6 +545,7 @@
 
     .cam-live-header {
         flex-direction: column;
+        align-items: center;
     }
 
     .cam-live-header h1 {
@@ -503,7 +553,7 @@
     }
 
     .cam-live-header .live-back-link {
-        order: -1;
+        order: 0;
     }
 
     .live-camera-frame,
@@ -561,7 +611,7 @@
 
 .live-kiosk-heading h1 {
     margin: 16px 0 8px;
-    font-size: clamp(2rem, 5vw, 3.7rem);
+    font-size: clamp(2rem, 5vw, 3.2rem);
     line-height: 1;
     letter-spacing: -.03em;
     text-wrap: balance;
@@ -570,4 +620,43 @@
 .live-kiosk-heading p {
     margin: 0 auto;
     color: var(--live-muted);
+}
+
+.live-main-clock {
+    margin: 30px 0 10px;
+    color: var(--live-ink);
+    font-size: clamp(4rem, 12vw, 8.5rem);
+    font-weight: 800;
+    line-height: .9;
+    letter-spacing: -.055em;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px) {
+    .live-kiosk-shell {
+        width: min(100% - 28px, 560px);
+    }
+
+    .live-kiosk-header {
+        padding: 18px 0;
+    }
+
+    .live-header-meta {
+        gap: 12px;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .live-panel {
+        padding: 34px 16px;
+    }
+
+    .live-choice-buttons .live-action {
+        min-height: 150px;
+    }
+
+    .live-brand small {
+        display: block;
+        font-size: .56rem;
+    }
 }

@@ -14,9 +14,13 @@
 <body class="live-kiosk-body">
     <main class="live-kiosk-shell">
         <header class="live-kiosk-header">
-            <div class="live-brand"><span><i class="fas fa-fingerprint"></i></span><strong>AZRA</strong><small>KIOSK
-                    ABSENSI</small></div>
-            <div class="live-clock" id="live-clock"></div>
+            <div class="live-brand"><span aria-hidden="true"><i class="fas fa-fingerprint"></i></span>
+                <div><strong>GSI</strong><small>VERIFIKASI WAJAH</small></div>
+            </div>
+            <div class="live-header-meta"><span class="live-online"><i class="fas fa-circle" aria-hidden="true"></i>
+                    Online</span>
+                <div class="live-clock" id="live-clock"></div>
+            </div>
         </header>
 
         <section class="live-panel cam-live-panel" data-cam-live-root>
@@ -24,9 +28,7 @@
                 <div>
                     <div class="live-kicker"><span class="live-pulse"></span> VERIFIKASI WAJAH</div>
                     <h1 id="cam-live-title">Siapkan wajah Anda</h1>
-                    <p id="cam-live-description">Pastikan wajah terlihat jelas di dalam bingkai. Sistem akan membaca
-                        wajah
-                        secara otomatis.</p>
+                    <p id="cam-live-description">Posisikan wajah Anda di tengah</p>
                 </div>
                 <a class="live-back-link" href="/live.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Ganti
                     aksi</a>
@@ -35,9 +37,8 @@
                 <div class="live-camera-frame" id="cam-live-camera-frame">
                     <video id="cam-live-video" autoplay muted playsinline aria-label="Pratinjau kamera"></video>
                     <div class="live-face-guide" aria-hidden="true"></div>
-                    <div class="live-camera-hint"><i class="fas fa-camera" aria-hidden="true"></i> Posisikan wajah di
-                        tengah
-                    </div>
+                    <div class="live-camera-hint"><i class="fas fa-camera" aria-hidden="true"></i> Posisikan wajah Anda
+                        di tengah</div>
                     <div class="live-camera-processing" id="cam-live-capture"><span></span> Memeriksa wajah…</div>
                     <canvas id="cam-live-canvas" hidden></canvas>
                 </div>
@@ -45,11 +46,8 @@
                     <div class="live-status" id="cam-live-status" role="status" aria-live="polite">Menyiapkan kamera…
                     </div>
                     <div class="cam-live-checklist" aria-label="Petunjuk verifikasi">
-                        <div><i class="fas fa-sun" aria-hidden="true"></i><span>Gunakan pencahayaan yang cukup</span>
-                        </div>
-                        <div><i class="fas fa-user" aria-hidden="true"></i><span>Pastikan hanya satu wajah
-                                terlihat</span>
-                        </div>
+                        <div><i class="fas fa-sun" aria-hidden="true"></i><span>Pencahayaan cukup</span></div>
+                        <div><i class="fas fa-user" aria-hidden="true"></i><span>Satu wajah terlihat</span></div>
                     </div>
                     <button class="live-camera-start" id="cam-live-retry" type="button"><i class="fas fa-rotate-right"
                             aria-hidden="true"></i> Coba lagi</button>
@@ -65,7 +63,7 @@
             </div>
         </section>
 
-        <footer class="live-kiosk-footer">Sistem absensi AZRA · Hadir tepat waktu, pulang dengan tenang</footer>
+        <footer class="live-kiosk-footer">Absensi Anda adalah cerminan disiplin dan tanggung jawab</footer>
     </main>
 
     <script type="module">
