@@ -48,18 +48,33 @@ async function startCamera() {
     }
     try {
         state.stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+            video: {
+                facingMode: { ideal: 'user' },
+                width: { ideal: 1280, min: 320 },
+                height: { ideal: 720, min: 240 }
+            },
             audio: false
         })
         const video = $('live-video')
+        if (!video) throw new Error('Live video element is unavailable')
         video.srcObject = state.stream
+        video.setAttribute('playsinline', '')
+        video.setAttribute('autoplay', '')
+        video.muted = true
         await video.play()
         $('live-camera-frame')?.classList.add('is-ready')
         setStatus('Kamera siap. Posisikan wajah di dalam bingkai.', 'ready')
         return true
     } catch (error) {
         console.error('Camera access failed:', error)
-        setStatus('Akses kamera ditolak atau tidak tersedia. Izinkan kamera lalu coba lagi.', 'error')
+        state.stream?.getTracks().forEach((track) => track.stop())
+        state.stream = null
+        const message = error?.name === 'NotAllowedError'
+            ? 'Izin kamera ditolak. Buka pengaturan situs lalu izinkan kamera.'
+            : error?.name === 'NotFoundError'
+                ? 'Kamera tidak ditemukan pada perangkat ini.'
+                : 'Kamera tidak dapat diakses. Pastikan halaman dibuka melalui HTTPS atau localhost.'
+        setStatus(message, 'error')
         return false
     }
 }

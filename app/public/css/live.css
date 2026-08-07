@@ -134,6 +134,7 @@
     object-fit: cover;
     transform: scaleX(-1);
     opacity: .72;
+    background: #071016;
 }
 
 .live-camera-frame.is-ready video {
@@ -387,7 +388,7 @@
 
     .live-camera-frame,
     .live-camera-frame video {
-        min-height: 270px;
+        min-height: clamp(240px, 58vw, 360px);
     }
 
     .live-face-guide {

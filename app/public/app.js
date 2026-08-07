@@ -172,6 +172,10 @@ function showLogin() {
 }
 
 async function showDashboard() {
+    if (state.currentUser?.role === 'public') {
+        window.location.replace('/live.html');
+        return;
+    }
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('dashboard').style.display = 'flex';
 
@@ -323,6 +327,10 @@ function applyLiveVisibility() {
 
 
 function showPage(pageId) {
+    if (pageId === 'live') {
+        window.location.assign('/live.html');
+        return;
+    }
     if (pageId === 'live' && !['public', 'superadmin'].includes(state.currentUser?.role)) {
         showToast('Access denied: Live is available only for public and superadmin users', 'error');
         return;
