@@ -10,8 +10,10 @@ const $ = (id) => document.getElementById(id)
 
 const camState = {
     stream: null,
+    startPromise: null,
     busy: false,
     initialized: false,
+    autoSubmitTimer: null,
     type: Number(new URLSearchParams(window.location.search).get('type'))
 }
 
@@ -185,29 +187,65 @@ function camImage() {
 
 async function startCam() {
     if (camState.stream) return true
+    if (camState.startPromise) return camState.startPromise
     if (!navigator.mediaDevices?.getUserMedia) {
         camSetStatus('Browser ini tidak mendukung kamera. Gunakan Chrome atau Edge terbaru.', 'error')
         return false
     }
-    try {
-        camState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'user' }, width: { ideal: 1280, min: 320 }, height: { ideal: 720, min: 240 } }, audio: false })
-        const video = $('cam-live-video')
-        video.srcObject = camState.stream
-        await video.play()
-        $('cam-live-camera-frame')?.classList.add('is-ready')
-        camSetStatus('Kamera siap. Tahan posisi hingga wajah terbaca.', 'ready')
-        return true
-    } catch (error) {
-        console.error('Camera access failed:', error)
-        camState.stream?.getTracks().forEach((track) => track.stop())
-        camState.stream = null
-        camSetStatus(error?.name === 'NotAllowedError'
-            ? 'Izin kamera ditolak. Izinkan kamera pada pengaturan situs, lalu coba lagi.'
-            : error?.name === 'NotFoundError'
-                ? 'Kamera tidak ditemukan pada perangkat ini.'
-                : 'Kamera tidak dapat diakses. Pastikan halaman dibuka melalui HTTPS atau localhost.', 'error')
-        return false
-    }
+    const video = $('cam-live-video')
+    if (!video) return false
+
+    camSetStatus('Menghubungkan kamera…', 'processing')
+    camState.startPromise = (async () => {
+        try {
+            // Avoid strict min constraints: some browsers reject the whole request
+            // even when a lower-resolution camera would work.
+            const constraints = [
+                { video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+                { video: { facingMode: 'user' }, audio: false },
+                { video: true, audio: false }
+            ]
+            let lastError
+            for (const request of constraints) {
+                try {
+                    camState.stream = await navigator.mediaDevices.getUserMedia(request)
+                    break
+                } catch (error) {
+                    lastError = error
+                    if (!['OverconstrainedError', 'NotFoundError'].includes(error?.name)) throw error
+                }
+            }
+            if (!camState.stream) throw lastError || new Error('Camera stream unavailable')
+
+            video.srcObject = camState.stream
+            video.setAttribute('playsinline', '')
+            video.muted = true
+            await new Promise((resolve) => {
+                if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return resolve()
+                video.addEventListener('loadedmetadata', resolve, { once: true })
+            })
+            await video.play().catch((error) => {
+                if (error?.name !== 'NotAllowedError') throw error
+            })
+            $('cam-live-camera-frame')?.classList.add('is-ready')
+            camSetStatus('Kamera siap. Tahan posisi hingga wajah terbaca.', 'ready')
+            return true
+        } catch (error) {
+            console.error('Camera access failed:', error)
+            camState.stream?.getTracks().forEach((track) => track.stop())
+            camState.stream = null
+            $('cam-live-camera-frame')?.classList.remove('is-ready')
+            camSetStatus(error?.name === 'NotAllowedError'
+                ? 'Izin kamera ditolak. Izinkan kamera pada pengaturan situs, lalu tekan Coba lagi.'
+                : error?.name === 'NotFoundError'
+                    ? 'Kamera tidak ditemukan pada perangkat ini.'
+                    : 'Kamera tidak dapat diakses. Pastikan halaman dibuka melalui HTTPS atau localhost.', 'error')
+            return false
+        } finally {
+            camState.startPromise = null
+        }
+    })()
+    return camState.startPromise
 }
 
 async function submitCamAttendance() {
@@ -249,9 +287,15 @@ export async function initCamLivePage() {
     if (camState.initialized) return
     camState.initialized = true
     camState.type = [0, 1].includes(camState.type) ? camState.type : 0
-    $('cam-live-title').textContent = camState.type === 0 ? 'Verifikasi untuk Masuk' : 'Verifikasi untuk Pulang'
+    $('cam-live-title')?.textContent = camState.type === 0 ? 'Verifikasi untuk Masuk' : 'Verifikasi untuk Pulang'
     $('cam-live-retry')?.addEventListener('click', submitCamAttendance)
-    if (await startCam()) setTimeout(submitCamAttendance, 1200)
+    if (await startCam()) {
+        clearTimeout(camState.autoSubmitTimer)
+        camState.autoSubmitTimer = setTimeout(() => {
+            if (camFrameReady()) submitCamAttendance()
+            else camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan Coba lagi.', 'warning')
+        }, 350)
+    }
 }
 
 window.initLivePage = initLivePage
