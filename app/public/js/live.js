@@ -116,8 +116,9 @@ async function submitAttendance(type) {
     }
     setBusy(true)
     setStatus(type === 0 ? 'Memproses Masuk…' : 'Memproses Pulang…', 'processing')
+    let response
     try {
-        const response = await fetch('/api/live/attendance', {
+        response = await fetch('/api/live/attendance', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ type, image })

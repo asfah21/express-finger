@@ -117,24 +117,44 @@ def image_embeddings(image: np.ndarray) -> list[np.ndarray]:
     return embeddings
 
 
+def face_id_from_file(file: Path) -> str | None:
+    """Extract the employee id from a reference filename.
+
+    Reference files are normally named ``123.jpg``.  Accept a trailing
+    separator too (for example ``123_1.jpg`` or ``123-1.jpg``) so a single
+    employee can have several reference photos without silently being
+    discarded.
+    """
+    match = re.match(r"^(\d+)(?:[_-].*)?$", file.stem)
+    return match.group(1) if match else None
+
+
 def reload_index():
     global known_faces
     ensure_models()
     indexed = {}
-    for file in sorted(FACES_DIR.glob("*")):
-        if file.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+    if not FACES_DIR.exists():
+        print(f"Face reference directory does not exist: {FACES_DIR}")
+        return 0
+
+    for file in sorted(FACES_DIR.iterdir()):
+        if not file.is_file() or file.suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp"}:
             continue
-        match = re.fullmatch(r"(\d+)", file.stem)
-        if not match:
+        fid = face_id_from_file(file)
+        if not fid:
             continue
         image = cv2.imread(str(file), cv2.IMREAD_COLOR)
         if image is None:
+            print(f"Could not read face reference image: {file}")
             continue
         embeddings = image_embeddings(image)
         if embeddings:
-            indexed[match.group(1)] = {"fid": match.group(1), "embeddings": embeddings, "file": file.name}
+            indexed.setdefault(fid, {"fid": fid, "embeddings": [], "files": []})
+            indexed[fid]["embeddings"].extend(embeddings)
+            indexed[fid]["files"].append(file.name)
     with state_lock:
         known_faces = indexed
+    print(f"Indexed {len(indexed)} employee face(s) from {sum(len(item.get('files', [])) for item in indexed.values())} file(s) in {FACES_DIR}")
     return len(indexed)
 
 
@@ -149,7 +169,14 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "indexed_faces": len(known_faces), "models_loaded": face_app is not None and yolo_model is not None}
+    return {
+        "status": "ok",
+        "indexed_faces": len(known_faces),
+        "indexed_files": sum(len(item.get("files", [])) for item in known_faces.values()),
+        "faces_dir": str(FACES_DIR),
+        "faces_dir_exists": FACES_DIR.exists(),
+        "models_loaded": face_app is not None and yolo_model is not None,
+    }
 
 
 @app.post("/reload")
@@ -185,4 +212,4 @@ def recognize(payload: RecognizeRequest, x_face_service_token: str | None = Head
     score, best = max(scored, key=lambda item: item[0])
     if score < FACE_SIM_THRESHOLD:
         return {"matched": False, "reason": "below_threshold", "score": round(score, 5)}
-    return {"matched": True, "fid": best["fid"], "score": round(score, 5), "file": best["file"]}
+    return {"matched": True, "fid": best["fid"], "score": round(score, 5), "file": best["files"][0] if best.get("files") else None}

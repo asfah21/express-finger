@@ -62,7 +62,8 @@ export const liveController = {
             return sendSuccess(res, { ...inserted.rows[0], nama: name, fid: String(recognized.fid), score: recognized.score }, 'Absensi berhasil')
         } catch (err) {
             console.error('Live attendance error:', err)
-            return sendError(res, err.message.includes('Face service') ? 'Layanan pengenalan wajah tidak tersedia' : 'Gagal menyimpan absensi', 503)
+            const unavailable = /Face service|fetch failed|ECONNREFUSED|aborted|timed out/i.test(err.message)
+            return sendError(res, unavailable ? 'Layanan pengenalan wajah tidak tersedia' : 'Gagal menyimpan absensi', 503)
         }
     },
 

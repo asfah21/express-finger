@@ -15,6 +15,8 @@ services:
       - API_KEY=your_api_key
       - JWT_SECRET=your-strong-random-secret-key-min-32-chars
       - RAW_DIR=/data/raw
+      - FACE_SERVICE_URL=http://127.0.0.1:8090
+      - FACE_SERVICE_TOKEN=change-this-internal-token
       - CORS_ORIGINS= # Daftar origin yang diizinkan, pisah koma. Contoh: https://app.example.com,https://admin.example.com
     volumes:
       - ./data/raw:/data/raw
