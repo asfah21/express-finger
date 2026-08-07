@@ -147,8 +147,7 @@ export async function initLivePage(mode = 'kiosk') {
     document.querySelectorAll('[data-live-type]').forEach((button) => {
         button.addEventListener('click', () => submitAttendance(Number(button.dataset.liveType)))
     })
-    $('live-camera-start')?.addEventListener('click', startCamera)
-    setStatus('Klik Masuk atau Pulang untuk mengaktifkan kamera.', 'neutral')
+    setStatus('Pilih Masuk atau Pulang untuk meminta akses kamera.', 'neutral')
 }
 
 window.initLivePage = initLivePage
