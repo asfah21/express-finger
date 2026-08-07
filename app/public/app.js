@@ -14,7 +14,7 @@ import { refreshPair } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/pull-employee.js';
 import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate } from './js/pages/biometrics.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
-import { initLivePage } from './js/live.js';
+import { initLivePage, initCamLivePage } from './js/live.js';
 
 
 
@@ -37,6 +37,7 @@ window.showDashboard = showDashboard;
 window.showLogin = showLogin;
 window.toggleActions = toggleActions;
 window.initLivePage = initLivePage;
+window.initCamLivePage = initCamLivePage;
 
 // Device Page Functions
 window.refreshDevices = refreshDevices;
@@ -405,6 +406,7 @@ function showPage(pageId) {
 
         if (pageId === 'overview') refreshOverview(false); // Pakai cache agar tidak boros API
         if (pageId === 'live') initLivePage('dashboard');
+        if (pageId === 'cam_live') initCamLivePage();
         if (pageId === 'devices') refreshDevices();
         if (pageId === 'employees') refreshEmployees();
         if (pageId === 'logs') refreshLogs();

@@ -63,6 +63,8 @@ def ensure_models():
     if IMPORT_ERROR:
         raise RuntimeError(f"Face dependencies are unavailable: {IMPORT_ERROR}")
     if face_app is None:
+        # This deployment is intentionally CPU-only; no NVIDIA/CUDA runtime is
+        # required for the kiosk workload.
         face_app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
         face_app.prepare(ctx_id=0, det_size=(640, 640))
     if yolo_model is None:

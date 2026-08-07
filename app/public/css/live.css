@@ -72,6 +72,106 @@
     background: rgba(16, 31, 41, .86);
 }
 
+.live-choice-panel {
+    max-width: 760px;
+    margin: auto;
+}
+
+.live-choice-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 620px;
+    margin: 40px auto 0;
+}
+
+.live-choice-buttons .live-action {
+    min-height: 136px;
+    padding: 24px;
+}
+
+.live-choice-buttons .live-action strong {
+    font-size: 1.25rem;
+}
+
+.live-choice-buttons .live-action small {
+    font-size: .9rem;
+}
+
+.cam-live-panel {
+    max-width: 1050px;
+    margin: auto;
+}
+
+.cam-live-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.cam-live-header h1 {
+    margin: 14px 0 8px;
+    font-size: 2.4rem;
+    line-height: 1.05;
+    letter-spacing: -.03em;
+    text-wrap: balance;
+}
+
+.cam-live-header p {
+    margin: 0;
+    max-width: 58ch;
+    color: var(--live-muted);
+    line-height: 1.55;
+}
+
+.live-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--live-line);
+    border-radius: 9px;
+    color: var(--live-ink);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.live-back-link:hover,
+.live-back-link:focus-visible {
+    border-color: var(--live-accent);
+    color: var(--live-accent);
+}
+
+.cam-live-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(260px, .7fr);
+    gap: clamp(22px, 4vw, 48px);
+    align-items: center;
+    margin-top: 36px;
+}
+
+.cam-live-actions {
+    gap: 16px;
+}
+
+.cam-live-checklist {
+    display: grid;
+    gap: 10px;
+    color: var(--live-muted);
+    font-size: .88rem;
+}
+
+.cam-live-checklist div {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.cam-live-checklist i {
+    width: 18px;
+    color: var(--live-accent);
+    text-align: center;
+}
+
 .live-intro {
     max-width: 560px;
 }
@@ -384,6 +484,23 @@
     .live-workspace {
         grid-template-columns: 1fr;
         margin-top: 30px;
+    }
+
+    .live-choice-buttons,
+    .cam-live-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .cam-live-header {
+        flex-direction: column;
+    }
+
+    .cam-live-header h1 {
+        font-size: 2rem;
+    }
+
+    .cam-live-header .live-back-link {
+        order: -1;
     }
 
     .live-camera-frame,
