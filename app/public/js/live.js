@@ -135,7 +135,7 @@ async function submitAttendance(type) {
             const employee = data.data || {}
             showResult(employee.nama, type)
         } else if (response.status === 409) {
-            setStatus('Sudah absen untuk jenis kehadiran ini hari ini.', 'warning')
+            setStatus('Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
         } else {
             setStatus(data.message || 'Wajah tidak dikenali. Coba posisikan wajah dengan lebih jelas.', 'error')
         }
@@ -232,7 +232,7 @@ async function submitCamAttendance() {
         } else if (response.status === 404) {
             camSetStatus('Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah.', 'error')
         } else if (response.status === 409) {
-            camSetStatus('Anda sudah melakukan absensi ini hari ini.', 'warning')
+            camSetStatus('Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
         } else {
             camSetStatus(data.message || 'Verifikasi gagal. Atur posisi wajah lalu ulangi.', 'error')
         }

@@ -1,6 +1,7 @@
 import { pool } from '../utils/database.js'
 import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
+import { recordActivity } from './activity-log.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 
@@ -48,14 +49,13 @@ export const liveController = {
             const recognized = await recognize(image)
             if (!recognized.matched || !recognized.fid) return sendError(res, 'Wajah tidak dikenali', 404)
 
-            const date = todayInWita()
             const duplicate = await pool.query(
                 `SELECT id, "timestamp" FROM attendance_logs
-         WHERE user_id = $1 AND type = $2 AND ("timestamp" AT TIME ZONE 'Asia/Makassar')::date = $3::date
+         WHERE user_id = $1 AND type = $2 AND "timestamp" >= now() - interval '1 minute'
          ORDER BY "timestamp" DESC LIMIT 1`,
-                [String(recognized.fid), type, date]
+                [String(recognized.fid), type]
             )
-            if (duplicate.rows.length) return sendError(res, 'Sudah absen', 409, { timestamp: duplicate.rows[0].timestamp })
+            if (duplicate.rows.length) return sendError(res, 'Anda baru saja melakukan absensi yang sama. Silakan coba lagi setelah 1 menit.', 409, { timestamp: duplicate.rows[0].timestamp })
 
             const employee = await pool.query('SELECT user_id, nama FROM employee WHERE user_id = $1 LIMIT 1', [String(recognized.fid)])
             const name = employee.rows[0]?.nama || `FID ${recognized.fid}`
@@ -64,6 +64,14 @@ export const liveController = {
          VALUES ($1, now(), $2, $3) RETURNING id, user_id, "timestamp", type`,
                 [String(recognized.fid), type, 'LIVE-CAM']
             )
+            await recordActivity({
+                username: name,
+                action: 'attendance',
+                category: 'attendance',
+                detail: `Absensi ${type === 0 ? 'Masuk' : 'Pulang'} melalui kamera (User ID: ${recognized.fid}, device: LIVE-CAM)`,
+                ip: req.ip,
+                status: 'success'
+            })
             return sendSuccess(res, { ...inserted.rows[0], nama: name, fid: String(recognized.fid), score: recognized.score }, 'Absensi berhasil')
         } catch (err) {
             console.error('Live attendance error:', err)
