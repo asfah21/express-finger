@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Permissions-Policy" content="camera=(self)">
+    <title>Verifikasi Wajah - AZRA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/live.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="live-kiosk-body">
+    <main class="live-kiosk-shell">
+        <header class="live-kiosk-header">
+            <div class="live-brand"><span><i class="fas fa-fingerprint"></i></span><strong>AZRA</strong><small>KIOSK
+                    ABSENSI</small></div>
+            <div class="live-clock" id="live-clock"></div>
+        </header>
+
+        <section class="live-panel cam-live-panel" data-cam-live-root>
+            <div class="cam-live-header">
+                <div>
+                    <div class="live-kicker"><span class="live-pulse"></span> VERIFIKASI WAJAH</div>
+                    <h1 id="cam-live-title">Siapkan wajah Anda</h1>
+                    <p id="cam-live-description">Pastikan wajah terlihat jelas di dalam bingkai. Sistem akan membaca
+                        wajah
+                        secara otomatis.</p>
+                </div>
+                <a class="live-back-link" href="/live.html"><i class="fas fa-arrow-left" aria-hidden="true"></i> Ganti
+                    aksi</a>
+            </div>
+            <div class="cam-live-workspace">
+                <div class="live-camera-frame" id="cam-live-camera-frame">
+                    <video id="cam-live-video" autoplay muted playsinline aria-label="Pratinjau kamera"></video>
+                    <div class="live-face-guide" aria-hidden="true"></div>
+                    <div class="live-camera-hint"><i class="fas fa-camera" aria-hidden="true"></i> Posisikan wajah di
+                        tengah
+                    </div>
+                    <div class="live-camera-processing" id="cam-live-capture"><span></span> Memeriksa wajah…</div>
+                    <canvas id="cam-live-canvas" hidden></canvas>
+                </div>
+                <div class="live-actions cam-live-actions">
+                    <div class="live-status" id="cam-live-status" role="status" aria-live="polite">Menyiapkan kamera…
+                    </div>
+                    <div class="cam-live-checklist" aria-label="Petunjuk verifikasi">
+                        <div><i class="fas fa-sun" aria-hidden="true"></i><span>Gunakan pencahayaan yang cukup</span>
+                        </div>
+                        <div><i class="fas fa-user" aria-hidden="true"></i><span>Pastikan hanya satu wajah
+                                terlihat</span>
+                        </div>
+                    </div>
+                    <button class="live-camera-start" id="cam-live-retry" type="button"><i class="fas fa-rotate-right"
+                            aria-hidden="true"></i> Coba lagi</button>
+                    <p class="live-privacy"><i class="fas fa-shield-halved" aria-hidden="true"></i> Gambar hanya dikirim
+                        untuk verifikasi dan tidak disimpan di browser.</p>
+                </div>
+            </div>
+            <div class="live-result" id="cam-live-result" role="status" aria-live="assertive" aria-hidden="true">
+                <span class="live-result-icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                <small id="cam-live-result-label">Absensi berhasil</small>
+                <strong id="cam-live-result-name">-</strong>
+                <a class="live-back-link" href="/live.html">Kembali ke pilihan</a>
+            </div>
+        </section>
+
+        <footer class="live-kiosk-footer">Sistem absensi AZRA · Hadir tepat waktu, pulang dengan tenang</footer>
+    </main>
+
+    <script type="module">
+        import { initCamLivePage } from './js/live.js';
+        initCamLivePage();
+        const clock = document.getElementById('live-clock');
+        const updateClock = () => { clock.textContent = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date()); };
+        updateClock(); setInterval(updateClock, 1000);
+    </script>
+</body>
+
+</html>

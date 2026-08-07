@@ -155,10 +155,7 @@ export async function initLivePage(mode = 'kiosk') {
     document.querySelectorAll('[data-live-type]').forEach((button) => {
         button.addEventListener('click', () => {
             const type = Number(button.dataset.liveType)
-            const target = window.location.pathname.endsWith('/live.html')
-                ? 'pages/cam_live.html'
-                : 'cam_live.html'
-            window.location.assign(`${target}?type=${type}`)
+            window.location.assign(`/cam_live.html?type=${type}`)
         })
     })
     setStatus('Pilih Masuk atau Pulang untuk melanjutkan.', 'neutral')
@@ -231,6 +228,7 @@ async function submitCamAttendance() {
             $('cam-live-result')?.classList.add('is-visible')
             $('cam-live-result')?.setAttribute('aria-hidden', 'false')
             camSetStatus('Wajah dikenali dan absensi berhasil dicatat.', 'success')
+            setTimeout(() => window.location.assign('/live.html'), 2500)
         } else if (response.status === 404) {
             camSetStatus('Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah.', 'error')
         } else if (response.status === 409) {

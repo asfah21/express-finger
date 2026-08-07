@@ -16,7 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt ./requirements.txt
 # Install the CPU dependency set. No CUDA toolkit, NVIDIA runtime, or GPU
 # provider is required: main.py explicitly uses ONNXRuntime CPUExecutionProvider.
-RUN pip install --extra-index-url https://pypi.org/simple --prefer-binary -r requirements.txt
+RUN pip install --extra-index-url https://pypi.org/simple --prefer-binary \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.6.0+cpu \
+    && pip install --extra-index-url https://pypi.org/simple --prefer-binary -r requirements.txt
 COPY main.py ./main.py
 RUN mkdir -p /data/faces /models
 
