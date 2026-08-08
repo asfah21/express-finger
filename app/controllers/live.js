@@ -45,9 +45,13 @@ export const liveController = {
             const recognized = await recognize(image)
             if (!recognized.matched || !recognized.fid) return sendError(res, 'Wajah tidak dikenali', 404)
 
+            // Live-camera timestamps are stored in the application's WITA
+            // wall-clock convention.  The database server clock is UTC, so
+            // apply the +08:00 offset at the write boundary instead of using
+            // a bare now(). Keep the duplicate window on the same clock.
             const duplicate = await pool.query(
                 `SELECT id, "timestamp" FROM attendance_logs
-         WHERE user_id = $1 AND type = $2 AND "timestamp" >= now() - interval '1 minute'
+         WHERE user_id = $1 AND type = $2 AND "timestamp" >= (now() + interval '8 hours') - interval '1 minute'
          ORDER BY "timestamp" DESC LIMIT 1`,
                 [String(recognized.fid), type]
             )
@@ -57,7 +61,7 @@ export const liveController = {
             const name = employee.rows[0]?.nama || `FID ${recognized.fid}`
             const inserted = await pool.query(
                 `INSERT INTO attendance_logs (user_id, "timestamp", type, device_sn)
-         VALUES ($1, now(), $2, $3) RETURNING id, user_id, "timestamp", type`,
+         VALUES ($1, now() + interval '8 hours', $2, $3) RETURNING id, user_id, "timestamp", type`,
                 [String(recognized.fid), type, 'LIVE-CAM']
             )
             await recordActivity({

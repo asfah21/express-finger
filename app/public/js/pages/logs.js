@@ -32,10 +32,14 @@ export async function refreshLogs() {
         </td></tr>`;
     } else {
         body.innerHTML = logs.map(log => {
-            const witaParts = getBusinessTimeParts(log.timestamp);
-            const dateStr = `${witaParts.day}/${witaParts.month}/${witaParts.year}`;
-            const timeStr = `${witaParts.hour}:${witaParts.minute}`;
-            const secondsStr = witaParts.second;
+            // Keep the UI aligned with the Excel export: the API timestamp is
+            // already normalized to the business timezone, so read its UTC
+            // calendar fields instead of converting it through the browser's
+            // local timezone a second time.
+            const displayParts = getExportTimestampParts(log.timestamp);
+            const dateStr = `${displayParts.day}/${displayParts.month}/${displayParts.year}`;
+            const timeStr = `${displayParts.hour}:${displayParts.minute}`;
+            const secondsStr = displayParts.second;
 
             return `
                 <tr>
@@ -407,11 +411,9 @@ async function generatePDFSlip() {
             }
             doc.rect(startX, yPos, totalTableWidth, 5, 'F');
 
-            const dt = new Date(log.timestamp);
-            const dateParts = new Intl.DateTimeFormat('en-GB', { timeZone: BUSINESS_TIME_ZONE, day: '2-digit', month: '2-digit' }).formatToParts(dt);
-            const timeParts = getBusinessTimeParts(log.timestamp);
-            const dateStr = `${dateParts.find(part => part.type === 'day').value}/${dateParts.find(part => part.type === 'month').value}`;
-            const timeStr = `${timeParts.hour}:${timeParts.minute}:${timeParts.second}`;
+            const displayParts = getExportTimestampParts(log.timestamp);
+            const dateStr = `${displayParts.day}/${displayParts.month}`;
+            const timeStr = `${displayParts.hour}:${displayParts.minute}:${displayParts.second}`;
             const typeLabel = log.type == 0 ? 'Masuk' : (log.type == 1 ? 'Pulang' : log.absensi || '-');
             const deviceName = (log.device_name || log.device_sn || '-').substring(0, 10);
 
@@ -519,8 +521,8 @@ async function performExport(range) {
         const logs = data.data?.list || data.data?.logs || [];
 
         const exportData = logs.map(log => {
-            const timeParts = getBusinessTimeParts(log.timestamp);
-            const timeFull = `${timeParts.hour}:${timeParts.minute}:${timeParts.second}`;
+            const displayParts = getExportTimestampParts(log.timestamp);
+            const timeFull = `${displayParts.hour}:${displayParts.minute}:${displayParts.second}`;
             return {
                 NIK: log.nik,
                 Name: log.nama,
@@ -529,7 +531,7 @@ async function performExport(range) {
                 Divisi: log.divisi,
                 Jabatan: log.jabatan,
                 Status: log.absensi,
-                Date: `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}/${dt.getUTCFullYear()}`,
+                Date: `${displayParts.day}/${displayParts.month}/${displayParts.year}`,
                 Time: timeFull,
                 Device: log.device_name,
                 Remarks: log.ket
@@ -549,4 +551,26 @@ async function performExport(range) {
     } catch (err) {
         showToast('Export failed', 'error');
     }
+}
+
+/**
+ * Match the timestamp interpretation used by the attendance export.
+ * PostgreSQL returns the TIMESTAMPTZ value as an ISO instant; using UTC
+ * getters here preserves the already-normalized business-time fields and
+ * avoids an additional +08:00 browser conversion.
+ */
+function getExportTimestampParts(value) {
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) {
+        return { day: '-', month: '-', year: '-', hour: '--', minute: '--', second: '--' };
+    }
+
+    return {
+        day: String(dt.getUTCDate()).padStart(2, '0'),
+        month: String(dt.getUTCMonth() + 1).padStart(2, '0'),
+        year: String(dt.getUTCFullYear()),
+        hour: String(dt.getUTCHours()).padStart(2, '0'),
+        minute: String(dt.getUTCMinutes()).padStart(2, '0'),
+        second: String(dt.getUTCSeconds()).padStart(2, '0')
+    };
 }
