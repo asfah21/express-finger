@@ -4,6 +4,68 @@ import { showToast, toggleModal, showConfirm } from '../utils.js'
 let employees = []
 let templates = []
 
+// --- Template Sync (moved from Pull Employee page) ---
+
+function selectedTemplateDevice() {
+    const value = document.getElementById('template-device-select')?.value;
+    if (!value) throw new Error('Please select a device');
+    return value;
+}
+
+async function templateRequest(path, body = {}) {
+    const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status === 'error') throw new Error(data.message || data.error || 'Template sync request failed');
+    return data.data || data;
+}
+
+function renderTemplateSyncResult(result, title) {
+    const status = document.getElementById('template-sync-status');
+    if (!status) return;
+    const items = result.plan || result.results || [];
+    const counts = items.reduce((acc, item) => { acc[item.action || item.status || 'UNKNOWN'] = (acc[item.action || item.status || 'UNKNOWN'] || 0) + 1; return acc; }, {});
+    status.style.display = 'block';
+    status.innerHTML = `<strong>${title}</strong><br><span>${Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join(' · ') || `Templates: ${result.count || 0}`}</span>`;
+}
+
+export async function loadTemplateDevices() {
+    try {
+        const res = await fetch('/api/devices');
+        const data = await res.json();
+        const select = document.getElementById('template-device-select');
+        if (!select) return;
+        const devices = data.data?.list || data.data || [];
+        select.innerHTML = '<option value="">-- Select Device --</option>' +
+            devices.map(d => `<option value="${d.id}" ${d.is_template_master ? ' data-master="true"' : ''}>${d.name || d.ip} (${d.sn})${d.is_template_master ? ' [MASTER]' : ''}</option>`).join('');
+    } catch (err) {
+        console.error('Failed to load devices for template sync', err);
+    }
+}
+
+export async function pullTemplateMaster() {
+    try { renderTemplateSyncResult(await templateRequest('/api/template-sync/pull-master'), 'Master templates pulled'); showToast('Master templates pulled', 'success'); }
+    catch (error) { showToast(error.message, 'error'); }
+}
+
+export async function dryRunTemplateSync() {
+    try { const result = await templateRequest(`/api/template-sync/dry-run/${selectedTemplateDevice()}`); renderTemplateSyncResult(result, 'Template sync dry-run'); showToast('Dry-run completed', 'success'); }
+    catch (error) { showToast(error.message, 'error'); }
+}
+
+export async function pushTemplateSync() {
+    try { const result = await templateRequest(`/api/template-sync/push/${selectedTemplateDevice()}`); renderTemplateSyncResult(result, 'Template push completed'); showToast('Template push completed', 'success'); }
+    catch (error) { showToast(error.message, 'error'); }
+}
+
+export function pushAllTemplateSync() {
+    showConfirm({
+        title: 'Push All Templates', message: 'Push server templates to every configured target device? Deletes remain disabled.', icon: 'fa-cloud-upload-alt', confirmText: 'Push All', onConfirm: async () => {
+            try { const result = await templateRequest('/api/template-sync/push-all'); renderTemplateSyncResult(result, 'Template push-all completed'); showToast('Template push-all completed', 'success'); }
+            catch (error) { showToast(error.message, 'error'); }
+        }
+    });
+}
+
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]))
 }
@@ -20,6 +82,8 @@ async function request(path, options = {}) {
 }
 
 export async function refreshBiometrics() {
+    // Load template sync target devices (Template Sync panel)
+    loadTemplateDevices()
     try {
         const data = await request('/api/employees?limit=500&offset=0')
         employees = data?.list || []

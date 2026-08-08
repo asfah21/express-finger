@@ -11,8 +11,8 @@ import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHr
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
 import { refreshPair } from './js/pages/pair.js';
-import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/pull-employee.js';
-import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate } from './js/pages/biometrics.js';
+import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
+import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate, loadTemplateDevices, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/biometrics.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
 import { initLivePage, initCamLivePage } from './js/live.js';
 
@@ -119,10 +119,6 @@ window.exportPulledEmployeeData = exportPulledEmployeeData;
 window.downloadRawEmployeeData = downloadRawEmployeeData;
 window.showSyncModal = showSyncModal;
 window.closeSyncModal = closeSyncModal;
-window.pullTemplateMaster = pullTemplateMaster;
-window.dryRunTemplateSync = dryRunTemplateSync;
-window.pushTemplateSync = pushTemplateSync;
-window.pushAllTemplateSync = pushAllTemplateSync;
 
 // Biometrics Page Functions
 window.refreshBiometrics = refreshBiometrics;
@@ -131,6 +127,11 @@ window.openBiometricModal = openBiometricModal;
 window.saveBiometricTemplate = saveBiometricTemplate;
 window.deleteBiometricTemplate = deleteBiometricTemplate;
 window.downloadBiometricTemplate = downloadBiometricTemplate;
+window.loadTemplateDevices = loadTemplateDevices;
+window.pullTemplateMaster = pullTemplateMaster;
+window.dryRunTemplateSync = dryRunTemplateSync;
+window.pushTemplateSync = pushTemplateSync;
+window.pushAllTemplateSync = pushAllTemplateSync;
 window.updateEmployeeDeviceStatus = function () { };
 
 // Late Page Functions
@@ -233,12 +234,12 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'biometrics', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
 
         state.allowedPageLabels = {};
     }
@@ -335,6 +336,13 @@ function showPage(pageId) {
     if (pageId === 'live') {
         window.location.assign('/live.html');
         return;
+    }
+    // Biometrics page is temporarily disabled
+    if (pageId === 'biometrics') {
+        showToast('Biometrics page is temporarily disabled', 'error');
+        pageId = 'overview';
+        state.currentPath = pageId;
+        window.location.hash = pageId;
     }
     // Dynamic permission guard using allowedPages from server
     if (state.allowedPages && !state.allowedPages.includes(pageId)) {

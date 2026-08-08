@@ -12,6 +12,31 @@
         </div>
     </div>
 
+    <!-- Template Sync Section (admin-only; page remains hidden in navigation) -->
+    <div class="stat-card" style="margin-bottom:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+            <div>
+                <h3 style="display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem;"><i class="fas fa-sync-alt" style="color:var(--primary);"></i> Template Sync</h3>
+                <p style="color:var(--text-muted); font-size:.85rem; max-width:68ch;">Pull master biometric templates from the source device, dry-run to preview changes, then push templates to one or all target devices.</p>
+            </div>
+        </div>
+        <div class="form-row" style="margin-top:.9rem;">
+            <div class="form-group" style="flex:2;">
+                <label for="template-device-select">Target Device</label>
+                <select id="template-device-select">
+                    <option value="">-- Select Device --</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:.6rem; align-items:flex-end; flex-wrap:wrap;">
+                <button class="btn-primary admin-only" id="btn-template-pull-master" style="width:auto; height:42px; padding:0 1rem; background:#8b5cf6;" onclick="pullTemplateMaster()"><i class="fas fa-database"></i> Pull Master</button>
+                <button class="btn-primary admin-only" id="btn-template-dry-run" style="width:auto; height:42px; padding:0 1rem; background:#f59e0b;" onclick="dryRunTemplateSync()"><i class="fas fa-search"></i> Dry Run</button>
+                <button class="btn-primary admin-only" id="btn-template-push" style="width:auto; height:42px; padding:0 1rem; background:#10b981;" onclick="pushTemplateSync()"><i class="fas fa-upload"></i> Push</button>
+                <button class="btn-primary admin-only" id="btn-template-push-all" style="width:auto; height:42px; padding:0 1rem; background:#ef4444;" onclick="pushAllTemplateSync()"><i class="fas fa-cloud-upload-alt"></i> Push All</button>
+            </div>
+        </div>
+        <div id="template-sync-status" style="display:none; margin-top:1rem; padding:1rem; border-radius:.5rem; background:rgba(139,92,246,.1); border:1px solid var(--glass-border); font-size:.85rem;"></div>
+    </div>
+
     <div class="stat-card" style="margin-bottom:1.25rem;">
         <div class="form-row">
             <div class="form-group" style="flex:2;">

@@ -362,7 +362,7 @@ export const updateUserRole = async (req, res) => {
     const { role } = req.body
     const ip = getClientIp(req)
 
-    const validRoles = ['superadmin', 'admin', 'viewer']
+    const validRoles = ['superadmin', 'admin', 'viewer', 'public']
     if (!role || !validRoles.includes(role)) {
         return sendError(res, 'Invalid role. Must be one of: ' + validRoles.join(', '), 400)
     }

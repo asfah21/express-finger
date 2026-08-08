@@ -271,7 +271,8 @@ export async function loadUserList() {
         const roleColors = {
             'superadmin': 'var(--secondary)',
             'admin': 'var(--primary)',
-            'viewer': 'var(--text-muted)'
+            'viewer': 'var(--text-muted)',
+            'public': 'var(--success)'
         };
 
         const userRows = users.map(user => {
@@ -293,6 +294,7 @@ export async function loadUserList() {
                             <option value="superadmin" ${user.role === 'superadmin' ? 'selected' : ''} style="background:${roleColors.superadmin};color:#fff;">superadmin</option>
                             <option value="admin" ${user.role === 'admin' ? 'selected' : ''} style="background:${roleColors.admin};color:#fff;">admin</option>
                             <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''} style="background:${roleColors.viewer};color:#fff;">viewer</option>
+                            <option value="public" ${user.role === 'public' ? 'selected' : ''} style="background:${roleColors.public};color:#fff;">public</option>
                         </select>
                     </td>
                     <td style="padding:0.5rem;text-align:right;white-space:nowrap;">
