@@ -48,12 +48,12 @@ export const requireAdminPrivileges = (req, res, next) => {
   if (req.headers['x-api-key']) {
     return next()
   }
-  
+
   // If JWT was used, ensure the user has the admin or superadmin role
   if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
     return next()
   }
-  
+
   return sendError(res, 'Forbidden: Administrator privileges required', 403)
 }
 
@@ -74,6 +74,24 @@ export const requireAuth = (req, res, next) => {
   }
 }
 
+// Protect browser pages that must redirect unauthenticated visitors to the login page.
+// This is intentionally separate from requireAuth because API clients should receive
+// a JSON 401 response, while direct browser navigation should receive an HTTP redirect.
+export const requirePageAuth = (req, res, next) => {
+  const token = req.cookies?.token
+
+  if (!token) {
+    return res.redirect('/')
+  }
+
+  try {
+    req.user = jwt.verify(token, SECRET)
+    next()
+  } catch (err) {
+    return res.redirect('/')
+  }
+}
+
 // Strictly Admin role middleware
 export const requireAdmin = (req, res, next) => {
   requireAuth(req, res, () => {
@@ -91,19 +109,19 @@ export const requireSuperAdminPrivileges = (req, res, next) => {
   if (req.headers['x-api-key']) {
     return next()
   }
-  
+
   // If JWT was used, ensure the user has the superadmin role
   if (req.user && req.user.role === 'superadmin') {
     return next()
   }
-  
+
   return sendError(res, 'Forbidden: Superadmin privileges required', 403)
 }
 
 // Middleware to optionally attach user info without blocking
 export const optionalAuth = (req, res, next) => {
   const token = req.cookies?.token || req.headers['authorization']?.split(' ')[1]
-  
+
   if (token) {
     try {
       const decoded = jwt.verify(token, SECRET)
@@ -112,6 +130,6 @@ export const optionalAuth = (req, res, next) => {
       // Token invalid, just continue without user
     }
   }
-  
+
   next()
 }

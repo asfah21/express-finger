@@ -19,6 +19,7 @@ import { startPullScheduler } from './utils/scheduler.js'
 import { warmCache } from './utils/cache.js'
 import { getSettingsData } from './controllers/settings.js'
 import { getDevices } from './utils/database.js'
+import { requirePageAuth } from './middleware/index.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -39,6 +40,11 @@ app.use(securityMiddleware)
 app.use(loggerMiddleware)
 
 // Serve static files
+// Keep live.html behind the login cookie. This route must be registered before
+// express.static so direct navigation cannot bypass authentication.
+app.get('/live.html', requirePageAuth, (_req, res) => {
+  res.sendFile(path.join(publicDir, 'live.html'))
+})
 app.use(express.static(publicDir))
 
 // `cam_live.html` is a static kiosk page, but it is also commonly opened
