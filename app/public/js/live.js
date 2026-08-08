@@ -170,6 +170,15 @@ function camSetStatus(message, tone = 'neutral') {
     status.dataset.tone = tone
 }
 
+function camCompatibilityMessage() {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+        return window.isSecureContext === false
+            ? 'Kamera membutuhkan HTTPS atau localhost. Buka aplikasi melalui alamat yang aman.'
+            : 'Browser ini tidak mendukung kamera. Gunakan Chrome, Edge, Firefox, atau Safari versi terbaru.'
+    }
+    return null
+}
+
 function camFrameReady() {
     const video = $('cam-live-video')
     return Boolean(video?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth >= 320 && video.videoHeight >= 240)
@@ -188,8 +197,9 @@ function camImage() {
 async function startCam() {
     if (camState.stream) return true
     if (camState.startPromise) return camState.startPromise
-    if (!navigator.mediaDevices?.getUserMedia) {
-        camSetStatus('Browser ini tidak mendukung kamera. Gunakan Chrome atau Edge terbaru.', 'error')
+    const compatibilityError = camCompatibilityMessage()
+    if (compatibilityError) {
+        camSetStatus(compatibilityError, 'error')
         return false
     }
     const video = $('cam-live-video')
@@ -212,7 +222,7 @@ async function startCam() {
                     break
                 } catch (error) {
                     lastError = error
-                    if (!['OverconstrainedError', 'NotFoundError'].includes(error?.name)) throw error
+                    if (!['OverconstrainedError', 'NotFoundError', 'TypeError'].includes(error?.name)) throw error
                 }
             }
             if (!camState.stream) throw lastError || new Error('Camera stream unavailable')
@@ -287,7 +297,10 @@ export async function initCamLivePage() {
     if (camState.initialized) return
     camState.initialized = true
     camState.type = [0, 1].includes(camState.type) ? camState.type : 0
-    $('cam-live-title')?.textContent = camState.type === 0 ? 'Verifikasi untuk Masuk' : 'Verifikasi untuk Pulang'
+    const title = $('cam-live-title')
+    if (title) {
+        title.textContent = camState.type === 0 ? 'Verifikasi untuk Masuk' : 'Verifikasi untuk Pulang'
+    }
     $('cam-live-retry')?.addEventListener('click', submitCamAttendance)
     if (await startCam()) {
         clearTimeout(camState.autoSubmitTimer)
