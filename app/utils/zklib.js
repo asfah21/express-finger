@@ -14,6 +14,7 @@ import { delCacheByPatterns, CACHE_PATTERNS } from './cache.js'
  * 3. Future date noise protection
  */
 import { SYNC_CONFIG } from '../config/sync.js'
+import { toDeviceTimestamp } from './timezone.js'
 
 /**
  * Clear attendance logs from device after a successful sync.
@@ -91,7 +92,7 @@ export async function pullDeviceLogs(ip, port = 4370, sn = null) {
 
         if (attendanceData.length > 0) {
             const formattedLogs = attendanceData.map(log => {
-                let dt = new Date(log.recordTime);
+                let dt = toDeviceTimestamp(log.recordTime);
                 let finalDate = dt;
 
                 // 1. KOREKSI TANGGAL (FIX BIT-SHIFT FW 8.X)
@@ -154,7 +155,7 @@ export async function fetchDeviceLogsFormatted(ip, port = 4370, sn = null) {
         console.log(`📦 [Preview] Received ${attendanceData.length} logs from device ${sn || ip}`);
 
         const formattedLogs = attendanceData.map(log => {
-            let dt = new Date(log.recordTime);
+            let dt = toDeviceTimestamp(log.recordTime);
             let finalDate = dt;
 
             // KOREKSI BIT-SHIFT FW 8.X (same as pullDeviceLogs)

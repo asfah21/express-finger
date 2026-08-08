@@ -7,6 +7,7 @@ import { getSettingsData } from './settings.js'
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
 import { getCache, setCache, delCacheByPattern, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
 import { processAttendance } from '../utils/attendance-engine.js'
+import { BUSINESS_TIME_ZONE, getBusinessDateBounds, getBusinessDateString } from '../utils/timezone.js'
 
 // API controller
 export const apiController = {
@@ -129,7 +130,7 @@ export const apiController = {
       // Hanya cache request tanpa filter spesifik (halaman 1, tanpa filter) untuk menghemat memori
       let cacheKey = null
       const shouldCache = !user_id && !type && !device_sn && !search && Number(offset) === 0
-      
+
       if (shouldCache) {
         cacheKey = buildCacheKey(CACHE_KEYS.LOGS_LIST, from || 'all', limit)
         const cached = getCache(cacheKey)
@@ -253,7 +254,7 @@ export const apiController = {
 
   async getDailyStats(req, res) {
     try {
-      const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
+      const todayWita = getBusinessDateString();
       const dateStr = String(req.query.date || todayWita)
 
       // Cek cache
@@ -264,8 +265,7 @@ export const apiController = {
         return sendSuccess(res, cached)
       }
 
-      const from = new Date(`${dateStr}T00:00:00Z`)
-      const to = new Date(`${dateStr}T23:59:59Z`)
+      const { from, to } = getBusinessDateBounds(dateStr)
       const { rows } = await pool.query({
         text: `
           SELECT user_id,
@@ -296,11 +296,11 @@ export const apiController = {
 
   async getAttendanceSummary(req, res) {
     try {
-      const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
+      const todayWita = getBusinessDateString();
       const { from_date = todayWita, to_date = todayWita, user_id, limit = 1000, offset = 0 } = req.query;
-      
-      const from = new Date(`${from_date}T00:00:00Z`);
-      const to = new Date(`${to_date}T23:59:59Z`);
+
+      const from = getBusinessDateBounds(from_date).from;
+      const to = getBusinessDateBounds(to_date).to;
 
       // Expand timestamp search by 1 day backward and forward to catch cross-midnight shifts
       const fetchFrom = new Date(from);
@@ -309,8 +309,8 @@ export const apiController = {
       fetchTo.setDate(fetchTo.getDate() + 1);
 
       let whereClause = `al."timestamp" BETWEEN $1 AND $2`;
-      let queryParams = [fetchFrom, fetchTo, limit, offset, from.toISOString().split('T')[0], to.toISOString().split('T')[0]];
-      
+      let queryParams = [fetchFrom, fetchTo, limit, offset, from_date, to_date];
+
       if (user_id) {
         whereClause += ` AND al.user_id = $7`;
         queryParams.push(String(user_id));
@@ -323,7 +323,7 @@ export const apiController = {
         WITH raw_logs AS (
           SELECT 
             al.user_id,
-            al."timestamp" AT TIME ZONE 'UTC' as ts,
+            al."timestamp" AT TIME ZONE $8 as ts,
             al.type,
             LEAD(al."timestamp" AT TIME ZONE 'UTC') OVER (PARTITION BY al.user_id ORDER BY al."timestamp") as next_ts,
             LEAD(al.type) OVER (PARTITION BY al.user_id ORDER BY al."timestamp") as next_type
@@ -382,9 +382,9 @@ export const apiController = {
       const formattedData = rows.map(row => {
         let workHoursStr = null;
         if (row.check_out && row.diff_seconds > 0) {
-            const diffHrs = Math.floor(row.diff_seconds / 3600);
-            const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
-            workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
+          const diffHrs = Math.floor(row.diff_seconds / 3600);
+          const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
+          workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
         }
 
         return {
@@ -401,11 +401,11 @@ export const apiController = {
         };
       });
 
-      sendSuccess(res, { 
-        from_date, 
+      sendSuccess(res, {
+        from_date,
         to_date,
         count: formattedData.length,
-        summary: formattedData 
+        summary: formattedData
       });
 
     } catch (e) {
@@ -415,21 +415,21 @@ export const apiController = {
 
   async getPairSummary(req, res) {
     try {
-      const todayWita = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date());
-      const { 
-        from_date = todayWita, 
-        to_date = todayWita, 
-        search, 
+      const todayWita = getBusinessDateString();
+      const {
+        from_date = todayWita,
+        to_date = todayWita,
+        search,
         user_id,
-        limit = 25, 
-        offset = 0 
+        limit = 25,
+        offset = 0
       } = req.query;
 
       const lim = Math.min(parseInt(limit) || 25, 500);
       const off = Math.max(parseInt(offset) || 0, 0);
 
-      const from = new Date(`${from_date}T00:00:00Z`);
-      const to = new Date(`${to_date}T23:59:59Z`);
+      const from = getBusinessDateBounds(from_date).from;
+      const to = getBusinessDateBounds(to_date).to;
 
       // Expand timestamp search by 1 day backward and forward to catch cross-midnight shifts
       const fetchFrom = new Date(from);
@@ -458,8 +458,8 @@ export const apiController = {
         i++;
       }
 
-      const dateFromStr = from.toISOString().split('T')[0];
-      const dateToStr = to.toISOString().split('T')[0];
+      const dateFromStr = from_date;
+      const dateToStr = to_date;
 
       // Optimized query: single CTE pipeline with accurate COUNT
       const query = `
@@ -510,9 +510,9 @@ export const apiController = {
         ),
         filtered_daily AS (
           SELECT * FROM daily_logs
-          WHERE (log_date >= $${i}::date AND log_date <= $${i+1}::date)
-             OR (DATE(check_out_time) >= $${i}::date AND DATE(check_out_time) <= $${i+1}::date)
-             OR (DATE(check_in_time) >= $${i}::date AND DATE(check_in_time) <= $${i+1}::date)
+          WHERE (log_date >= $${i}::date AND log_date <= $${i + 1}::date)
+             OR (DATE(check_out_time) >= $${i}::date AND DATE(check_out_time) <= $${i + 1}::date)
+             OR (DATE(check_in_time) >= $${i}::date AND DATE(check_in_time) <= $${i + 1}::date)
         ),
         counted AS (
           SELECT COUNT(*)::bigint AS total FROM filtered_daily
@@ -520,7 +520,7 @@ export const apiController = {
         paginated AS (
           SELECT * FROM filtered_daily
           ORDER BY log_date DESC, check_in_time DESC NULLS LAST, check_out_time DESC NULLS LAST
-          LIMIT $${i+2} OFFSET $${i+3}
+          LIMIT $${i + 2} OFFSET $${i + 3}
         )
         SELECT 
           p.log_date,

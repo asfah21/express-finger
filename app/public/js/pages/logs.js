@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { showToast, toggleModal, getWitaDateString } from '../utils.js';
+import { showToast, toggleModal, getWitaDateString, getBusinessTimeParts, BUSINESS_TIME_ZONE } from '../utils.js';
 import { showSkeleton } from '../skeleton.js';
 
 export async function refreshLogs() {
@@ -12,8 +12,8 @@ export async function refreshLogs() {
     showSkeleton('logs-body', s.size);
 
     let url = `/api/logs?limit=${s.size}&offset=${s.page * s.size}`;
-    if (fromDate) url += `&from=${fromDate}T00:00:00%2B08:00`;
-    if (toDate) url += `&to=${toDate}T23:59:59%2B08:00`;
+    if (fromDate) url += `&from=${encodeURIComponent(`${fromDate}T00:00:00+08:00`)}`;
+    if (toDate) url += `&to=${encodeURIComponent(`${toDate}T23:59:59.999+08:00`)}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
 
     const res = await fetch(url);
@@ -32,11 +32,7 @@ export async function refreshLogs() {
         </td></tr>`;
     } else {
         body.innerHTML = logs.map(log => {
-            const dt = new Date(log.timestamp);
-            const witaParts = new Intl.DateTimeFormat('id-ID', {
-                timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-            }).formatToParts(dt).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+            const witaParts = getBusinessTimeParts(log.timestamp);
             const dateStr = `${witaParts.day}/${witaParts.month}/${witaParts.year}`;
             const timeStr = `${witaParts.hour}:${witaParts.minute}`;
             const secondsStr = witaParts.second;
@@ -412,8 +408,10 @@ async function generatePDFSlip() {
             doc.rect(startX, yPos, totalTableWidth, 5, 'F');
 
             const dt = new Date(log.timestamp);
-            const dateStr = `${dt.getUTCDate()}/${dt.getUTCMonth() + 1}`;
-            const timeStr = dt.toISOString().split('T')[1].substring(0, 8);
+            const dateParts = new Intl.DateTimeFormat('en-GB', { timeZone: BUSINESS_TIME_ZONE, day: '2-digit', month: '2-digit' }).formatToParts(dt);
+            const timeParts = getBusinessTimeParts(log.timestamp);
+            const dateStr = `${dateParts.find(part => part.type === 'day').value}/${dateParts.find(part => part.type === 'month').value}`;
+            const timeStr = `${timeParts.hour}:${timeParts.minute}:${timeParts.second}`;
             const typeLabel = log.type == 0 ? 'Masuk' : (log.type == 1 ? 'Pulang' : log.absensi || '-');
             const deviceName = (log.device_name || log.device_sn || '-').substring(0, 10);
 
@@ -521,8 +519,8 @@ async function performExport(range) {
         const logs = data.data?.list || data.data?.logs || [];
 
         const exportData = logs.map(log => {
-            const dt = new Date(log.timestamp);
-            const timeFull = dt.toISOString().split('T')[1].substring(0, 8);
+            const timeParts = getBusinessTimeParts(log.timestamp);
+            const timeFull = `${timeParts.hour}:${timeParts.minute}:${timeParts.second}`;
             return {
                 NIK: log.nik,
                 Name: log.nama,

@@ -5,10 +5,6 @@ import { recordActivity } from './activity-log.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 
-function todayInWita() {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date())
-}
-
 function normalizeImage(image) {
     if (typeof image !== 'string' || image.length < 32 || image.length > MAX_IMAGE_LENGTH) return null
     if (image.startsWith('data:image/')) return image

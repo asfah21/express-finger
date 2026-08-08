@@ -2,6 +2,8 @@
  * Common utility functions for the application
  */
 
+export const BUSINESS_TIME_ZONE = 'Asia/Makassar';
+
 export function getWitaDateString() {
     try {
         return new Intl.DateTimeFormat('en-CA', {
@@ -17,22 +19,29 @@ export function getWitaDateString() {
     }
 }
 
+export function getBusinessTimeParts(value) {
+    return new Intl.DateTimeFormat('id-ID', {
+        timeZone: BUSINESS_TIME_ZONE,
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    }).formatToParts(new Date(value)).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+}
+
 export function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
     const msgEl = document.getElementById('toast-message');
     if (!toast || !msgEl) return;
 
     msgEl.innerText = message;
-    
+
     // Set color based on type
     let color = 'var(--glass-border)';
     if (type === 'error') color = 'var(--error)';
     if (type === 'success') color = 'var(--success)';
     if (type === 'warning') color = 'var(--warning)';
-    
+
     toast.style.borderColor = color;
     toast.classList.add('active');
-    
+
     setTimeout(() => {
         toast.classList.remove('active');
     }, 3000);
@@ -68,11 +77,11 @@ export function showConfirm({ title, message, icon, confirmText, confirmColor, o
     saveBtn.innerText = confirmText || 'Confirm';
     saveBtn.style.display = 'block';
     saveBtn.style.background = confirmColor || 'var(--primary)';
-    
+
     // Remove previous event listeners by cloning and replacing
     const newSaveBtn = saveBtn.cloneNode(true);
     saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-    
+
     newSaveBtn.onclick = () => {
         if (onConfirm) onConfirm();
         toggleModal(false);
@@ -89,6 +98,6 @@ export function showConfirm({ title, message, icon, confirmText, confirmColor, o
             toggleModal(false);
         };
     }
-    
+
     toggleModal(true);
 }

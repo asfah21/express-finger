@@ -157,8 +157,8 @@ async function performLateExport(range) {
         const logs = data.data?.list || data.data?.logs || [];
 
         const exportData = logs.map(log => {
-            const dt = new Date(log.timestamp);
-            const timeFull = dt.toISOString().split('T')[1].substring(0, 8);
+            const timeParts = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date(log.timestamp)).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+            const timeFull = `${timeParts.hour}:${timeParts.minute}:${timeParts.second}`;
             return {
                 NIK: log.nik,
                 Name: log.nama,

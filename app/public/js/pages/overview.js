@@ -315,10 +315,7 @@ window.refreshChart = refreshChart;
 function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
     body.innerHTML = logs.map(log => {
-        const dt = new Date(log.timestamp);
-        const witaParts = new Intl.DateTimeFormat('id-ID', {
-            timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-        }).formatToParts(dt).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+        const witaParts = getBusinessTimeParts(log.timestamp);
         const timeStr = `${witaParts.hour}:${witaParts.minute}`;
         const secondsStr = witaParts.second;
 
@@ -369,8 +366,7 @@ async function refreshLateToday(today) {
 
         const body = document.getElementById('late-today-body');
         body.innerHTML = unique.map((log, idx) => {
-            const dt = new Date(log.timestamp);
-            const timeStr = dt.toISOString().split('T')[1].substring(0, 5);
+            const timeParts = getBusinessTimeParts(log.timestamp);
             return `
                 <tr>
                     <td class="text-muted">${idx + 1}</td>
@@ -380,7 +376,7 @@ async function refreshLateToday(today) {
                     </td>
                     <td>${log.department || '-'}</td>
                     <td>${log.jabatan || '-'}</td>
-                    <td><strong class="text-error text-lg">${timeStr}</strong></td>
+                    <td><strong class="text-error text-lg">${timeParts.hour}:${timeParts.minute}</strong></td>
                     <td><span class="text-error font-medium">${log.ket}</span></td>
                 </tr>
             `;
