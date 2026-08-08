@@ -15,7 +15,7 @@
     <main class="live-kiosk-shell">
         <header class="live-kiosk-header">
             <div class="live-brand">
-                <span aria-hidden="true"><i class="fas fa-fingerprint"></i></span>
+                <span aria-hidden="true"><i data-lucide="fingerprint-pattern"></i></span>
                 <div class="live-brand-name"><strong>AZRA</strong><small>v.0.7</small></div>
             </div>
             <div class="live-header-meta">
@@ -40,6 +40,7 @@
         </section>
         <footer class="live-kiosk-footer">Copyright © 2026 - GSI Corp</footer>
     </main>
+    <script>window.lucide?.createIcons();</script>
     <script type="module">
         import { initLivePage } from './js/live.js';
         initLivePage('kiosk');
