@@ -299,7 +299,7 @@ export async function initCamLivePage() {
     camState.type = [0, 1].includes(camState.type) ? camState.type : 0
     const title = $('cam-live-title')
     if (title) {
-        title.textContent = camState.type === 0 ? 'Verifikasi untuk Masuk' : 'Verifikasi untuk Pulang'
+        title.textContent = camState.type === 0 ? 'Absensi Masuk' : 'Absensi Pulang'
     }
     $('cam-live-retry')?.addEventListener('click', submitCamAttendance)
     if (await startCam()) {
