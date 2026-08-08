@@ -294,6 +294,90 @@ export const apiController = {
     }
   },
 
+  async getOverviewData(req, res) {
+    try {
+      const today = getBusinessDateString()
+      const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 31)
+      const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), config.MAX_LIMIT)
+      const offset = Math.max(Number(req.query.offset) || 0, 0)
+      const todayBounds = getBusinessDateBounds(today)
+      const fromDate = new Date(todayBounds.from)
+      fromDate.setUTCDate(fromDate.getUTCDate() - (days - 1))
+      const fromDateString = getBusinessDateString(fromDate)
+      const from = getBusinessDateBounds(fromDateString).from
+      const to = todayBounds.to
+
+      // One lightweight request replaces the N sequential /logs requests used by
+      // the Overview chart. Keep the chart aggregation in PostgreSQL so the
+      // browser never downloads thousands of rows just to count them.
+      const [chartResult, recentResult, totalResult] = await Promise.all([
+        pool.query({
+          text: `
+            SELECT DATE("timestamp" AT TIME ZONE $3) AS date,
+              COUNT(*) FILTER (WHERE type = 0)::int AS check_in,
+              COUNT(*) FILTER (WHERE type = 1)::int AS check_out
+            FROM attendance_logs
+            WHERE "timestamp" BETWEEN $1 AND $2
+            GROUP BY DATE("timestamp" AT TIME ZONE $3)
+            ORDER BY date ASC
+          `,
+          values: [from, to, BUSINESS_TIME_ZONE]
+        }),
+        pool.query({
+          text: `
+            SELECT al.id, al.user_id, al.type, al.device_sn, al."timestamp",
+              e.nama, d.name AS device_name
+            FROM attendance_logs al
+            LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+            LEFT JOIN devices d ON al.device_sn = d.sn
+            WHERE al."timestamp" BETWEEN $1 AND $2
+            ORDER BY al."timestamp" DESC, al.id DESC
+            LIMIT $3 OFFSET $4
+          `,
+          values: [todayBounds.from, todayBounds.to, limit, offset]
+        }),
+        pool.query({
+          text: `SELECT COUNT(*)::int AS total
+            FROM attendance_logs
+            WHERE "timestamp" BETWEEN $1 AND $2`,
+          values: [todayBounds.from, todayBounds.to]
+        })
+      ])
+
+      const chartByDate = new Map(chartResult.rows.map(row => [
+        String(row.date).slice(0, 10),
+        { checkIn: Number(row.check_in) || 0, checkOut: Number(row.check_out) || 0 }
+      ]))
+      const chart = []
+      for (let i = 0; i < days; i++) {
+        const date = new Date(from)
+        date.setUTCDate(date.getUTCDate() + i)
+        const dateString = getBusinessDateString(date)
+        chart.push({
+          date: dateString,
+          checkIn: chartByDate.get(dateString)?.checkIn || 0,
+          checkOut: chartByDate.get(dateString)?.checkOut || 0
+        })
+      }
+
+      const recent = recentResult.rows.map(row => ({
+        ...row,
+        absensi: Number(row.type) === 0 ? 'Masuk' : Number(row.type) === 1 ? 'Pulang' : `Type ${row.type}`
+      }))
+
+      res.setHeader('Cache-Control', 'private, max-age=15')
+      return sendSuccess(res, {
+        today,
+        chart,
+        recent,
+        recentTotal: Number(totalResult.rows[0]?.total) || 0
+      })
+    } catch (err) {
+      console.error('Error getOverviewData:', err)
+      return sendError(res, 'Gagal mengambil data overview', 500)
+    }
+  },
+
   async getAttendanceSummary(req, res) {
     try {
       const todayWita = getBusinessDateString();

@@ -68,20 +68,21 @@ export async function refreshOverview(force = false) {
         document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
 
         // Fetch all data in parallel - total counts come from limit=1 requests
-        const [devicesRes, empRes, logsRes] = await Promise.all([
+        const [devicesRes, empRes, overviewRes] = await Promise.all([
             fetch('/api/devices?limit=1'),
             fetch('/api/employees?limit=1'),
-            fetch(`/api/logs?from=${today}T00:00:00%2B08:00&limit=${s.size}&offset=${s.page * s.size}`)
+            fetch(`/api/stats/overview?days=${document.getElementById('chart-range')?.value || 7}&limit=${s.size}&offset=${s.page * s.size}`)
         ]);
 
-        if (!devicesRes.ok || !empRes.ok || !logsRes.ok) {
+        if (!devicesRes.ok || !empRes.ok || !overviewRes.ok) {
             console.warn('One or more API responses failed, skipping overview update.');
             return;
         }
 
         const devicesData = await devicesRes.json();
         const employeesData = await empRes.json();
-        const logsData = await logsRes.json();
+        const overviewData = await overviewRes.json();
+        const overview = overviewData.data || {};
 
         // Update stat values and remove loading class
         const statDevices = document.getElementById('stat-devices');
@@ -90,14 +91,14 @@ export async function refreshOverview(force = false) {
 
         if (statDevices) { statDevices.innerText = devicesData.data?.total || 0; statDevices.classList.remove('loading'); }
         if (statEmployees) { statEmployees.innerText = employeesData.data?.total || 0; statEmployees.classList.remove('loading'); }
-        if (statLogs) { statLogs.innerText = logsData.data?.total || 0; statLogs.classList.remove('loading'); }
+        if (statLogs) { statLogs.innerText = overview.recentTotal || 0; statLogs.classList.remove('loading'); }
 
-        s.total = logsData.data?.total || 0;
-        renderRecentLogs(logsData.data?.list || logsData.data?.logs || []);
+        s.total = overview.recentTotal || 0;
+        renderRecentLogs(overview.recent || []);
         window.updatePaginationUI('overview');
 
+        renderChartData(overview.chart || []);
         refreshLateToday(today);
-        await refreshChart();
 
         const lastUpdateEl = document.getElementById('overview-last-update');
         if (lastUpdateEl) {
@@ -161,152 +162,121 @@ async function refreshChart() {
         const rangeSelect = document.getElementById('chart-range');
         const daysCount = rangeSelect ? parseInt(rangeSelect.value) : 7;
 
-        const labels = [];
-        const checkinData = [];
-        const checkoutData = [];
-        const isMobile = window.innerWidth < 640;
-
-        // For mobile with 30 days, use weekly aggregation to avoid clutter
-        const useWeekly = isMobile && daysCount > 14;
-
-        if (useWeekly) {
-            // Aggregate by week for mobile 30-day view
-            const weeks = Math.ceil(daysCount / 7);
-            for (let w = 0; w < weeks; w++) {
-                let checkinTotal = 0;
-                let checkoutTotal = 0;
-                const weekStart = new Date();
-                weekStart.setDate(weekStart.getDate() - (daysCount - w * 7));
-
-                for (let d = 0; d < 7; d++) {
-                    const day = new Date(weekStart);
-                    day.setDate(day.getDate() + d);
-                    if (day > new Date()) break;
-
-                    const dateStr = day.toISOString().split('T')[0];
-                    // OPTIMIZED: Single API call per day, filter by type on client side
-                    const res = await fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&limit=1`);
-                    const data = res.ok ? await res.json() : { data: { total: 0 } };
-                    // Approximate: assume ~50% check-in, ~50% check-out when no type filter
-                    // Better approach: use total count as combined, but we need per-type
-                    // Fallback: use the total as check-in count (most logs are check-ins)
-                    checkinTotal += data.data?.total || 0;
-                }
-
-                labels.push(`W${w + 1}`);
-                checkinData.push(checkinTotal);
-                checkoutData.push(0); // Weekly view shows only total
-            }
-        } else {
-            // Daily granularity - OPTIMIZED: 1 API call per day instead of 2
-            for (let i = daysCount - 1; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const dateStr = d.toISOString().split('T')[0];
-
-                // On mobile with 14 days, show day+month; otherwise show weekday
-                const label = isMobile
-                    ? `${d.getDate()}/${d.getMonth() + 1}`
-                    : d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
-                labels.push(label);
-
-                // OPTIMIZED: Single API call per day, get all logs then count by type
-                const res = await fetch(`/api/logs?from=${dateStr}T00:00:00%2B08:00&to=${dateStr}T23:59:59%2B08:00&limit=5000`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const logs = data.data?.list || data.data?.logs || [];
-                    const ci = logs.filter(l => l.type == 0).length;
-                    const co = logs.filter(l => l.type == 1).length;
-                    checkinData.push(ci);
-                    checkoutData.push(co);
-                } else {
-                    checkinData.push(0);
-                    checkoutData.push(0);
-                }
-            }
-        }
-
-        const canvas = document.getElementById('attendance-chart');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-
-        // Destroy existing chart if it exists
-        if (attendanceChart) {
-            attendanceChart.destroy();
-        }
-
-        const isLight = document.documentElement.classList.contains('theme-light');
-        const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
-        const textColor = isLight ? '#64748b' : '#94a3b8';
-
-        // Adjust bar percentage for mobile
-        const barPct = isMobile ? 0.6 : 0.4;
-
-        // Hide skeleton before rendering chart
-        showChartLoading(false);
-
-        attendanceChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Check In',
-                        data: checkinData,
-                        backgroundColor: 'rgba(36, 97, 150, 0.7)',
-                        borderColor: '#246196',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        barPercentage: barPct
-                    },
-                    {
-                        label: 'Check Out',
-                        data: checkoutData,
-                        backgroundColor: 'rgba(119, 160, 68, 0.7)',
-                        borderColor: '#77a044',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        barPercentage: barPct
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: textColor,
-                            font: { size: isMobile ? 10 : 12 }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { color: gridColor },
-                        ticks: {
-                            color: textColor,
-                            maxRotation: isMobile ? 45 : 0,
-                            font: { size: isMobile ? 9 : 11 }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: gridColor },
-                        ticks: {
-                            color: textColor,
-                            stepSize: 1,
-                            font: { size: isMobile ? 9 : 11 }
-                        }
-                    }
-                }
-            }
-        });
+        const response = await fetch(`/api/stats/overview?days=${daysCount}`);
+        if (!response.ok) throw new Error(`Overview chart request failed (${response.status})`);
+        const payload = await response.json();
+        renderChartData(payload.data?.chart || []);
     } catch (err) {
         console.error('Failed to refresh chart:', err);
         showChartLoading(false);
     }
+}
+
+function renderChartData(chartRows) {
+    const labels = [];
+    const checkinData = [];
+    const checkoutData = [];
+    const isMobile = window.innerWidth < 640;
+    const daysCount = chartRows.length;
+
+    // For mobile with 30 days, use weekly aggregation to avoid clutter
+    const useWeekly = isMobile && daysCount > 14;
+
+    if (useWeekly) {
+        for (let i = 0; i < chartRows.length; i += 7) {
+            const week = chartRows.slice(i, i + 7);
+            labels.push(`W${Math.floor(i / 7) + 1}`);
+            checkinData.push(week.reduce((sum, row) => sum + row.checkIn, 0));
+            checkoutData.push(week.reduce((sum, row) => sum + row.checkOut, 0));
+        }
+    } else {
+        for (const row of chartRows) {
+            const label = isMobile
+                ? row.date.slice(8, 10) + '/' + row.date.slice(5, 7)
+                : new Date(`${row.date}T12:00:00+08:00`).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+            labels.push(label);
+            checkinData.push(row.checkIn);
+            checkoutData.push(row.checkOut);
+        }
+    }
+
+    const canvas = document.getElementById('attendance-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Destroy existing chart if it exists
+    if (attendanceChart) {
+        attendanceChart.destroy();
+    }
+
+    const isLight = document.documentElement.classList.contains('theme-light');
+    const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+    const textColor = isLight ? '#64748b' : '#94a3b8';
+
+    // Adjust bar percentage for mobile
+    const barPct = isMobile ? 0.6 : 0.4;
+
+    // Hide skeleton before rendering chart
+    showChartLoading(false);
+
+    attendanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Check In',
+                    data: checkinData,
+                    backgroundColor: 'rgba(36, 97, 150, 0.7)',
+                    borderColor: '#246196',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    barPercentage: barPct
+                },
+                {
+                    label: 'Check Out',
+                    data: checkoutData,
+                    backgroundColor: 'rgba(119, 160, 68, 0.7)',
+                    borderColor: '#77a044',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    barPercentage: barPct
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: textColor,
+                        font: { size: isMobile ? 10 : 12 }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        maxRotation: isMobile ? 45 : 0,
+                        font: { size: isMobile ? 9 : 11 }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        stepSize: 1,
+                        font: { size: isMobile ? 9 : 11 }
+                    }
+                }
+            }
+        }
+    });
 }
 
 // Expose refreshChart to window for the range selector onChange
