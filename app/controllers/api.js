@@ -313,7 +313,7 @@ export const apiController = {
       const [chartResult, recentResult, totalResult] = await Promise.all([
         pool.query({
           text: `
-            SELECT DATE("timestamp" AT TIME ZONE $3) AS date,
+            SELECT TO_CHAR(DATE("timestamp" AT TIME ZONE $3), 'YYYY-MM-DD') AS date,
               COUNT(*) FILTER (WHERE type = 0)::int AS check_in,
               COUNT(*) FILTER (WHERE type = 1)::int AS check_out
             FROM attendance_logs

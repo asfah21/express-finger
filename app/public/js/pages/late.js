@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { showToast, toggleModal, getWitaDateString } from '../utils.js';
+import { showToast, toggleModal, getWitaDateString, getUtcTimestampParts } from '../utils.js';
 import { showSkeleton } from '../skeleton.js';
 
 
@@ -33,11 +33,9 @@ export async function refreshLate() {
         </td></tr>`;
     } else {
         body.innerHTML = logs.map(log => {
-            const dt = new Date(log.timestamp);
-            const witaParts = new Intl.DateTimeFormat('id-ID', {
-                timeZone: 'Asia/Makassar', year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-            }).formatToParts(dt).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+            // Align with the Attendance Log page: the stored timestamp is WITA
+            // wall-clock as UTC, so read UTC parts to avoid a second +8h shift.
+            const witaParts = getUtcTimestampParts(log.timestamp);
             const dateStr = `${witaParts.day}/${witaParts.month}/${witaParts.year}`;
             const timeStr = `${witaParts.hour}:${witaParts.minute}`;
             const secondsStr = witaParts.second;
@@ -157,7 +155,8 @@ async function performLateExport(range) {
         const logs = data.data?.list || data.data?.logs || [];
 
         const exportData = logs.map(log => {
-            const timeParts = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date(log.timestamp)).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+            // Same convention as the table: read UTC parts directly.
+            const timeParts = getUtcTimestampParts(log.timestamp);
             const timeFull = `${timeParts.hour}:${timeParts.minute}:${timeParts.second}`;
             return {
                 NIK: log.nik,

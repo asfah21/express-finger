@@ -26,6 +26,27 @@ export function getBusinessTimeParts(value) {
     }).formatToParts(new Date(value)).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
 }
 
+/**
+ * Read the stored attendance timestamp the same way the Attendance Log page does.
+ * Rows are persisted with the business (WITA) wall-clock time already stored as a
+ * UTC value (e.g. live camera writes `now() + interval '8 hours'`), so reading the
+ * UTC calendar fields directly avoids applying a second +08:00 conversion.
+ */
+export function getUtcTimestampParts(value) {
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) {
+        return { year: '-', month: '-', day: '-', hour: '--', minute: '--', second: '--' };
+    }
+    return {
+        year: String(dt.getUTCFullYear()),
+        month: String(dt.getUTCMonth() + 1).padStart(2, '0'),
+        day: String(dt.getUTCDate()).padStart(2, '0'),
+        hour: String(dt.getUTCHours()).padStart(2, '0'),
+        minute: String(dt.getUTCMinutes()).padStart(2, '0'),
+        second: String(dt.getUTCSeconds()).padStart(2, '0')
+    };
+}
+
 export function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
     const msgEl = document.getElementById('toast-message');

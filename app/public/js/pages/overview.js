@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { getWitaDateString, getBusinessTimeParts } from '../utils.js';
+import { getWitaDateString, getUtcTimestampParts } from '../utils.js';
 
 let attendanceChart = null;
 
@@ -285,7 +285,10 @@ window.refreshChart = refreshChart;
 function renderRecentLogs(logs) {
     const body = document.getElementById('recent-logs-body');
     body.innerHTML = logs.map(log => {
-        const witaParts = getBusinessTimeParts(log.timestamp);
+        // Align with the Attendance Log page: the stored timestamp already
+        // carries the WITA wall-clock as a UTC value, so read UTC parts
+        // instead of applying a second Asia/Makassar (+8h) conversion.
+        const witaParts = getUtcTimestampParts(log.timestamp);
         const timeStr = `${witaParts.hour}:${witaParts.minute}`;
         const secondsStr = witaParts.second;
 
@@ -336,7 +339,9 @@ async function refreshLateToday(today) {
 
         const body = document.getElementById('late-today-body');
         body.innerHTML = unique.map((log, idx) => {
-            const timeParts = getBusinessTimeParts(log.timestamp);
+            // Same convention as the Recent Activity card / Attendance Log page:
+            // the stored timestamp is WITA wall-clock as UTC, so read UTC parts.
+            const timeParts = getUtcTimestampParts(log.timestamp);
             return `
                 <tr>
                     <td class="text-muted">${idx + 1}</td>
