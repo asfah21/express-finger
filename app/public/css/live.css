@@ -900,6 +900,10 @@
    secara vertikal), melainkan diisi ke tinggi workspace yang tersisa sehingga
    seluruh halaman muat di satu layar tanpa scroll. */
 @media (min-width: 761px) and (orientation: landscape) and (max-height: 900px) {
+    .live-kiosk-header {
+        padding: 12px 0;
+    }
+
     .cam-live-shell {
         height: 100vh;
         height: 100dvh;
