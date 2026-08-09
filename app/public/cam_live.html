@@ -8,7 +8,6 @@
     <title>Verifikasi Wajah - AZRA</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/live.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body class="live-kiosk-body">
@@ -20,7 +19,7 @@
                     <h1 id="cam-live-title"> </h1>
                     <p id="cam-live-description">Posisikan wajah di tengah bingkai. Pemindaian dilakukan secara otomatis.</p>
                 </div>
-                <a class="live-back-link" href="/live.html"><i class="fas fa-arrow-left" aria-hidden="true"></i>
+                <a class="live-back-link" href="/live.html"><i data-icon="arrow-left" aria-hidden="true"></i>
                     Kembali</a>
             </div>
             <div class="cam-live-workspace">
@@ -33,23 +32,24 @@
                 <div class="live-actions cam-live-actions">
                     <div class="live-status" id="cam-live-status" role="status" aria-live="polite">Menyiapkan kamera…
                     </div>
-                    <button class="live-camera-start" id="cam-live-retry" type="button"><i class="fas fa-rotate-right"
+                    <button class="live-camera-start" id="cam-live-retry" type="button"><i data-icon="rotate-cw"
                             aria-hidden="true"></i> <span id="cam-live-retry-label">Mulai Scan</span></button>
-                    <p class="live-privacy"><i class="fas fa-shield-halved" aria-hidden="true"></i> Gambar hanya dikirim
+                    <p class="live-privacy"><i data-icon="shield-check" aria-hidden="true"></i> Gambar hanya dikirim
                         untuk verifikasi dan tidak disimpan di browser.</p>
                 </div>
             </div>
             <div class="live-result" id="cam-live-result" role="status" aria-live="assertive" aria-hidden="true">
-                <span class="live-result-icon"><i class="fas fa-check" aria-hidden="true"></i></span>
+                <span class="live-result-icon"><i data-icon="check" aria-hidden="true"></i></span>
                 <small id="cam-live-result-label">Absensi berhasil</small>
                 <strong id="cam-live-result-name">-</strong>
-                <a class="live-result-back" href="/live.html"><i class="fas fa-arrow-left" aria-hidden="true"></i>
+                <a class="live-result-back" href="/live.html"><i data-icon="arrow-left" aria-hidden="true"></i>
                     Kembali</a>
             </div>
         </section>
 
     </main>
 
+    <script src="js/icon.js"></script>
     <script type="module">
         import { initCamLivePage } from './js/live.js';
         initCamLivePage();
