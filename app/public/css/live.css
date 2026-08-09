@@ -328,37 +328,92 @@
     z-index: 2;
     inset: 0;
     display: grid;
-    place-content: center;
-    gap: 8px;
+    place-items: center;
     padding: 24px;
     color: var(--live-ink);
-    background: rgba(9, 21, 28, .96);
+    background:
+        radial-gradient(circle at 50% 16%, var(--live-accent-glow), transparent 48%),
+        rgba(9, 21, 28, .96);
     text-align: center;
     opacity: 0;
     pointer-events: none;
-    transform: scale(.98);
-    transition: opacity .14s ease, transform .14s ease;
+    transition: opacity .18s ease;
 }
 
 .live-result.is-visible {
     opacity: 1;
-    transform: scale(1);
 }
 
-.live-result small {
+.live-result-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: min(100%, 448px);
+    padding: clamp(26px, 5vw, 40px) clamp(20px, 4vw, 34px) 26px;
+    border: 1px solid var(--live-line);
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, 0) 46%),
+        rgba(12, 24, 40, .92);
+    opacity: 0;
+    transform: translateY(14px) scale(.97);
+    transition: opacity .28s ease-out, transform .28s cubic-bezier(.16, 1, .3, 1);
+}
+
+.live-result.is-visible .live-result-card {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.live-result-card>small {
     color: var(--live-accent);
-    font-size: .8rem;
+    font-size: .76rem;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: .14em;
     text-transform: uppercase;
 }
 
-.live-result strong {
+.live-result-card>strong {
     display: block;
-    max-width: 100%;
-    margin-bottom: 8px;
-    font-size: clamp(1.8rem, 4vw, 3.2rem);
+    width: 100%;
+    margin: 10px 0 0;
+    font-size: clamp(1.7rem, 4vw, 2.45rem);
+    line-height: 1.08;
     letter-spacing: -.03em;
+    overflow-wrap: anywhere;
+}
+
+.live-result-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+    margin: 24px 0 6px;
+    text-align: left;
+}
+
+.live-result-meta-item {
+    min-width: 0;
+    padding: 13px 14px;
+    border: 1px solid var(--live-line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .03);
+}
+
+.live-result-meta-item dt {
+    color: var(--live-muted);
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.live-result-meta-item dd {
+    margin: 5px 0 0;
+    color: var(--live-ink);
+    font-size: .98rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
     overflow-wrap: anywhere;
 }
 
@@ -369,7 +424,7 @@
     gap: 8px;
     width: min(100%, 180px);
     min-height: 44px;
-    margin: 8px auto 0;
+    margin: 12px auto 0;
     padding: 12px 20px;
     border: 1px solid var(--primary);
     border-radius: var(--live-radius-control);
@@ -396,13 +451,14 @@
 .live-result-icon {
     display: grid;
     place-items: center;
-    width: 58px;
-    height: 58px;
-    margin: 0 auto 8px;
+    width: 64px;
+    height: 64px;
+    margin: 0 0 16px;
     border-radius: 50%;
     color: var(--live-accent-ink);
     background: var(--live-accent);
-    font-size: 1.4rem;
+    font-size: 1.55rem;
+    box-shadow: 0 0 0 10px var(--live-accent-glow), 0 0 34px var(--live-accent-glow);
 }
 
 .live-actions {
@@ -594,7 +650,7 @@
     }
 
     .cam-live-shell .cam-live-panel {
-        padding: 18px 14px;
+        padding: 20px 14px;
     }
 
     .live-kiosk-header {
@@ -607,6 +663,8 @@
 
     .cam-live-workspace {
         grid-template-columns: 1fr;
+        gap: 14px;
+        margin-top: 14px;
     }
 
     .live-choice-buttons,
@@ -618,6 +676,7 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
+        gap: 12px;
     }
 
     .cam-live-header>div {
@@ -625,7 +684,8 @@
     }
 
     .cam-live-header h1 {
-        font-size: 2rem;
+        margin: 6px 0 4px;
+        font-size: 1.75rem;
     }
 
     .cam-live-header p {
@@ -634,6 +694,14 @@
 
     .cam-live-header .live-back-link {
         order: 0;
+    }
+
+    .cam-live-actions {
+        gap: 10px;
+    }
+
+    .live-result {
+        padding: 16px;
     }
 
     .live-camera-frame,
@@ -668,7 +736,8 @@
         animation: none;
     }
 
-    .live-result {
+    .live-result,
+    .live-result-card {
         transition: none;
     }
 }

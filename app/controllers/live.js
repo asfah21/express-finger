@@ -57,8 +57,9 @@ export const liveController = {
             )
             if (duplicate.rows.length) return sendError(res, 'Anda baru saja melakukan absensi yang sama. Silakan coba lagi setelah 1 menit.', 409, { timestamp: duplicate.rows[0].timestamp })
 
-            const employee = await pool.query('SELECT user_id, nama FROM employee WHERE user_id = $1 LIMIT 1', [String(recognized.fid)])
+            const employee = await pool.query('SELECT user_id, nama, jabatan FROM employee WHERE user_id = $1 LIMIT 1', [String(recognized.fid)])
             const name = employee.rows[0]?.nama || `FID ${recognized.fid}`
+            const position = employee.rows[0]?.jabatan || null
             const inserted = await pool.query(
                 `INSERT INTO attendance_logs (user_id, "timestamp", type, device_sn)
          VALUES ($1, now() + interval '8 hours', $2, $3) RETURNING id, user_id, "timestamp", type`,
@@ -72,7 +73,7 @@ export const liveController = {
                 ip: req.ip,
                 status: 'success'
             })
-            return sendSuccess(res, { ...inserted.rows[0], nama: name, fid: String(recognized.fid), score: recognized.score }, 'Absensi berhasil')
+            return sendSuccess(res, { ...inserted.rows[0], nama: name, fid: String(recognized.fid), score: recognized.score, jabatan: position }, 'Absensi berhasil')
         } catch (err) {
             console.error('Live attendance error:', err)
             const unavailable = /Face service|fetch failed|ECONNREFUSED|aborted|timed out/i.test(err.message)

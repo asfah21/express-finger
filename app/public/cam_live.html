@@ -26,7 +26,7 @@
                 <div class="live-camera-frame" id="cam-live-camera-frame">
                     <video id="cam-live-video" autoplay muted playsinline aria-label="Pratinjau kamera"></video>
                     <div class="live-face-guide" aria-hidden="true"></div>
-                    <div class="live-camera-processing" id="cam-live-capture"><span></span> Memeriksa wajah…</div>
+                    <!-- <div class="live-camera-processing" id="cam-live-capture"><span></span> Memeriksa wajah…</div> -->
                     <canvas id="cam-live-canvas" hidden></canvas>
                 </div>
                 <div class="live-actions cam-live-actions">
@@ -39,11 +39,23 @@
                 </div>
             </div>
             <div class="live-result" id="cam-live-result" role="status" aria-live="assertive" aria-hidden="true">
-                <span class="live-result-icon"><i data-icon="check" aria-hidden="true"></i></span>
-                <small id="cam-live-result-label">Absensi berhasil</small>
-                <strong id="cam-live-result-name">-</strong>
-                <a class="live-result-back" href="/live.html"><i data-icon="arrow-left" aria-hidden="true"></i>
-                    Kembali</a>
+                <div class="live-result-card">
+                    <span class="live-result-icon"><i data-icon="check" aria-hidden="true"></i></span>
+                    <small id="cam-live-result-label">Absensi berhasil</small>
+                    <strong id="cam-live-result-name">-</strong>
+                    <dl class="live-result-meta">
+                        <div class="live-result-meta-item">
+                            <dt>User ID</dt>
+                            <dd id="cam-live-result-userid">-</dd>
+                        </div>
+                        <div class="live-result-meta-item">
+                            <dt>Jabatan</dt>
+                            <dd id="cam-live-result-position">-</dd>
+                        </div>
+                    </dl>
+                    <a class="live-result-back" href="/live.html"><i data-icon="arrow-left" aria-hidden="true"></i>
+                        Kembali</a>
+                </div>
             </div>
         </section>
 

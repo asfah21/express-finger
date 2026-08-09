@@ -182,7 +182,10 @@ async function submitCamAttendance() {
         }
         const data = await response.json().catch(() => ({}))
         if (response.ok) {
-            $('cam-live-result-name').textContent = data.data?.nama || 'Karyawan'
+            const result = data.data || {}
+            $('cam-live-result-name').textContent = result.nama || 'Karyawan'
+            $('cam-live-result-userid').textContent = result.user_id != null ? String(result.user_id) : (result.fid || '-')
+            $('cam-live-result-position').textContent = result.jabatan || '-'
             $('cam-live-result-label').textContent = camState.type === 0 ? 'Absensi masuk berhasil' : 'Absensi pulang berhasil'
             $('cam-live-result')?.classList.add('is-visible')
             $('cam-live-result')?.setAttribute('aria-hidden', 'false')
