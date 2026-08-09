@@ -15,7 +15,7 @@
         <header class="live-kiosk-header">
             <div class="live-brand">
                 <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
-                <div class="live-brand-name"><strong>AZRA</strong><small>v.0.7</small></div>
+                <div class="live-brand-name"><strong>AZRA</strong><small>v.0.8</small></div>
             </div>
             <button class="live-logout-btn" type="button" id="live-logout-btn"
                 aria-haspopup="dialog" aria-controls="live-logout-dialog"
@@ -61,12 +61,13 @@
         const liveTimeSec = document.getElementById('live-time-sec');
         const liveDate = document.getElementById('live-date');
         const timeFmt = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
-        const secFmt = new Intl.DateTimeFormat('id-ID', { second: '2-digit' });
         const dateFmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         const updateClock = () => {
             const now = new Date();
             liveTimeHM.textContent = timeFmt.format(now);
-            liveTimeSec.textContent = ':' + secFmt.format(now);
+            // Explicit zero-pad so seconds always read 00, 01, 02 … (Intl
+            // without hour/minute context may not pad reliably).
+            liveTimeSec.textContent = ':' + String(now.getSeconds()).padStart(2, '0');
             liveDate.textContent = dateFmt.format(now);
         };
         updateClock();

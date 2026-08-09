@@ -155,7 +155,9 @@
     margin: 0;
     border: 0;
     border-radius: 0;
-    padding: clamp(20px, 4vw, 56px);
+    /* Vertical padding kept slimmer than the sides so the panel doesn't look
+       overly thick at the top and bottom on the kiosk. */
+    padding: clamp(14px, 2vw, 28px) clamp(20px, 4vw, 52px);
 }
 
 .cam-live-header {
@@ -240,6 +242,24 @@
     border-radius: 50%;
     background: var(--live-accent);
     box-shadow: 0 0 0 5px var(--live-accent-glow);
+}
+
+/* Cam-live title now lives inside the kicker; make it the prominent heading.
+   Green (--live-accent) by default for Masuk, yellow (--live-warning) when the
+   `.is-out` class is set for Pulang. */
+.cam-live-kicker #cam-live-title {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    line-height: 1.1;
+    letter-spacing: .02em;
+}
+
+.cam-live-kicker.is-out {
+    color: var(--live-warning);
+}
+
+.cam-live-kicker.is-out .live-pulse {
+    background: var(--live-warning);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--live-warning) 28%, transparent);
 }
 
 .live-camera-frame {
@@ -686,7 +706,7 @@
 
 @media (min-width: 761px) and (max-width: 1400px) {
     .cam-live-shell .cam-live-panel {
-        padding: clamp(28px, 4vw, 48px);
+        padding: clamp(16px, 2.5vw, 32px) clamp(20px, 4vw, 48px);
     }
 }
 
@@ -871,6 +891,80 @@
 
     .cam-live-workspace {
         grid-template-columns: minmax(0, 1.25fr) minmax(210px, .75fr);
+    }
+}
+
+/* ─── cam_live dalam lanskap tablet ─────────────────────────────────────────
+   Di lanskap (Tab A9: 1340×800) tinggi layar adalah batasan utamanya, bukan
+   lebar. Kamera tidak lagi diukur dari lebar (4:3 yang melebar → kebesaran
+   secara vertikal), melainkan diisi ke tinggi workspace yang tersisa sehingga
+   seluruh halaman muat di satu layar tanpa scroll. */
+@media (min-width: 761px) and (orientation: landscape) and (max-height: 900px) {
+    .cam-live-shell {
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .cam-live-shell .cam-live-panel {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        padding: 10px clamp(20px, 3vw, 40px);
+    }
+
+    .cam-live-header {
+        align-items: center;
+        padding: 0;
+    }
+
+    .cam-live-kicker #cam-live-title {
+        font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+    }
+
+    .cam-live-workspace {
+        flex: 1;
+        min-height: 0;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+        gap: clamp(16px, 2vw, 24px);
+        align-items: stretch;
+        margin-top: 14px;
+    }
+
+    .live-camera-frame {
+        width: auto;
+        max-width: 100%;
+        height: 100%;
+        min-height: 0;
+        aspect-ratio: 4 / 3;
+    }
+
+    .cam-live-actions {
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .cam-live-actions .live-camera-start {
+        min-height: 48px;
+        padding: 12px 20px;
+        font-size: .95rem;
+    }
+
+    .live-status {
+        min-height: 40px;
+        padding: 10px 12px;
+        font-size: .9rem;
+    }
+
+    .live-privacy {
+        font-size: .72rem;
+    }
+
+    .live-kiosk-footer {
+        padding: 12px 0;
+        font-size: .8rem;
     }
 }
 

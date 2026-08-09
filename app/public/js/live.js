@@ -14,6 +14,8 @@ const WATCHDOG_HINT_MS = 6000 // gentle hint when no face has been seen
 const MAX_ATTEMPTS = 3 // 1 capture + up to 2 sequential auto-retries
 const RETRY_DELAY_MS = 250 // backoff between attempts (not a trigger)
 const REQUEST_TIMEOUT_MS = 15000 // client-side fetch timeout
+const IDLE_TIMEOUT_MS = 90000 // kiosk: auto-return to /live.html after this long with no activity (1.5 min)
+const IDLE_HINT_MS = 10000 // show a "returning to home" hint this long before the redirect
 
 const camState = {
     stream: null,
@@ -29,6 +31,11 @@ const camState = {
     faceSince: null, // ms when the current continuous face streak started
     lastFaceSeen: null,
     hintShown: false,
+    // Idle auto-return state
+    idleTimer: null,
+    idleHintTimer: null,
+    idleHintShown: false,
+    navigating: false,
     lastGray: null, // previous analysis frame for motion estimation
     attempts: 0, // recognition attempts in the current capture cycle
     faceDetector: null, // cached FaceDetector (Shape Detection API)
@@ -330,6 +337,8 @@ function handleFrameResult(frame) {
     if (frame.faceDetected) {
         camState.lastFaceSeen = now
         camState.hintShown = false
+        // Any visible face counts as activity — reset the idle auto-return timer.
+        armIdleRedirect()
         if (camState.faceSince == null) camState.faceSince = now
         const elapsed = now - camState.faceSince
         const still = frame.motion <= MOTION_THRESHOLD
@@ -345,7 +354,7 @@ function handleFrameResult(frame) {
         // only — never a blind timed capture).
         if (!camState.hintShown && camState.lastFaceSeen != null && now - camState.lastFaceSeen >= WATCHDOG_HINT_MS) {
             camState.hintShown = true
-            camSetStatus('Wajah tidak terdeteksi. Pastikan ruangan cukup terang dan wajah terlihat penuh di tengah bingkai.', 'warning')
+            camSetStatus('Wajah tidak terdeteksi. Pastikan ruangan cukup terang dan wajah berada di tengah bingkai.', 'warning')
         }
     }
 }
@@ -369,6 +378,61 @@ function armDetection() {
     camSetScanning(true)
     camSetStatus('Memindai wajah. Posisikan wajah di tengah bingkai.', 'processing')
     scheduleNext()
+    armIdleRedirect()
+}
+
+// ─── Idle auto-return to kiosk home ───────────────────────────────────────────
+// A shared kiosk page left unattended (camera still streaming, detection loop
+// still running) should return to /live.html by itself. The timer self-heals:
+// if it fires while a request/scan is in flight, it re-arms instead of
+// redirecting, so a real verification is never interrupted.
+
+function camReturnToKiosk() {
+    if (camState.navigating || camState.submitted) return
+    camState.navigating = true
+    window.location.assign('/live.html')
+}
+
+function camIdleHintTick() {
+    camState.idleHintTimer = null
+    if (camState.busy || camState.locked || camState.retrying || camState.submitted || camState.navigating) return
+    camState.idleHintShown = true
+    camSetStatus('Tidak ada aktivitas. Mengalihkan ke halaman utama…', 'warning')
+}
+
+function camIdleTick() {
+    camState.idleTimer = null
+    // Never interrupt an in-flight request, a retry, or the success result —
+    // just re-arm and let it run again.
+    if (camState.busy || camState.locked || camState.retrying || camState.submitted || camState.navigating) {
+        armIdleRedirect()
+        return
+    }
+    camReturnToKiosk()
+}
+
+function cancelIdleRedirect() {
+    if (camState.idleTimer) {
+        clearTimeout(camState.idleTimer)
+        camState.idleTimer = null
+    }
+    if (camState.idleHintTimer) {
+        clearTimeout(camState.idleHintTimer)
+        camState.idleHintTimer = null
+    }
+    if (camState.idleHintShown) {
+        camState.idleHintShown = false
+        if (!camState.busy && !camState.locked && !camState.retrying && !camState.submitted) {
+            camSetStatus('Memindai wajah. Posisikan wajah di tengah bingkai.', 'processing')
+        }
+    }
+}
+
+function armIdleRedirect() {
+    cancelIdleRedirect()
+    if (camState.busy || camState.locked || camState.retrying || camState.submitted || camState.navigating) return
+    camState.idleTimer = setTimeout(camIdleTick, IDLE_TIMEOUT_MS)
+    camState.idleHintTimer = setTimeout(camIdleHintTick, Math.max(0, IDLE_TIMEOUT_MS - IDLE_HINT_MS))
 }
 
 // ─── Capture + submit (single-shot, sequential auto-retry) ───────────────────
@@ -379,6 +443,9 @@ function endAttempt() {
     camSetBusy(false)
     camSetScanning(false)
     $('cam-live-capture')?.classList.remove('is-processing')
+    // Re-arm the idle timer after a failed attempt so a dead-end error screen
+    // still returns to the kiosk home. (No-op while retrying/submitted.)
+    armIdleRedirect()
 }
 
 // Recognition failures worth retrying with a fresh frame: a 404 (no face or
@@ -509,6 +576,7 @@ async function onRetryClick() {
 
 function camCleanup() {
     stopDetection()
+    cancelIdleRedirect()
     if (camState.stream) {
         camState.stream.getTracks().forEach((track) => track.stop())
         camState.stream = null
@@ -522,6 +590,8 @@ export async function initCamLivePage() {
     const title = $('cam-live-title')
     if (title) {
         title.textContent = camState.type === 0 ? 'Absensi Masuk' : 'Absensi Pulang'
+        // Green (default accent) for Masuk, yellow for Pulang.
+        title.closest('.live-kicker')?.classList.toggle('is-out', camState.type !== 0)
     }
     $('cam-live-retry')?.addEventListener('click', onRetryClick)
     camSetScanLabel(false)
@@ -535,11 +605,21 @@ export async function initCamLivePage() {
         }
     })
 
+    // Any real interaction resets the idle auto-return countdown. Pure pointer
+    // movement is intentionally excluded so an abandoned kiosk still returns home.
+    ;['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll', 'click'].forEach((eventName) => {
+        document.addEventListener(eventName, armIdleRedirect, { passive: true })
+    })
+
     // Release the camera and stop scanning when the kiosk page is left.
     window.addEventListener('pagehide', camCleanup)
 
     if (await startCam()) {
         armDetection()
+    } else {
+        // Even a dead-end screen (camera denied / not found) returns to the
+        // kiosk home instead of leaving the shared terminal stuck.
+        armIdleRedirect()
     }
 }
 

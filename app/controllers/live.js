@@ -69,11 +69,11 @@ async function recognize(image) {
 function faceNotFoundMessage(recognized) {
     switch (recognized.reason) {
         case 'no_face':
-            return 'Wajah tidak terdeteksi pada kamera. Posisikan wajah di tengah bingkai lalu coba lagi.'
+            return 'Wajah tidak terdeteksi, posisikan wajah di bingkai lalu scan ulang.'
         case 'no_reference_faces':
-            return 'Belum ada data wajah karyawan untuk verifikasi. Hubungi administrator.'
+            return 'Belum ada data wajah karyawan untuk verifikasi. Hubungi IT.'
         case 'below_threshold':
-            return 'Wajah tidak dikenali. Pastikan wajah terang dan terlihat penuh, lalu coba lagi.'
+            return 'Wajah tidak dikenali. Pastikan pencahayaan cukup lalu scan ulang.'
         default:
             return 'Wajah tidak dikenali'
     }
