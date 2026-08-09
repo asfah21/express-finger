@@ -12,15 +12,21 @@
 
 <body class="live-kiosk-body">
     <main class="cam-live-shell">
+        <header class="live-kiosk-header">
+            <div class="live-brand">
+                <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
+                <div class="live-brand-name"><strong>AZRA</strong><small>v.0.7</small></div>
+            </div>
+            <a class="live-back-link" href="/live.html"><i data-icon="arrow-left"
+                    aria-hidden="true"></i><span>Kembali</span></a>
+        </header>
         <section class="live-panel cam-live-panel" data-cam-live-root>
             <div class="cam-live-header">
                 <div>
                     <div class="live-kicker"><span class="live-pulse"></span> VERIFIKASI WAJAH</div>
                     <h1 id="cam-live-title"> </h1>
-                    <p id="cam-live-description">Posisikan wajah di tengah bingkai. Pemindaian dilakukan secara otomatis.</p>
+                    <!-- <p id="cam-live-description">Posisikan wajah di tengah bingkai. Pemindaian dilakukan secara otomatis.</p> -->
                 </div>
-                <a class="live-back-link" href="/live.html"><i data-icon="arrow-left" aria-hidden="true"></i>
-                    Kembali</a>
             </div>
             <div class="cam-live-workspace">
                 <div class="live-camera-frame" id="cam-live-camera-frame">
@@ -34,8 +40,9 @@
                     </div>
                     <button class="live-camera-start" id="cam-live-retry" type="button"><i data-icon="rotate-cw"
                             aria-hidden="true"></i> <span id="cam-live-retry-label">Mulai Scan</span></button>
-                    <p class="live-privacy"><i data-icon="shield-check" aria-hidden="true"></i> Gambar hanya dikirim
-                        untuk verifikasi dan tidak disimpan di browser.</p>
+                    <p class="live-privacy"><i data-icon="shield-check" aria-hidden="true"></i> Photo used for 
+                        verification only.</p>
+
                 </div>
             </div>
             <div class="live-result" id="cam-live-result" role="status" aria-live="assertive" aria-hidden="true">
@@ -53,12 +60,10 @@
                             <dd id="cam-live-result-position">-</dd>
                         </div>
                     </dl>
-                    <a class="live-result-back" href="/live.html"><i data-icon="arrow-left" aria-hidden="true"></i>
-                        Kembali</a>
                 </div>
             </div>
         </section>
-
+        <footer class="live-kiosk-footer">Copyright © 2026 - GSI Corp</footer>
     </main>
 
     <script src="js/icon.js"></script>

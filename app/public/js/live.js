@@ -481,7 +481,7 @@ function showResult(result) {
     camSetStatus('Wajah dikenali dan absensi berhasil dicatat.', 'success')
     // Generous redirect so the result is fully read (including by screen
     // readers) before returning to the kiosk for the next employee.
-    setTimeout(() => window.location.assign('/live.html'), 4000)
+    setTimeout(() => window.location.assign('/live.html'), 2500)
 }
 
 function handleSubmissionError(status, data) {

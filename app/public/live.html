@@ -17,13 +17,17 @@
                 <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
                 <div class="live-brand-name"><strong>AZRA</strong><small>v.0.7</small></div>
             </div>
+            <button class="live-logout-btn" type="button" id="live-logout-btn"
+                aria-haspopup="dialog" aria-controls="live-logout-dialog"
+                aria-label="Logout dari halaman ini"><i data-icon="log-out"
+                    aria-hidden="true"></i><span>Logout</span></button>
         </header>
         <section class="live-panel live-choice-panel" data-live-root>
             <div class="live-kiosk-heading">
-                <div class="live-kicker"><span class="live-pulse"></span> ABSENSI HARI INI</div>
-                <div class="live-main-clock" aria-hidden="true"><span id="live-time">00:00</span></div>
+                <div class="live-kicker"><span class="live-pulse"></span> FACE ID ATTENDANCE</div>
+                <div class="live-main-clock" aria-hidden="true"><span id="live-time"><span id="live-time-hm">00:00</span><span class="live-time-sec" id="live-time-sec">:00</span></span></div>
                 <h1 id="live-date">Hari dan tanggal</h1>
-                <p>Pilih tombol di bawah untuk memulai verifikasi wajah.</p>
+                <p>Pilih type absensi untuk memulai</p>
             </div>
             <div class="live-action-buttons live-choice-buttons"><button class="live-action live-action-in"
                     type="button" data-live-type="0"><i data-icon="log-in"
@@ -35,21 +39,62 @@
         </section>
         <footer class="live-kiosk-footer">Copyright © 2026 - GSI Corp</footer>
     </main>
+    <dialog class="live-dialog" id="live-logout-dialog"
+        aria-labelledby="live-logout-title" aria-describedby="live-logout-desc">
+        <div class="live-dialog-card">
+            <div class="live-dialog-icon" aria-hidden="true"><i data-icon="log-out"></i></div>
+            <h2 class="live-dialog-title" id="live-logout-title">Akhiri Sesi?</h2>
+            <p class="live-dialog-text" id="live-logout-desc">Anda akan kembali ke halaman login.</p>
+            <div class="live-dialog-actions">
+                <button class="live-btn live-btn-ghost" type="button"
+                    data-live-dialog-cancel>Tidak</button>
+                <button class="live-btn live-btn-danger" type="button"
+                    id="live-logout-confirm">Ya</button>
+            </div>
+        </div>
+    </dialog>
     <script src="js/icon.js"></script>
     <script type="module">
         import { initLivePage } from './js/live.js';
         initLivePage();
-        const liveTime = document.getElementById('live-time');
+        const liveTimeHM = document.getElementById('live-time-hm');
+        const liveTimeSec = document.getElementById('live-time-sec');
         const liveDate = document.getElementById('live-date');
         const timeFmt = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
+        const secFmt = new Intl.DateTimeFormat('id-ID', { second: '2-digit' });
         const dateFmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         const updateClock = () => {
             const now = new Date();
-            liveTime.textContent = timeFmt.format(now);
+            liveTimeHM.textContent = timeFmt.format(now);
+            liveTimeSec.textContent = ':' + secFmt.format(now);
             liveDate.textContent = dateFmt.format(now);
         };
         updateClock();
         setInterval(updateClock, 1000);
+
+        // ─── Logout (ikon di header) ────────────────────────────────────────────
+        const logoutBtn = document.getElementById('live-logout-btn');
+        const logoutDialog = document.getElementById('live-logout-dialog');
+        const logoutConfirm = document.getElementById('live-logout-confirm');
+
+        logoutBtn?.addEventListener('click', () => logoutDialog?.showModal());
+        logoutDialog?.addEventListener('click', (event) => {
+            const rect = logoutDialog.getBoundingClientRect();
+            const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
+                event.clientY >= rect.top && event.clientY <= rect.bottom;
+            if (!inside) logoutDialog.close();
+        });
+        logoutDialog?.querySelectorAll('[data-live-dialog-cancel]').forEach((button) => {
+            button.addEventListener('click', () => logoutDialog.close());
+        });
+        logoutConfirm?.addEventListener('click', async () => {
+            logoutConfirm.disabled = true;
+            logoutConfirm.textContent = 'Keluar…';
+            try {
+                await fetch('/auth/logout', { method: 'POST' });
+            } catch (_) { /* abaikan error jaringan saat logout */ }
+            window.location.assign('/index.html');
+        });
     </script>
 </body>
 
