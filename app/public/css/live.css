@@ -963,7 +963,8 @@
     }
 
     .live-privacy {
-        font-size: .72rem;
+        padding: 13px 0;
+        font-size: .88rem;
     }
 
     .live-kiosk-footer {

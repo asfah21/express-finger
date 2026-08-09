@@ -95,7 +95,7 @@ export const liveController = {
             // 0. Readiness — never fire recognition against a model that is not
             //    loaded yet. The kiosk auto-retries this 503 once models are up.
             if (!(await faceServiceReady())) {
-                return sendLiveError(res, 503, 'FACE_MODEL_NOT_READY', 'Layanan pengenalan wajah sedang bersiap. Silakan coba lagi sebentar.')
+                return sendLiveError(res, 503, 'FACE_MODEL_NOT_READY', 'Layanan AI GSI-Vision sedang dimuat. Silakan coba lagi sebentar.')
             }
 
             // 1. Recognition — face service only recognises the face + confidence.
