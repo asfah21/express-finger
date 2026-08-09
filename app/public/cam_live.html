@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="css/live.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body class="live-kiosk-body">
@@ -19,7 +18,7 @@
                 <div>
                     <div class="live-kicker"><span class="live-pulse"></span> VERIFIKASI WAJAH</div>
                     <h1 id="cam-live-title"> </h1>
-                    <p id="cam-live-description"></p>
+                    <p id="cam-live-description">Posisikan wajah di tengah bingkai. Pemindaian dilakukan secara otomatis.</p>
                 </div>
                 <a class="live-back-link" href="/live.html"><i class="fas fa-arrow-left" aria-hidden="true"></i>
                     Kembali</a>
@@ -28,20 +27,14 @@
                 <div class="live-camera-frame" id="cam-live-camera-frame">
                     <video id="cam-live-video" autoplay muted playsinline aria-label="Pratinjau kamera"></video>
                     <div class="live-face-guide" aria-hidden="true"></div>
-                    <!-- <div class="live-camera-hint"><i class="fas fa-camera" aria-hidden="true"></i> Posisikan wajah Anda
-                        di tengah</div> -->
                     <div class="live-camera-processing" id="cam-live-capture"><span></span> Memeriksa wajah…</div>
                     <canvas id="cam-live-canvas" hidden></canvas>
                 </div>
                 <div class="live-actions cam-live-actions">
                     <div class="live-status" id="cam-live-status" role="status" aria-live="polite">Menyiapkan kamera…
                     </div>
-                    <!-- <div class="cam-live-checklist" aria-label="Petunjuk verifikasi">
-                        <div><i class="fas fa-sun" aria-hidden="true"></i><span>Pencahayaan cukup</span></div>
-                        <div><i class="fas fa-user" aria-hidden="true"></i><span>Satu wajah terlihat</span></div>
-                    </div> -->
                     <button class="live-camera-start" id="cam-live-retry" type="button"><i class="fas fa-rotate-right"
-                            aria-hidden="true"></i> Coba lagi</button>
+                            aria-hidden="true"></i> <span id="cam-live-retry-label">Mulai Scan</span></button>
                     <p class="live-privacy"><i class="fas fa-shield-halved" aria-hidden="true"></i> Gambar hanya dikirim
                         untuk verifikasi dan tidak disimpan di browser.</p>
                 </div>
@@ -57,7 +50,6 @@
 
     </main>
 
-    <script>window.lucide?.createIcons();</script>
     <script type="module">
         import { initCamLivePage } from './js/live.js';
         initCamLivePage();

@@ -1,10 +1,4 @@
-const state = {
-    stream: null,
-    busy: false,
-    resetTimer: null,
-    mode: 'kiosk',
-    initialized: false
-}
+const state = { initialized: false }
 
 const $ = (id) => document.getElementById(id)
 
@@ -24,134 +18,7 @@ function setStatus(message, tone = 'neutral') {
     status.dataset.tone = tone
 }
 
-function setBusy(busy) {
-    state.busy = busy
-    document.querySelectorAll('[data-live-type]').forEach((button) => {
-        button.disabled = busy
-    })
-    const capture = $('live-capture')
-    if (capture) capture.classList.toggle('is-processing', busy)
-}
-
-function showResult(employeeName, type) {
-    const result = $('live-result')
-    const name = $('live-result-name')
-    if (!result || !name) return
-    name.textContent = employeeName || 'Karyawan'
-    result.querySelector('small').textContent = type === 0 ? 'Absensi masuk berhasil' : 'Absensi pulang berhasil'
-    result.classList.add('is-visible')
-    result.setAttribute('aria-hidden', 'false')
-    clearTimeout(state.resetTimer)
-    state.resetTimer = setTimeout(() => {
-        result.classList.remove('is-visible')
-        result.setAttribute('aria-hidden', 'true')
-        setStatus('Pilih tombol di bawah untuk memulai.', 'neutral')
-    }, 500)
-}
-
-async function startCamera() {
-    if (state.stream) return true
-    if (!navigator.mediaDevices?.getUserMedia) {
-        setStatus('Browser tidak mendukung kamera. Gunakan Chrome atau Edge terbaru.', 'error')
-        return false
-    }
-    try {
-        state.stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: 'user' },
-                width: { ideal: 1280, min: 320 },
-                height: { ideal: 720, min: 240 }
-            },
-            audio: false
-        })
-        const video = $('live-video')
-        if (!video) throw new Error('Live video element is unavailable')
-        video.srcObject = state.stream
-        video.setAttribute('playsinline', '')
-        video.setAttribute('autoplay', '')
-        video.muted = true
-        await video.play()
-        $('live-camera-frame')?.classList.add('is-ready')
-        setStatus('Kamera siap. Posisikan wajah di dalam bingkai.', 'ready')
-        return true
-    } catch (error) {
-        console.error('Camera access failed:', error)
-        state.stream?.getTracks().forEach((track) => track.stop())
-        state.stream = null
-        const message = error?.name === 'NotAllowedError'
-            ? 'Izin kamera ditolak. Buka pengaturan situs lalu izinkan kamera.'
-            : error?.name === 'NotFoundError'
-                ? 'Kamera tidak ditemukan pada perangkat ini.'
-                : 'Kamera tidak dapat diakses. Pastikan halaman dibuka melalui HTTPS atau localhost.'
-        setStatus(message, 'error')
-        return false
-    }
-}
-
-function captureImage() {
-    const video = $('live-video')
-    const canvas = $('live-canvas')
-    if (!video.videoWidth || !video.videoHeight) return null
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const context = canvas.getContext('2d', { alpha: false })
-    context.drawImage(video, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.86)
-}
-
-function hasUsableFrame() {
-    const video = $('live-video')
-    return Boolean(video?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth >= 320 && video.videoHeight >= 240)
-}
-
-function scheduleReset() {
-    clearTimeout(state.resetTimer)
-    state.resetTimer = setTimeout(() => {
-        setStatus('Kamera siap. Posisikan wajah di dalam bingkai.', 'ready')
-    }, 6500)
-}
-
-async function submitAttendance(type) {
-    if (state.busy) return
-    if (!await startCamera()) return
-    if (!hasUsableFrame()) {
-        setStatus('Kamera sedang menyiapkan gambar. Tunggu sebentar lalu coba lagi.', 'warning')
-        return
-    }
-    const image = captureImage()
-    if (!image) {
-        setStatus('Kamera belum siap. Coba lagi.', 'error')
-        return
-    }
-    setBusy(true)
-    setStatus(type === 0 ? 'Memproses Masuk…' : 'Memproses Pulang…', 'processing')
-    let response
-    try {
-        response = await fetch('/api/live/attendance', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ type, image })
-        })
-        const data = await response.json().catch(() => ({}))
-        if (response.ok) {
-            const employee = data.data || {}
-            showResult(employee.nama, type)
-        } else if (response.status === 409) {
-            setStatus('Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
-        } else {
-            setStatus(data.message || 'Wajah tidak dikenali. Coba posisikan wajah dengan lebih jelas.', 'error')
-        }
-    } catch (error) {
-        console.error('Attendance request failed:', error)
-        setStatus('Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
-    } finally {
-        setBusy(false)
-        if (!response?.ok) scheduleReset()
-    }
-}
-
-export async function initLivePage(mode = 'kiosk') {
-    state.mode = mode
+export async function initLivePage() {
     if (state.initialized) return
     state.initialized = true
     document.querySelectorAll('[data-live-type]').forEach((button) => {
@@ -168,6 +35,23 @@ function camSetStatus(message, tone = 'neutral') {
     if (!status) return
     status.textContent = message
     status.dataset.tone = tone
+}
+
+function camSetBusy(busy) {
+    const retry = $('cam-live-retry')
+    if (!retry) return
+    retry.disabled = busy
+    retry.setAttribute('aria-busy', String(busy))
+}
+
+function camSetScanning(on) {
+    const frame = $('cam-live-camera-frame')
+    if (frame) frame.classList.toggle('is-scanning', on)
+}
+
+function camSetScanLabel(isRetry) {
+    const label = $('cam-live-retry-label')
+    if (label) label.textContent = isRetry ? 'Scan Ulang' : 'Mulai Scan'
 }
 
 function camCompatibilityMessage() {
@@ -238,18 +122,20 @@ async function startCam() {
                 if (error?.name !== 'NotAllowedError') throw error
             })
             $('cam-live-camera-frame')?.classList.add('is-ready')
-            camSetStatus('Kamera siap. Tahan posisi hingga wajah terbaca.', 'ready')
+            camSetStatus('Kamera siap. Posisikan wajah di tengah bingkai.', 'ready')
             return true
         } catch (error) {
             console.error('Camera access failed:', error)
             camState.stream?.getTracks().forEach((track) => track.stop())
             camState.stream = null
             $('cam-live-camera-frame')?.classList.remove('is-ready')
+            camSetScanLabel(true)
             camSetStatus(error?.name === 'NotAllowedError'
-                ? 'Izin kamera ditolak. Izinkan kamera pada pengaturan situs, lalu tekan Coba lagi.'
+                ? 'Izin kamera ditolak. Izinkan kamera pada pengaturan situs, lalu tekan tombol Scan Ulang.'
                 : error?.name === 'NotFoundError'
                     ? 'Kamera tidak ditemukan pada perangkat ini.'
                     : 'Kamera tidak dapat diakses. Pastikan halaman dibuka melalui HTTPS atau localhost.', 'error')
+            $('cam-live-retry')?.focus()
             return false
         } finally {
             camState.startPromise = null
@@ -260,15 +146,40 @@ async function startCam() {
 
 async function submitCamAttendance() {
     if (camState.busy || !await startCam()) return
-    if (!camFrameReady()) return camSetStatus('Kamera sedang menyiapkan gambar. Tunggu sebentar.', 'warning')
-    const image = camImage()
-    if (!image) return camSetStatus('Gambar kamera belum siap. Coba lagi.', 'error')
+    if (!camFrameReady()) {
+        camSetScanLabel(true)
+        return camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan tombol Scan Ulang untuk mencoba lagi.', 'warning')
+    }
     camState.busy = true
-    $('cam-live-capture')?.classList.add('is-processing')
-    camSetStatus('Memeriksa wajah…', 'processing')
+    camSetBusy(true)
+    camSetScanning(true)
+    camSetStatus(camState.type === 0 ? 'Memindai wajah untuk absensi Masuk…' : 'Memindai wajah untuk absensi Pulang…', 'processing')
     let response
     try {
-        response = await fetch('/api/live/attendance', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: camState.type, image }) })
+        // Give the camera a moment to settle exposure/focus before the snapshot
+        // so the first frame isn't dark or blurry (a common cause of 404s).
+        await new Promise((resolve) => setTimeout(resolve, 600))
+        const image = camFrameReady() ? camImage() : null
+        if (!image) {
+            camSetScanLabel(true)
+            camSetStatus('Kamera belum menghasilkan gambar yang jelas. Posisikan wajah lalu tekan tombol Scan Ulang.', 'error')
+            return
+        }
+        $('cam-live-capture')?.classList.add('is-processing')
+        camSetStatus('Memeriksa wajah…', 'processing')
+        // Client-side timeout so the status never hangs on a stalled network.
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 20000)
+        try {
+            response = await fetch('/api/live/attendance', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ type: camState.type, image }),
+                signal: controller.signal
+            })
+        } finally {
+            clearTimeout(timeout)
+        }
         const data = await response.json().catch(() => ({}))
         if (response.ok) {
             $('cam-live-result-name').textContent = data.data?.nama || 'Karyawan'
@@ -276,19 +187,32 @@ async function submitCamAttendance() {
             $('cam-live-result')?.classList.add('is-visible')
             $('cam-live-result')?.setAttribute('aria-hidden', 'false')
             camSetStatus('Wajah dikenali dan absensi berhasil dicatat.', 'success')
-            setTimeout(() => window.location.assign('/live.html'), 2500)
+            // Generous redirect so the result is fully read (including by
+            // screen readers) before returning to the kiosk for the next employee.
+            setTimeout(() => window.location.assign('/live.html'), 4000)
         } else if (response.status === 404) {
-            camSetStatus('Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah.', 'error')
+            camSetScanLabel(true)
+            camSetStatus('Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah, lalu tekan Scan Ulang.', 'error')
         } else if (response.status === 409) {
+            camSetScanLabel(true)
             camSetStatus('Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
+        } else if (response.status >= 500) {
+            camSetScanLabel(true)
+            camSetStatus(data.message || 'Layanan pengenalan wajah sedang tidak tersedia. Coba lagi sebentar.', 'error')
         } else {
-            camSetStatus(data.message || 'Verifikasi gagal. Atur posisi wajah lalu ulangi.', 'error')
+            camSetScanLabel(true)
+            camSetStatus(data.message || 'Verifikasi gagal. Atur posisi wajah lalu tekan Scan Ulang.', 'error')
         }
     } catch (error) {
         console.error('Attendance request failed:', error)
-        camSetStatus('Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
+        camSetScanLabel(true)
+        camSetStatus(error?.name === 'AbortError'
+            ? 'Permintaan memakan waktu terlalu lama. Periksa koneksi lalu coba lagi.'
+            : 'Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
     } finally {
         camState.busy = false
+        camSetBusy(false)
+        camSetScanning(false)
         $('cam-live-capture')?.classList.remove('is-processing')
     }
 }
@@ -302,12 +226,28 @@ export async function initCamLivePage() {
         title.textContent = camState.type === 0 ? 'Absensi Masuk' : 'Absensi Pulang'
     }
     $('cam-live-retry')?.addEventListener('click', submitCamAttendance)
+    camSetScanLabel(false)
+
+    // Keyboard access: Enter/Space triggers the scan button natively; Escape
+    // returns to the kiosk so a shared terminal is never a dead end.
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault()
+            window.location.assign('/live.html')
+        }
+    })
+
     if (await startCam()) {
         clearTimeout(camState.autoSubmitTimer)
+        // Give the camera a beat to produce a stable frame before auto-scanning.
         camState.autoSubmitTimer = setTimeout(() => {
+            if (camState.busy) return
             if (camFrameReady()) submitCamAttendance()
-            else camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan Coba lagi.', 'warning')
-        }, 350)
+            else {
+                camSetScanLabel(true)
+                camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan tombol Scan Ulang untuk mencoba lagi.', 'warning')
+            }
+        }, 800)
     }
 }
 
