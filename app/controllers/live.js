@@ -2,8 +2,43 @@ import { pool } from '../utils/database.js'
 import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
+import { evaluateAttendance, SESSION_WINDOW_HOURS } from '../utils/live-attendance.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
+// Rows are stored as UTC values that represent the app's WITA wall-clock time
+// (see the write boundary below), so a "now" on the same clock must carry the
+// same +08:00 offset for in-process comparisons.
+const WITA_OFFSET_MS = 8 * 60 * 60 * 1000
+
+// Readiness cache: recognition is only fired once the face-service reports its
+// models are loaded. Models stay loaded once ready, so this is checked only
+// until the first healthy response (re-checked every TTL while it is down).
+const FACE_READY_TTL_MS = 3000
+let faceReadyCache = { loaded: null, checkedAt: 0 }
+
+/**
+ * Structured live error response. Unlike sendError, the `code` is always
+ * included so the kiosk can branch on the exact decision, even in production.
+ * `extra` is merged into the body so machine-readable context (e.g. the face
+ * service `reason`) can drive the kiosk's auto-retry logic.
+ */
+function sendLiveError(res, statusCode, code, message, extra = {}) {
+    return res.status(statusCode).json({ status: 'error', code, message, ...extra })
+}
+
+async function faceServiceReady() {
+    const now = Date.now()
+    if (faceReadyCache.loaded === true) return true
+    if (faceReadyCache.loaded === false && now - faceReadyCache.checkedAt < FACE_READY_TTL_MS) return false
+    try {
+        const response = await fetch(`${config.FACE_SERVICE_URL}/health`, { signal: AbortSignal.timeout(2000) })
+        const data = await response.json().catch(() => ({}))
+        faceReadyCache = { loaded: response.ok && data.models_loaded !== false, checkedAt: now }
+    } catch {
+        faceReadyCache = { loaded: false, checkedAt: now }
+    }
+    return faceReadyCache.loaded
+}
 
 function normalizeImage(image) {
     if (typeof image !== 'string' || image.length < 32 || image.length > MAX_IMAGE_LENGTH) return null
@@ -29,6 +64,21 @@ async function recognize(image) {
     return data
 }
 
+// The face service only reports whether a face matched and its confidence. The
+// human-facing reason is resolved here so the kiosk can guide the employee.
+function faceNotFoundMessage(recognized) {
+    switch (recognized.reason) {
+        case 'no_face':
+            return 'Wajah tidak terdeteksi pada kamera. Posisikan wajah di tengah bingkai lalu coba lagi.'
+        case 'no_reference_faces':
+            return 'Belum ada data wajah karyawan untuk verifikasi. Hubungi administrator.'
+        case 'below_threshold':
+            return 'Wajah tidak dikenali. Pastikan wajah terang dan terlihat penuh, lalu coba lagi.'
+        default:
+            return 'Wajah tidak dikenali'
+    }
+}
+
 export const liveController = {
     async pageAccess(req, res, next) {
         if (req.user?.role === 'public' || req.user?.role === 'superadmin') return next()
@@ -38,46 +88,65 @@ export const liveController = {
     async attendance(req, res) {
         const type = Number(req.body?.type)
         const image = normalizeImage(req.body?.image)
-        if (![0, 1].includes(type)) return sendError(res, 'Attendance type must be 0 (Masuk) or 1 (Pulang)', 400)
-        if (!image) return sendError(res, 'A valid camera image is required', 400)
+        if (![0, 1].includes(type)) return sendLiveError(res, 400, 'INVALID_TYPE', 'Attendance type must be 0 (Masuk) or 1 (Pulang)')
+        if (!image) return sendLiveError(res, 400, 'INVALID_IMAGE', 'A valid camera image is required')
 
         try {
+            // 0. Readiness — never fire recognition against a model that is not
+            //    loaded yet. The kiosk auto-retries this 503 once models are up.
+            if (!(await faceServiceReady())) {
+                return sendLiveError(res, 503, 'FACE_MODEL_NOT_READY', 'Layanan pengenalan wajah sedang bersiap. Silakan coba lagi sebentar.')
+            }
+
+            // 1. Recognition — face service only recognises the face + confidence.
             const recognized = await recognize(image)
-            if (!recognized.matched || !recognized.fid) return sendError(res, 'Wajah tidak dikenali', 404)
+            if (!recognized.matched || !recognized.fid) {
+                // `reason` lets the kiosk skip useless retries (e.g. no reference
+                // faces) and retry the recoverable ones (no_face / below_threshold).
+                return sendLiveError(res, 404, 'FACE_NOT_MATCHED', faceNotFoundMessage(recognized), { reason: recognized.reason || 'unknown' })
+            }
+            const fid = String(recognized.fid)
 
-            // Live-camera timestamps are stored in the application's WITA
-            // wall-clock convention.  The database server clock is UTC, so
-            // apply the +08:00 offset at the write boundary instead of using
-            // a bare now(). Keep the duplicate window on the same clock.
-            const duplicate = await pool.query(
-                `SELECT id, "timestamp" FROM attendance_logs
-         WHERE user_id = $1 AND type = $2 AND "timestamp" >= (now() + interval '8 hours') - interval '1 minute'
-         ORDER BY "timestamp" DESC LIMIT 1`,
-                [String(recognized.fid), type]
+            // 2. Attendance decision — the backend validates duplicate and
+            //    shift/type ordering before anything is saved. The latest record
+            //    within the session window is enough to drive both rules.
+            const { rows } = await pool.query(
+                `SELECT user_id, type, "timestamp" FROM attendance_logs
+                 WHERE user_id = $1
+                   AND "timestamp" >= (now() + interval '8 hours') - interval '1 hour' * $2
+                 ORDER BY "timestamp" DESC LIMIT 1`,
+                [fid, SESSION_WINDOW_HOURS]
             )
-            if (duplicate.rows.length) return sendError(res, 'Anda baru saja melakukan absensi yang sama. Silakan coba lagi setelah 1 menit.', 409, { timestamp: duplicate.rows[0].timestamp })
+            const decision = evaluateAttendance({
+                latestRow: rows[0] || null,
+                fid,
+                type,
+                nowMs: Date.now() + WITA_OFFSET_MS
+            })
+            if (!decision.ok) return sendLiveError(res, 409, decision.code, decision.message)
 
-            const employee = await pool.query('SELECT user_id, nama, jabatan FROM employee WHERE user_id = $1 LIMIT 1', [String(recognized.fid)])
-            const name = employee.rows[0]?.nama || `FID ${recognized.fid}`
+            // 3. Save.
+            const employee = await pool.query('SELECT user_id, nama, jabatan FROM employee WHERE user_id = $1 LIMIT 1', [fid])
+            const name = employee.rows[0]?.nama || `FID ${fid}`
             const position = employee.rows[0]?.jabatan || null
             const inserted = await pool.query(
                 `INSERT INTO attendance_logs (user_id, "timestamp", type, device_sn)
-         VALUES ($1, now() + interval '8 hours', $2, $3) RETURNING id, user_id, "timestamp", type`,
-                [String(recognized.fid), type, 'LIVE-CAM']
+                 VALUES ($1, now() + interval '8 hours', $2, $3) RETURNING id, user_id, "timestamp", type`,
+                [fid, type, 'LIVE-CAM']
             )
             await recordActivity({
                 username: name,
                 action: 'attendance',
                 category: 'attendance',
-                detail: `Absensi ${type === 0 ? 'Masuk' : 'Pulang'} melalui kamera (User ID: ${recognized.fid}, device: LIVE-CAM)`,
+                detail: `Absensi ${type === 0 ? 'Masuk' : 'Pulang'} melalui kamera (User ID: ${fid}, device: LIVE-CAM)`,
                 ip: req.ip,
                 status: 'success'
             })
-            return sendSuccess(res, { ...inserted.rows[0], nama: name, fid: String(recognized.fid), score: recognized.score, jabatan: position }, 'Absensi berhasil')
+            return sendSuccess(res, { ...inserted.rows[0], nama: name, fid, score: recognized.score, jabatan: position }, 'Absensi berhasil')
         } catch (err) {
             console.error('Live attendance error:', err)
             const unavailable = /Face service|fetch failed|ECONNREFUSED|aborted|timed out/i.test(err.message)
-            return sendError(res, unavailable ? 'Layanan pengenalan wajah tidak tersedia' : 'Gagal menyimpan absensi', 503)
+            return sendLiveError(res, 503, 'FACE_SERVICE_UNAVAILABLE', unavailable ? 'Layanan pengenalan wajah tidak tersedia' : 'Gagal menyimpan absensi')
         }
     },
 

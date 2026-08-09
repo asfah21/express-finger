@@ -2,13 +2,38 @@ const state = { initialized: false }
 
 const $ = (id) => document.getElementById(id)
 
+// ─── Timing / budget ─────────────────────────────────────────────────────────
+// Target: <3000ms from "face detected" to result. Face detection drives the
+// capture; the only timers are a minimal stability debounce and hard
+// fallback/timeout guards — never a blind "fire a shot" trigger.
+const DETECTION_INTERVAL_MS = 100 // analysis cadence (~10 fps, CPU friendly)
+const MIN_STABLE_MS = 150 // minimal debounce — NOT the old 300–500ms wait
+const MOTION_THRESHOLD = 40 // very lenient mean-abs-grayscale-diff
+const CAPTURE_BUDGET_MS = 1500 // fallback: force capture if a face lingers
+const WATCHDOG_HINT_MS = 6000 // gentle hint when no face has been seen
+const MAX_ATTEMPTS = 3 // 1 capture + up to 2 sequential auto-retries
+const RETRY_DELAY_MS = 250 // backoff between attempts (not a trigger)
+const REQUEST_TIMEOUT_MS = 15000 // client-side fetch timeout
+
 const camState = {
     stream: null,
     startPromise: null,
-    busy: false,
+    busy: false, // a request is in flight (UI is disabled)
+    locked: false, // submission lock — double-submit guard
+    submitted: false, // a successful attendance already completed this page
+    retrying: false, // an auto-retry is scheduled — blocks new triggers
     initialized: false,
-    autoSubmitTimer: null,
-    type: Number(new URLSearchParams(window.location.search).get('type'))
+    type: Number(new URLSearchParams(window.location.search).get('type')),
+    // Detection / attempt state
+    detectionTimer: null,
+    faceSince: null, // ms when the current continuous face streak started
+    lastFaceSeen: null,
+    hintShown: false,
+    lastGray: null, // previous analysis frame for motion estimation
+    attempts: 0, // recognition attempts in the current capture cycle
+    faceDetector: null, // cached FaceDetector (Shape Detection API)
+    analysisCanvas: null,
+    analysisCtx: null
 }
 
 function setStatus(message, tone = 'neutral') {
@@ -92,10 +117,10 @@ async function startCam() {
     camSetStatus('Menghubungkan kamera…', 'processing')
     camState.startPromise = (async () => {
         try {
-            // Avoid strict min constraints: some browsers reject the whole request
-            // even when a lower-resolution camera would work.
+            // Fast start: request a modest resolution first so the stream opens
+            // quickly, then allow the browser to pick whatever it can provide.
             const constraints = [
-                { video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+                { video: { facingMode: { ideal: 'user' }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
                 { video: { facingMode: 'user' }, audio: false },
                 { video: true, audio: false }
             ]
@@ -144,32 +169,271 @@ async function startCam() {
     return camState.startPromise
 }
 
-async function submitCamAttendance() {
-    if (camState.busy || !await startCam()) return
+// ─── Client-side face detection (no new dependencies, existing architecture) ──
+// 1. Shape Detection API (FaceDetector) when the browser exposes it — this gives
+//    an exact face count so we capture only when exactly one valid face is shown.
+// 2. A lightweight skin-tone heuristic over the face-guide region as a fallback.
+// The face service is never used as a detector — it only recognises + scores.
+
+function analysisCanvas() {
+    if (!camState.analysisCanvas) {
+        const canvas = document.createElement('canvas')
+        canvas.width = 160
+        canvas.height = 120
+        camState.analysisCanvas = canvas
+        camState.analysisCtx = canvas.getContext('2d', { willReadFrequently: true })
+    }
+    return camState.analysisCanvas
+}
+
+async function detectWithApi(video) {
+    if (typeof window.FaceDetector !== 'function') return { available: false, count: 0 }
+    if (!camState.faceDetector) {
+        try {
+            camState.faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 })
+        } catch (error) {
+            camState.faceDetector = null
+            return { available: false, count: 0 }
+        }
+    }
+    try {
+        const faces = await camState.faceDetector.detect(video)
+        return { available: true, count: Array.isArray(faces) ? faces.length : 0 }
+    } catch (error) {
+        return { available: false, count: 0 }
+    }
+}
+
+function detectSkinFace(data, w, h) {
+    // Sample the face-guide region (roughly the central area of the frame).
+    const x0 = Math.floor(w * 0.25)
+    const x1 = Math.floor(w * 0.75)
+    const y0 = Math.floor(h * 0.15)
+    const y1 = Math.floor(h * 0.85)
+    let skin = 0
+    let region = 0
+    for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+            const i = (y * w + x) * 4
+            const r = data[i]
+            const g = data[i + 1]
+            const b = data[i + 2]
+            const maxc = Math.max(r, g, b)
+            const minc = Math.min(r, g, b)
+            region++
+            if (r > 40 && g > 25 && b > 12 && r > g && r > b && (maxc - minc) > 8) skin++
+        }
+    }
+    return region ? skin / region > 0.035 : false
+}
+
+function toGray(data) {
+    const gray = new Float32Array(data.length / 4)
+    for (let i = 0, g = 0; i < data.length; i += 4, g++) {
+        gray[g] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+    }
+    return gray
+}
+
+function meanAbsDiff(gray, previous) {
+    if (!previous || previous.length !== gray.length) return 0
+    let diff = 0
+    for (let i = 0; i < gray.length; i++) diff += Math.abs(gray[i] - previous[i])
+    return diff / gray.length
+}
+
+/**
+ * Analyze the current frame.
+ * @returns {Promise<{ready: boolean, faceDetected: boolean, motion: number}>}
+ */
+async function analyzeFrame() {
+    const video = $('cam-live-video')
+    if (!video?.videoWidth || !camFrameReady()) return { ready: false, faceDetected: false, motion: 0 }
+
+    const canvas = analysisCanvas()
+    const ctx = camState.analysisCtx
+    if (!ctx) return { ready: false, faceDetected: false, motion: 0 }
+    const w = canvas.width
+    const h = canvas.height
+    try {
+        ctx.drawImage(video, 0, 0, w, h)
+        const { data } = ctx.getImageData(0, 0, w, h)
+
+        // Reject blank/dark frames (camera still settling) so we never snapshot
+        // a useless first frame.
+        let sum = 0
+        let sumSq = 0
+        const n = data.length / 4
+        for (let i = 0; i < data.length; i += 4) {
+            const l = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+            sum += l
+            sumSq += l * l
+        }
+        const mean = sum / n
+        const variance = sumSq / n - mean * mean
+        const ready = variance > 100 && mean > 22
+
+        const gray = toGray(data)
+        const motion = meanAbsDiff(gray, camState.lastGray)
+        camState.lastGray = gray
+
+        const skinDetected = detectSkinFace(data, w, h)
+        const api = await detectWithApi(video)
+
+        let faceDetected
+        if (api.available) {
+            // Exact single-face check when the API exists: capture only when
+            // exactly one valid face is in front of the camera.
+            faceDetected = api.count === 1
+        } else {
+            faceDetected = skinDetected
+        }
+        return { ready, faceDetected, motion }
+    } catch (error) {
+        return { ready: false, faceDetected: false, motion: 0 }
+    }
+}
+
+// ─── Detection loop ───────────────────────────────────────────────────────────
+// Self-scheduling (setTimeout after each analysis) so frames are never analysed
+// concurrently. The loop is the only thing that can trigger a capture.
+
+function resetDetection() {
+    camState.faceSince = null
+    camState.lastGray = null
+}
+
+function stopDetection() {
+    if (camState.detectionTimer) {
+        clearTimeout(camState.detectionTimer)
+        camState.detectionTimer = null
+    }
+}
+
+function scheduleNext() {
+    camState.detectionTimer = setTimeout(detectionLoop, DETECTION_INTERVAL_MS)
+}
+
+async function detectionLoop() {
+    if (camState.locked || camState.submitted || camState.retrying || !camState.stream) return
+    const frame = await analyzeFrame()
+    handleFrameResult(frame)
+    if (!camState.locked && !camState.submitted && !camState.retrying && camState.stream) scheduleNext()
+}
+
+function handleFrameResult(frame) {
+    const now = Date.now()
+    if (!frame.ready) {
+        resetDetection()
+        return
+    }
+    if (frame.faceDetected) {
+        camState.lastFaceSeen = now
+        camState.hintShown = false
+        if (camState.faceSince == null) camState.faceSince = now
+        const elapsed = now - camState.faceSince
+        const still = frame.motion <= MOTION_THRESHOLD
+        // Capture on the minimal stability debounce, or via the fallback budget
+        // if the face lingers without ever settling (timer = fallback only).
+        if ((still && elapsed >= MIN_STABLE_MS) || elapsed >= CAPTURE_BUDGET_MS) {
+            resetDetection()
+            captureAndSubmit()
+        }
+    } else {
+        resetDetection()
+        // Gentle guidance if no face has been seen for a while (informational
+        // only — never a blind timed capture).
+        if (!camState.hintShown && camState.lastFaceSeen != null && now - camState.lastFaceSeen >= WATCHDOG_HINT_MS) {
+            camState.hintShown = true
+            camSetStatus('Wajah tidak terdeteksi. Pastikan ruangan cukup terang dan wajah terlihat penuh di tengah bingkai.', 'warning')
+        }
+    }
+}
+
+/**
+ * Arm the automatic face-detection scan. Resets all attempt guards so a fresh
+ * scan can run. Called once the camera is ready and again on "Scan Ulang".
+ */
+function armDetection() {
+    stopDetection()
+    camState.locked = false
+    camState.busy = false
+    camState.submitted = false
+    camState.retrying = false
+    camState.attempts = 0
+    camSetBusy(false)
+    resetDetection()
+    camState.lastFaceSeen = Date.now()
+    camState.hintShown = false
+    camSetScanLabel(false)
+    camSetScanning(true)
+    camSetStatus('Memindai wajah. Posisikan wajah di tengah bingkai.', 'processing')
+    scheduleNext()
+}
+
+// ─── Capture + submit (single-shot, sequential auto-retry) ───────────────────
+
+function endAttempt() {
+    camState.locked = false
+    camState.busy = false
+    camSetBusy(false)
+    camSetScanning(false)
+    $('cam-live-capture')?.classList.remove('is-processing')
+}
+
+// Recognition failures worth retrying with a fresh frame: a 404 (no face or
+// below-threshold confidence, but NOT "no reference faces" which is a data
+// issue) and any 503 (face service unavailable / model still loading). Definitive
+// answers (409 duplicate/order, 400) are never retried.
+function shouldRetry(status, data) {
+    if (status === 404 && data?.code === 'FACE_NOT_MATCHED' && data?.reason === 'no_reference_faces') return false
+    return status === 404 || status === 503
+}
+
+// Schedule one more capture+submit after a short backoff. Strictly sequential:
+// `retrying` blocks the button and the detection loop, so capture/recognition/
+// submit can never run concurrently.
+function scheduleRetry(message) {
+    camState.retrying = true
+    endAttempt()
+    camSetStatus(message, 'processing')
+    setTimeout(() => {
+        camState.retrying = false
+        captureAndSubmit()
+    }, RETRY_DELAY_MS)
+}
+
+async function captureAndSubmit() {
+    // Double-submit guard: loop + button + scheduled retries all funnel through
+    // here, but only the first call while unlocked/busy is allowed to proceed.
+    if (camState.locked || camState.busy || camState.submitted || camState.retrying) return
+    if (!await startCam()) return
     if (!camFrameReady()) {
         camSetScanLabel(true)
-        return camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan tombol Scan Ulang untuk mencoba lagi.', 'warning')
+        camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan tombol Scan Ulang untuk mencoba lagi.', 'warning')
+        return
     }
+    camState.attempts += 1
+    camState.locked = true
     camState.busy = true
+    stopDetection()
     camSetBusy(true)
     camSetScanning(true)
-    camSetStatus(camState.type === 0 ? 'Memindai wajah untuk absensi Masuk…' : 'Memindai wajah untuk absensi Pulang…', 'processing')
-    let response
+    camSetStatus(camState.type === 0 ? 'Memverifikasi wajah untuk absensi Masuk…' : 'Memverifikasi wajah untuk absensi Pulang…', 'processing')
+    const image = camImage()
+    if (!image) {
+        endAttempt()
+        camSetScanLabel(true)
+        camSetStatus('Kamera belum menghasilkan gambar yang jelas. Posisikan wajah lalu tekan tombol Scan Ulang.', 'error')
+        return
+    }
+    $('cam-live-capture')?.classList.add('is-processing')
+    camSetStatus('Memeriksa wajah…', 'processing')
     try {
-        // Give the camera a moment to settle exposure/focus before the snapshot
-        // so the first frame isn't dark or blurry (a common cause of 404s).
-        await new Promise((resolve) => setTimeout(resolve, 600))
-        const image = camFrameReady() ? camImage() : null
-        if (!image) {
-            camSetScanLabel(true)
-            camSetStatus('Kamera belum menghasilkan gambar yang jelas. Posisikan wajah lalu tekan tombol Scan Ulang.', 'error')
-            return
-        }
-        $('cam-live-capture')?.classList.add('is-processing')
-        camSetStatus('Memeriksa wajah…', 'processing')
         // Client-side timeout so the status never hangs on a stalled network.
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 20000)
+        const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+        let response
         try {
             response = await fetch('/api/live/attendance', {
                 method: 'POST',
@@ -182,41 +446,72 @@ async function submitCamAttendance() {
         }
         const data = await response.json().catch(() => ({}))
         if (response.ok) {
-            const result = data.data || {}
-            $('cam-live-result-name').textContent = result.nama || 'Karyawan'
-            $('cam-live-result-userid').textContent = result.user_id != null ? String(result.user_id) : (result.fid || '-')
-            $('cam-live-result-position').textContent = result.jabatan || '-'
-            $('cam-live-result-label').textContent = camState.type === 0 ? 'Absensi masuk berhasil' : 'Absensi pulang berhasil'
-            $('cam-live-result')?.classList.add('is-visible')
-            $('cam-live-result')?.setAttribute('aria-hidden', 'false')
-            camSetStatus('Wajah dikenali dan absensi berhasil dicatat.', 'success')
-            // Generous redirect so the result is fully read (including by
-            // screen readers) before returning to the kiosk for the next employee.
-            setTimeout(() => window.location.assign('/live.html'), 4000)
-        } else if (response.status === 404) {
-            camSetScanLabel(true)
-            camSetStatus('Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah, lalu tekan Scan Ulang.', 'error')
-        } else if (response.status === 409) {
-            camSetScanLabel(true)
-            camSetStatus('Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
-        } else if (response.status >= 500) {
-            camSetScanLabel(true)
-            camSetStatus(data.message || 'Layanan pengenalan wajah sedang tidak tersedia. Coba lagi sebentar.', 'error')
-        } else {
-            camSetScanLabel(true)
-            camSetStatus(data.message || 'Verifikasi gagal. Atur posisi wajah lalu tekan Scan Ulang.', 'error')
+            camState.submitted = true
+            endAttempt()
+            showResult(data.data || {})
+            return
         }
+        if (shouldRetry(response.status, data) && camState.attempts < MAX_ATTEMPTS) {
+            scheduleRetry('Wajah belum terbaca, mencoba lagi…')
+            return
+        }
+        endAttempt()
+        handleSubmissionError(response.status, data)
     } catch (error) {
         console.error('Attendance request failed:', error)
+        if (camState.attempts < MAX_ATTEMPTS) {
+            scheduleRetry('Koneksi terganggu, mencoba lagi…')
+            return
+        }
+        endAttempt()
         camSetScanLabel(true)
         camSetStatus(error?.name === 'AbortError'
             ? 'Permintaan memakan waktu terlalu lama. Periksa koneksi lalu coba lagi.'
             : 'Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
-    } finally {
-        camState.busy = false
-        camSetBusy(false)
-        camSetScanning(false)
-        $('cam-live-capture')?.classList.remove('is-processing')
+    }
+}
+
+function showResult(result) {
+    $('cam-live-result-name').textContent = result.nama || 'Karyawan'
+    $('cam-live-result-userid').textContent = result.user_id != null ? String(result.user_id) : (result.fid || '-')
+    $('cam-live-result-position').textContent = result.jabatan || '-'
+    $('cam-live-result-label').textContent = camState.type === 0 ? 'Absensi masuk berhasil' : 'Absensi pulang berhasil'
+    $('cam-live-result')?.classList.add('is-visible')
+    $('cam-live-result')?.setAttribute('aria-hidden', 'false')
+    camSetStatus('Wajah dikenali dan absensi berhasil dicatat.', 'success')
+    // Generous redirect so the result is fully read (including by screen
+    // readers) before returning to the kiosk for the next employee.
+    setTimeout(() => window.location.assign('/live.html'), 4000)
+}
+
+function handleSubmissionError(status, data) {
+    const code = data?.code
+    const message = data?.message
+    camSetScanLabel(true)
+    if (status === 404) {
+        camSetStatus(message || 'Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah, lalu tekan Scan Ulang.', 'error')
+    } else if (status === 409 && code === 'NO_OPEN_SESSION') {
+        camSetStatus(message || 'Belum ada absensi Masuk. Silakan lakukan absensi Masuk terlebih dahulu.', 'warning')
+    } else if (status === 409) {
+        camSetStatus(message || 'Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
+    } else if (status >= 500) {
+        camSetStatus(message || 'Layanan pengenalan wajah sedang tidak tersedia. Coba lagi sebentar.', 'error')
+    } else {
+        camSetStatus(message || 'Verifikasi gagal. Atur posisi wajah lalu tekan Scan Ulang.', 'error')
+    }
+}
+
+async function onRetryClick() {
+    if (camState.locked || camState.busy || camState.submitted || camState.retrying) return
+    if (!await startCam()) return
+    armDetection()
+}
+
+function camCleanup() {
+    stopDetection()
+    if (camState.stream) {
+        camState.stream.getTracks().forEach((track) => track.stop())
+        camState.stream = null
     }
 }
 
@@ -228,7 +523,7 @@ export async function initCamLivePage() {
     if (title) {
         title.textContent = camState.type === 0 ? 'Absensi Masuk' : 'Absensi Pulang'
     }
-    $('cam-live-retry')?.addEventListener('click', submitCamAttendance)
+    $('cam-live-retry')?.addEventListener('click', onRetryClick)
     camSetScanLabel(false)
 
     // Keyboard access: Enter/Space triggers the scan button natively; Escape
@@ -240,17 +535,11 @@ export async function initCamLivePage() {
         }
     })
 
+    // Release the camera and stop scanning when the kiosk page is left.
+    window.addEventListener('pagehide', camCleanup)
+
     if (await startCam()) {
-        clearTimeout(camState.autoSubmitTimer)
-        // Give the camera a beat to produce a stable frame before auto-scanning.
-        camState.autoSubmitTimer = setTimeout(() => {
-            if (camState.busy) return
-            if (camFrameReady()) submitCamAttendance()
-            else {
-                camSetScanLabel(true)
-                camSetStatus('Kamera aktif, tetapi gambar belum siap. Tekan tombol Scan Ulang untuk mencoba lagi.', 'warning')
-            }
-        }, 800)
+        armDetection()
     }
 }
 

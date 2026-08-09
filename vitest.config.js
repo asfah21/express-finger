@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.js'],
+    include: ['tests/**/*.test.js', 'app/tests/**/*.test.js'],
     pool: 'forks',
     fileParallelism: false,
     maxWorkers: 1,
