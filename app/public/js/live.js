@@ -50,6 +50,67 @@ function setStatus(message, tone = 'neutral') {
     status.dataset.tone = tone
 }
 
+// ─── Audio notification sounds (asset files, no synthesis) ───────────────────
+// Two kiosk sounds played from static files in /public/sounds:
+//   • success — chime when attendance is recorded.
+//   • error   — buzz when a 404 (face not recognized) is returned.
+// The operator can swap the sounds by replacing the files in /public/sounds
+// (keeping the same names) or by updating the SOUNDS map below.
+// Autoplay: browsers block sound until a user gesture. The /live Masuk/Pulang
+// click (same origin) normally unlocks it; as a fallback we also preload and
+// flush any blocked sound on the first gesture inside the kiosk page.
+
+const SOUNDS = {
+    success: 'sounds/success.mp3',
+    error: 'sounds/error.mp3'
+}
+
+const audioEls = {}
+let audioUnlockArmed = false
+let pendingSounds = []
+
+function preloadSounds() {
+    for (const [kind, url] of Object.entries(SOUNDS)) {
+        if (!audioEls[kind]) {
+            const audio = new Audio(url)
+            audio.preload = 'auto'
+            audio.load()
+            audioEls[kind] = audio
+        }
+    }
+}
+
+function playSound(kind) {
+    const url = SOUNDS[kind]
+    if (!url) return
+    const audio = audioEls[kind] || (audioEls[kind] = new Audio(url))
+    audio.currentTime = 0
+    const promise = audio.play()
+    if (promise && typeof promise.catch === 'function') {
+        promise.catch(() => {
+            // Autoplay blocked — retry once audio is unlocked by a gesture.
+            if (!pendingSounds.includes(kind)) pendingSounds.push(kind)
+        })
+    }
+}
+
+function flushPendingSounds() {
+    const pending = pendingSounds
+    pendingSounds = []
+    for (const kind of pending) playSound(kind)
+}
+
+// Preload now and unlock audio on the first user gesture inside the kiosk page,
+// so sounds play even if the page was opened directly (bookmark/browser restore).
+function armAudioUnlock() {
+    if (audioUnlockArmed) return
+    audioUnlockArmed = true
+    preloadSounds()
+    ;['pointerdown', 'keydown', 'touchstart', 'click'].forEach((eventName) => {
+        document.addEventListener(eventName, flushPendingSounds, { passive: true, once: true })
+    })
+}
+
 export async function initLivePage() {
     if (state.initialized) return
     state.initialized = true
@@ -546,6 +607,7 @@ function showResult(result) {
     $('cam-live-result')?.classList.add('is-visible')
     $('cam-live-result')?.setAttribute('aria-hidden', 'false')
     camSetStatus('Wajah dikenali dan absensi berhasil dicatat.', 'success')
+    playSound('success')
     // Generous redirect so the result is fully read (including by screen
     // readers) before returning to the kiosk for the next employee.
     setTimeout(() => window.location.assign('/live.html'), 2500)
@@ -557,6 +619,7 @@ function handleSubmissionError(status, data) {
     camSetScanLabel(true)
     if (status === 404) {
         camSetStatus(message || 'Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah, lalu tekan Scan Ulang.', 'error')
+        playSound('error')
     } else if (status === 409 && code === 'NO_OPEN_SESSION') {
         camSetStatus(message || 'Belum ada absensi Masuk. Silakan lakukan absensi Masuk terlebih dahulu.', 'warning')
     } else if (status === 409) {
@@ -610,6 +673,9 @@ export async function initCamLivePage() {
     ;['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll', 'click'].forEach((eventName) => {
         document.addEventListener(eventName, armIdleRedirect, { passive: true })
     })
+
+    // Preload + unlock the kiosk notification sounds on the first user gesture.
+    armAudioUnlock()
 
     // Release the camera and stop scanning when the kiosk page is left.
     window.addEventListener('pagehide', camCleanup)
