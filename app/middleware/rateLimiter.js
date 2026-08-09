@@ -9,12 +9,12 @@ import { sendError } from '../utils/response.js'
 
 /**
  * Login rate limiter
- * - Max 10 attempts per IP per 15 menit
- * - Mencegah brute force login
- * - 15 menit window agar user tidak frustrasi dengan cooldown pendek
+ * - Max 10 attempts per akun (username) per 5 menit
+ * - Mencegah brute force login tanpa mengunci semua user di IP yang sama
+ * - 5 menit window agar cooldown tidak terlalu lama
  */
 export const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 menit
+    windowMs: 5 * 60 * 1000, // 5 menit
     max: 10,
     message: {
         status: 'error',
@@ -22,11 +22,18 @@ export const loginLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    // Limit per akun (username), bukan per IP, agar satu user yang salah password
+    // tidak mengunci user lain di jaringan/NAT yang sama.
     keyGenerator: (req) => {
-        return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.socket.remoteAddress
+        const username = req.body?.username
+        if (username) {
+            return `login:${String(username).trim().toLowerCase()}`
+        }
+        // Fallback per IP untuk request tanpa username (malformed / bot)
+        return `login:${req.ip || req.socket.remoteAddress}`
     },
     handler: (req, res) => {
-        console.warn(`⚠️ [RATE LIMIT] Login exceeded for IP: ${req.ip}`)
+        console.warn(`⚠️ [RATE LIMIT] Login exceeded for account: ${req.body?.username || req.ip}`)
         sendError(res, 'Too many login attempts. Please try again later.', 429)
     }
 })
