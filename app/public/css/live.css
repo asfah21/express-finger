@@ -1105,9 +1105,14 @@
 }
 
 .live-btn-danger {
+    position: relative;
+    overflow: hidden;
     border: 1px solid transparent;
     background: var(--live-error-strong);
     color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
     transition: background-color .18s ease-out;
 }
 
@@ -1124,6 +1129,38 @@
 .live-btn-danger:disabled {
     opacity: .6;
     cursor: default;
+}
+
+/* Isi progres saat tombol "Ya" ditahan (press & hold) */
+.live-btn-danger .live-btn-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+    width: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, .22);
+    pointer-events: none;
+}
+
+.live-btn-danger.is-holding .live-btn-fill {
+    animation: live-hold-fill 1.2s linear forwards;
+}
+
+.live-btn-danger .live-btn-label {
+    position: relative;
+    z-index: 1;
+}
+
+@keyframes live-hold-fill {
+    from {
+        width: 0;
+    }
+
+    to {
+        width: 100%;
+    }
 }
 
 @keyframes live-dialog-in {
@@ -1145,5 +1182,11 @@
     .live-btn-danger {
         animation: none;
         transition: none;
+    }
+
+    /* Tanpa animasi, isi langsung penuh saat ditahan sebagai umpan balik statis */
+    .live-btn-danger.is-holding .live-btn-fill {
+        animation: none;
+        width: 100%;
     }
 }

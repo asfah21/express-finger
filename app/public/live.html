@@ -44,12 +44,15 @@
         <div class="live-dialog-card">
             <div class="live-dialog-icon" aria-hidden="true"><i data-icon="log-out"></i></div>
             <h2 class="live-dialog-title" id="live-logout-title">Akhiri Sesi?</h2>
-            <p class="live-dialog-text" id="live-logout-desc">Anda akan kembali ke halaman login.</p>
+            <p class="live-dialog-text" id="live-logout-desc">Tahan tombol <strong>Ya</strong> untuk mengakhiri sesi dan kembali ke halaman login.</p>
             <div class="live-dialog-actions">
                 <button class="live-btn live-btn-ghost" type="button"
                     data-live-dialog-cancel>Tidak</button>
                 <button class="live-btn live-btn-danger" type="button"
-                    id="live-logout-confirm">Ya</button>
+                    id="live-logout-confirm">
+                    <span class="live-btn-fill" aria-hidden="true"></span>
+                    <span class="live-btn-label">Ya</span>
+                </button>
             </div>
         </div>
     </dialog>
@@ -88,13 +91,57 @@
         logoutDialog?.querySelectorAll('[data-live-dialog-cancel]').forEach((button) => {
             button.addEventListener('click', () => logoutDialog.close());
         });
-        logoutConfirm?.addEventListener('click', async () => {
+        // Konfirmasi logout memakai "press & hold": sekali sentuh/klik biasa tidak
+        // mengakhiri sesi, tombol harus ditahan beberapa saat. Ini mencegah orang
+        // iseng meng-klik logout sekali sentuh. Durasi tahan dipersingkat untuk
+        // pengguna yang menonaktifkan animasi (prefers-reduced-motion).
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const HOLD_MS = prefersReducedMotion ? 500 : 1200;
+        let holdTimer = null;
+        let logoutStarted = false;
+
+        const performLogout = async () => {
+            if (logoutStarted) return;
+            logoutStarted = true;
+            if (holdTimer !== null) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+            logoutConfirm.classList.remove('is-holding');
             logoutConfirm.disabled = true;
-            logoutConfirm.textContent = 'Keluar…';
+            const label = logoutConfirm.querySelector('.live-btn-label');
+            if (label) label.textContent = 'Keluar…';
             try {
                 await fetch('/auth/logout', { method: 'POST' });
             } catch (_) { /* abaikan error jaringan saat logout */ }
             window.location.assign('/index.html');
+        };
+
+        const cancelHold = () => {
+            if (holdTimer !== null) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+            logoutConfirm.classList.remove('is-holding');
+        };
+
+        const startHold = (event) => {
+            if (event.type === 'pointerdown' && event.button !== 0) return;
+            event.preventDefault();
+            cancelHold();
+            logoutConfirm.classList.add('is-holding');
+            holdTimer = setTimeout(performLogout, HOLD_MS);
+        };
+
+        logoutConfirm?.addEventListener('pointerdown', startHold);
+        logoutConfirm?.addEventListener('pointerup', cancelHold);
+        logoutConfirm?.addEventListener('pointercancel', cancelHold);
+        logoutConfirm?.addEventListener('pointerleave', cancelHold);
+        logoutConfirm?.addEventListener('contextmenu', (event) => event.preventDefault());
+        // Aktivasi via keyboard (Enter/Space) tetap langsung diizinkan, karena
+        // press-and-hold adalah gestur pointer yang tidak bisa dilakukan keyboard.
+        logoutConfirm?.addEventListener('click', (event) => {
+            if (event.detail === 0) performLogout();
         });
     </script>
 </body>
