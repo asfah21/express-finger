@@ -413,8 +413,6 @@ function showPage(pageId) {
         activePage.style.display = 'block';
 
         if (pageId === 'overview') refreshOverview(false); // Pakai cache agar tidak boros API
-        if (pageId === 'live') initLivePage('dashboard');
-        if (pageId === 'cam_live') initCamLivePage();
         if (pageId === 'devices') refreshDevices();
         if (pageId === 'employees') refreshEmployees();
         if (pageId === 'logs') refreshLogs();
