@@ -191,6 +191,25 @@ def reload_faces(x_face_service_token: str | None = Header(default=None)):
     return {"status": "ok", "indexed_faces": count}
 
 
+def score_all(probes):
+    """Score every reference candidate against all probes, best score first.
+
+    Returns ``None`` when there are no reference faces at all, otherwise a list
+    of ``(score, candidate)`` tuples sorted descending by score (not filtered by
+    threshold — callers decide where to cut).
+    """
+    with state_lock:
+        candidates = list(known_faces.values())
+    if not candidates:
+        return None
+    scored = []
+    for candidate in candidates:
+        score = max(float(np.dot(probe, known)) for probe in probes for known in candidate["embeddings"])
+        scored.append((score, candidate))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return scored
+
+
 @app.post("/recognize")
 def recognize(payload: RecognizeRequest, x_face_service_token: str | None = Header(default=None)):
     require_token(x_face_service_token)
@@ -203,15 +222,44 @@ def recognize(payload: RecognizeRequest, x_face_service_token: str | None = Head
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not probes:
         return {"matched": False, "reason": "no_face"}
-    with state_lock:
-        candidates = list(known_faces.values())
-    if not candidates:
+    scored = score_all(probes)
+    if scored is None:
         return {"matched": False, "reason": "no_reference_faces"}
-    scored = []
-    for candidate in candidates:
-        score = max(float(np.dot(probe, known)) for probe in probes for known in candidate["embeddings"])
-        scored.append((score, candidate))
-    score, best = max(scored, key=lambda item: item[0])
+    score, best = scored[0]
     if score < FACE_SIM_THRESHOLD:
         return {"matched": False, "reason": "below_threshold", "score": round(score, 5)}
     return {"matched": True, "fid": best["fid"], "score": round(score, 5), "file": best["files"][0] if best.get("files") else None}
+
+
+@app.post("/recognize_multi")
+def recognize_multi(payload: RecognizeRequest, x_face_service_token: str | None = Header(default=None)):
+    """Recognise every face in a frame, not just the single best match.
+
+    Returns ``faces`` (each ``{fid, score, file}``) sorted by score descending,
+    containing only matches at or above the similarity threshold. ``matched`` is
+    ``False`` with a ``reason`` when nothing could be recognised (no face, no
+    reference faces, or everything below threshold).
+    """
+    require_token(x_face_service_token)
+    try:
+        image = decode_image(payload.image)
+        probes = image_embeddings(image)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not probes:
+        return {"matched": False, "reason": "no_face", "faces": []}
+    scored = score_all(probes)
+    if scored is None:
+        return {"matched": False, "reason": "no_reference_faces", "faces": []}
+    faces = [
+        {
+            "fid": candidate["fid"],
+            "score": round(score, 5),
+            "file": candidate["files"][0] if candidate.get("files") else None,
+        }
+        for score, candidate in scored
+        if score >= FACE_SIM_THRESHOLD
+    ]
+    return {"matched": bool(faces), "reason": None if faces else "below_threshold", "faces": faces}

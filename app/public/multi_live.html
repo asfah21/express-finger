@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Permissions-Policy" content="camera=(self)">
+    <title>Absensi Massal - AZRA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/live.css">
+</head>
+
+<body class="live-kiosk-body">
+    <main class="cam-live-shell multi-live-shell">
+        <header class="live-kiosk-header">
+            <div class="live-brand">
+                <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
+                <div class="live-brand-name"><strong>AZRA</strong><small>v.0.9</small></div>
+            </div>
+            <a class="live-back-link" href="/live.html"><i data-icon="arrow-left"
+                    aria-hidden="true"></i><span>Kembali</span></a>
+        </header>
+        <section class="live-panel cam-live-panel multi-live-panel" data-multi-live-root>
+            <div class="cam-live-header multi-live-header">
+                <div>
+                    <div class="live-kicker cam-live-kicker"><span class="live-pulse"></span><span
+                            id="multi-live-title">Absensi Massal</span></div>
+                    <p class="cam-live-description" id="multi-live-description">Posisikan 1–5 karyawan dalam satu frame.
+                        Pemindaian otomatis dengan hitung mundur.</p>
+                </div>
+            </div>
+            <div class="cam-live-workspace multi-live-workspace">
+                <div class="live-camera-frame multi-live-camera-frame" id="multi-live-camera-frame">
+                    <video id="multi-live-video" autoplay muted playsinline aria-label="Pratinjau kamera"></video>
+                    <div class="multi-face-overlay" id="multi-face-overlay" aria-hidden="true"></div>
+                    <div class="multi-countdown" id="multi-countdown" role="timer" aria-hidden="true"></div>
+                    <canvas id="multi-live-canvas" hidden></canvas>
+                </div>
+                <div class="live-actions cam-live-actions multi-live-actions">
+                    <div class="live-status" id="multi-live-status" role="status" aria-live="polite">Menyiapkan
+                        kamera…</div>
+                    <button class="live-camera-start" id="multi-live-retry" type="button"><i data-icon="rotate-cw"
+                            aria-hidden="true"></i> <span id="multi-live-retry-label">Mulai Scan</span></button>
+                    <p class="live-privacy"><i data-icon="gsi-vision" aria-hidden="true"></i> Powered by GSI Vision AI.
+                    </p>
+                </div>
+            </div>
+        </section>
+        <footer class="live-kiosk-footer">Copyright © 2026 - GSI Corp</footer>
+    </main>
+
+    <dialog class="live-dialog multi-dialog" id="multi-dialog"
+        aria-labelledby="multi-dialog-title" aria-describedby="multi-dialog-note">
+        <div class="multi-dialog-card">
+            <h2 class="live-dialog-title" id="multi-dialog-title">Konfirmasi Absensi Massal</h2>
+            <p class="multi-dialog-note" id="multi-dialog-note">Pilih aksi yang berlaku untuk semua karyawan di bawah.
+                Hapus (×) bila ada yang tidak ikut.</p>
+            <ul class="multi-list" id="multi-list" aria-live="polite"></ul>
+            <div class="multi-dialog-results" id="multi-dialog-results" hidden></div>
+            <div class="live-dialog-actions multi-dialog-actions">
+                <button class="live-btn live-btn-ghost" type="button" id="multi-cancel">Cancel</button>
+                <button class="live-btn multi-btn-in" type="button" id="multi-submit-in"
+                    disabled><i data-icon="log-in" aria-hidden="true"></i><span>Masuk</span></button>
+                <button class="live-btn multi-btn-out" type="button" id="multi-submit-out"
+                    disabled><i data-icon="log-out" aria-hidden="true"></i><span>Pulang</span></button>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="js/icon.js"></script>
+    <script type="module">
+        import { initMultiLivePage } from './js/multi-live.js';
+        initMultiLivePage();
+    </script>
+</body>
+
+</html>

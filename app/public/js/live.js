@@ -120,7 +120,12 @@ export async function initLivePage() {
             window.location.assign(`/cam_live.html?type=${type}`)
         })
     })
-    setStatus('Pilih Masuk atau Pulang untuk melanjutkan.', 'neutral')
+    document.querySelectorAll('[data-live-multi]').forEach((button) => {
+        button.addEventListener('click', () => {
+            window.location.assign('/multi_live.html')
+        })
+    })
+    setStatus('Pilih Masuk, Pulang, atau Absensi Massal untuk melanjutkan.', 'neutral')
 }
 
 function camSetStatus(message, tone = 'neutral') {

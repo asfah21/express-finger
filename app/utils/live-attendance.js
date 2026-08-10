@@ -67,3 +67,33 @@ export function evaluateAttendance({ latestRow, fid, type, nowMs }) {
 
     return { ok: true }
 }
+
+// Maximum number of employees a single multi-attendance batch may record. The
+// kiosk caps the popup list at this count (best-scoring faces only).
+export const MAX_MULTI_BATCH = 5
+
+/**
+ * Evaluate a batch of attendance attempts (multi-attendance kiosk).
+ *
+ * Each item is validated independently with exactly the same rules as a single
+ * scan, so one duplicate never blocks the rest of the batch. The result is
+ * ordered to match `items`, making it easy for the caller to attach metadata.
+ *
+ * @param {object} args
+ * @param {Array<{ fid: string|number, type: number }>} args.items
+ * @param {Map<string, { user_id: number|string, type: number|string, timestamp: string|Date }>} [args.latestByFid]
+ * @param {number} args.nowMs - WITA wall-clock now in ms
+ * @returns {Array<{ fid: string, type: number, ok: boolean, code?: string, message?: string }>}
+ */
+export function evaluateAttendanceBatch({ items, latestByFid, nowMs }) {
+    return items.map(({ fid, type }) => {
+        const key = String(fid)
+        const decision = evaluateAttendance({
+            latestRow: (latestByFid && latestByFid.get(key)) || null,
+            fid: key,
+            type,
+            nowMs
+        })
+        return { fid: key, type, ...decision }
+    })
+}

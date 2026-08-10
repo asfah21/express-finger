@@ -120,7 +120,7 @@
 
 .live-choice-buttons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-width: 680px;
+    max-width: 900px;
     margin: 28px auto 0;
 }
 
@@ -139,6 +139,16 @@
 
 .live-choice-buttons .live-action small {
     font-size: .88rem;
+}
+
+/* Absensi Massal membentang penuh di baris kedua (2 kolom). */
+.live-choice-buttons .live-action-multi {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 128px;
 }
 
 .cam-live-panel {
@@ -661,11 +671,6 @@
         margin-top: 14px;
     }
 
-    .live-choice-buttons,
-    .cam-live-workspace {
-        grid-template-columns: 1fr;
-    }
-
     .cam-live-header {
         flex-direction: column;
         align-items: center;
@@ -791,7 +796,20 @@
     }
 
     .live-choice-buttons .live-action {
-        min-height: 136px;
+        min-height: 132px;
+    }
+
+    .live-choice-buttons .live-action strong {
+        font-size: 1.22rem;
+    }
+
+    .live-choice-buttons .live-action small {
+        font-size: .8rem;
+    }
+
+    .live-choice-buttons .live-action-multi {
+        min-height: 104px;
+        gap: 14px;
     }
 
     .live-brand small {
@@ -1188,5 +1206,302 @@
     .live-btn-danger.is-holding .live-btn-fill {
         animation: none;
         width: 100%;
+    }
+}
+
+/* ─── Multi Attendance (/multi_live.html) ────────────────────────────────────
+   Mengikuti gaya cam_live, dengan kamera diperbesar (16:9 penuh), tanpa kotak
+   panduan tengah, plus overlay kotak hijau per wajah + countdown + popup. */
+
+.live-action-multi {
+    background: color-mix(in srgb, var(--live-blue) 18%, transparent);
+    border-color: color-mix(in srgb, var(--live-blue) 48%, transparent);
+}
+
+.live-action-multi i {
+    color: #eaf4ff;
+    background: var(--live-blue);
+}
+
+.multi-live-panel {
+    max-width: 1180px;
+}
+
+.multi-live-workspace {
+    grid-template-columns: 1fr;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Kamera diperbesar: full width, 16:9, tanpa .live-face-guide. */
+.multi-live-camera-frame {
+    width: 100%;
+    max-width: none;
+    aspect-ratio: 16 / 9;
+}
+
+.multi-live-actions {
+    width: 100%;
+    max-width: 620px;
+    margin: 0 auto;
+}
+
+/* Overlay kotak hijau per wajah terdeteksi (maks 5). */
+.multi-face-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.multi-face-box {
+    position: absolute;
+    border: 2px solid var(--live-accent);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* Countdown besar di tengah kamera. */
+.multi-countdown {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: clamp(5rem, 14vw, 9rem);
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 24px rgba(0, 0, 0, .55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s ease;
+}
+
+.multi-countdown.is-visible {
+    opacity: 1;
+}
+
+/* Popup konfirmasi batch. */
+.multi-dialog {
+    width: min(100% - 32px, 520px);
+}
+
+.multi-dialog-card {
+    padding: 24px 24px 22px;
+    text-align: left;
+}
+
+.multi-dialog-card .live-dialog-title {
+    text-align: center;
+}
+
+.multi-dialog-note {
+    margin: 0 0 16px;
+    color: var(--live-muted);
+    font-size: .9rem;
+    line-height: 1.45;
+}
+
+.multi-list {
+    display: grid;
+    gap: 8px;
+    max-height: min(46vh, 320px);
+    margin: 0 0 18px;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.multi-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--live-line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .035);
+}
+
+.multi-list-meta {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.multi-list-meta strong {
+    color: var(--live-ink);
+    font-size: .98rem;
+    overflow-wrap: anywhere;
+}
+
+.multi-list-meta small {
+    color: var(--live-muted);
+    font-size: .78rem;
+    overflow-wrap: anywhere;
+}
+
+.multi-list-remove {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--live-line);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--live-muted);
+    font: inherit;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color .18s ease-out, border-color .18s ease-out, background-color .18s ease-out;
+}
+
+.multi-list-remove:hover,
+.multi-list-remove:focus-visible {
+    color: var(--live-error);
+    border-color: color-mix(in srgb, var(--live-error) 55%, transparent);
+    background: rgba(248, 113, 113, .1);
+}
+
+/* Hasil per orang setelah submit. */
+.multi-dialog-results {
+    margin-bottom: 18px;
+}
+
+.multi-results-list {
+    display: grid;
+    gap: 8px;
+    max-height: min(46vh, 320px);
+    margin: 0 0 18px;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.multi-results-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--live-line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .035);
+}
+
+.multi-results-status {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-weight: 800;
+}
+
+.multi-results-item.is-ok .multi-results-status {
+    color: var(--live-accent-ink);
+    background: var(--live-accent);
+}
+
+.multi-results-item.is-fail .multi-results-status {
+    color: #382702;
+    background: var(--live-warning);
+}
+
+/* Tombol aksi batch (Masuk / Pulang). */
+.multi-dialog-actions .multi-btn-in,
+.multi-dialog-actions .multi-btn-out {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 0 18px;
+    border-radius: var(--live-radius-control);
+    font: inherit;
+    font-size: .95rem;
+    font-weight: 800;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color .18s ease-out, transform .18s ease-out;
+}
+
+.multi-btn-in {
+    border: 1px solid color-mix(in srgb, var(--live-accent) 60%, transparent);
+    background: var(--live-accent);
+    color: var(--live-accent-ink);
+}
+
+.multi-btn-in:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--live-accent) 82%, transparent);
+}
+
+.multi-btn-out {
+    border: 1px solid rgba(246, 201, 75, .6);
+    background: #f6c94b;
+    color: #382702;
+}
+
+.multi-btn-out:hover:not(:disabled) {
+    background: #f4c02f;
+}
+
+.multi-btn-in:disabled,
+.multi-btn-out:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+.multi-btn-in:focus-visible,
+.multi-btn-out:focus-visible {
+    outline: 2px solid var(--live-accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+    .multi-live-workspace {
+        margin-top: 14px;
+    }
+
+    .multi-live-camera-frame {
+        aspect-ratio: 4 / 3;
+    }
+}
+
+/* Landscape tablet (cam_live mengisi tinggi) — pertahankan tata letak multi
+   satu kolom dan kamera 16:9. */
+@media (min-width: 761px) and (orientation: landscape) and (max-height: 900px) {
+    .multi-live-workspace {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .multi-live-camera-frame {
+        width: 100%;
+        max-width: 720px;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        margin: 0 auto;
+    }
+
+    .multi-live-actions {
+        max-width: 520px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .multi-countdown {
+        transition: none;
+    }
+
+    .multi-list-remove,
+    .multi-btn-in,
+    .multi-btn-out {
+        transition: none;
     }
 }

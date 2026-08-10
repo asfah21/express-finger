@@ -1,7 +1,7 @@
 // Uses vitest globals (globals: true in vitest.config.js) — the same convention
 // as the other passing test in this repo. Importing from 'vitest' currently
 // fails in this environment, so rely on the injected globals instead.
-import { evaluateAttendance, isDuplicate, SESSION_WINDOW_HOURS, DUPLICATE_WINDOW_MS } from '../utils/live-attendance.js'
+import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, DUPLICATE_WINDOW_MS, MAX_MULTI_BATCH } from '../utils/live-attendance.js'
 
 // All helpers use the WITA wall-clock convention: `nowMs` and row timestamps
 // must be on the same clock. We use a fixed "now" and build rows relative to it.
@@ -71,5 +71,50 @@ describe('evaluateAttendance', () => {
         const decision = evaluateAttendance({ latestRow: row('12', 1, 30), fid: '12', type: 1, nowMs: NOW_MS })
         expect(decision.ok).toBe(false)
         expect(decision.code).toBe('DUPLICATE')
+    })
+})
+
+describe('evaluateAttendanceBatch', () => {
+    // '12' scanned Masuk 30s ago (duplicate for type 0), '13' scanned 2h ago.
+    const latestByFid = new Map([
+        ['12', row('12', 0, 30)],
+        ['13', row('13', 0, 7200)]
+    ])
+
+    it('accepts every employee when none are duplicates', () => {
+        const items = [{ fid: '20', type: 0 }, { fid: '21', type: 1 }]
+        const decisions = evaluateAttendanceBatch({ items, latestByFid: new Map(), nowMs: NOW_MS })
+        expect(decisions).toEqual([
+            { fid: '20', type: 0, ok: true },
+            { fid: '21', type: 1, ok: true }
+        ])
+    })
+
+    it('rejects only the duplicate employee and keeps the others accepted', () => {
+        const items = [{ fid: '12', type: 0 }, { fid: '13', type: 0 }]
+        const decisions = evaluateAttendanceBatch({ items, latestByFid, nowMs: NOW_MS })
+        expect(decisions[0]).toMatchObject({ fid: '12', type: 0, ok: false, code: 'DUPLICATE' })
+        expect(decisions[1]).toMatchObject({ fid: '13', type: 0, ok: true })
+    })
+
+    it('accepts a different type for the same employee within the duplicate window', () => {
+        const decisions = evaluateAttendanceBatch({ items: [{ fid: '12', type: 1 }], latestByFid, nowMs: NOW_MS })
+        expect(decisions[0]).toMatchObject({ fid: '12', type: 1, ok: true })
+    })
+
+    it('stringifies fid keys consistently so numeric fids match the lookup map', () => {
+        const decisions = evaluateAttendanceBatch({ items: [{ fid: 12, type: 0 }], latestByFid, nowMs: NOW_MS })
+        expect(decisions[0].fid).toBe('12')
+        expect(decisions[0].ok).toBe(false)
+    })
+
+    it('preserves item order in the returned decisions', () => {
+        const items = [{ fid: '30', type: 0 }, { fid: '31', type: 1 }, { fid: '32', type: 0 }]
+        const decisions = evaluateAttendanceBatch({ items, latestByFid: new Map(), nowMs: NOW_MS })
+        expect(decisions.map((decision) => decision.fid)).toEqual(['30', '31', '32'])
+    })
+
+    it('exports a batch cap of 5 employees', () => {
+        expect(MAX_MULTI_BATCH).toBe(5)
     })
 })

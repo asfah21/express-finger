@@ -2,7 +2,7 @@ import { pool } from '../utils/database.js'
 import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
-import { evaluateAttendance, SESSION_WINDOW_HOURS } from '../utils/live-attendance.js'
+import { evaluateAttendance, evaluateAttendanceBatch, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH } from '../utils/live-attendance.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 // Rows are stored as UTC values that represent the app's WITA wall-clock time
@@ -47,10 +47,10 @@ function normalizeImage(image) {
     return null
 }
 
-async function recognize(image) {
+async function recognize(image, endpoint = 'recognize') {
     let response
     try {
-        response = await fetch(`${config.FACE_SERVICE_URL}/recognize`, {
+        response = await fetch(`${config.FACE_SERVICE_URL}/${endpoint}`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...(config.FACE_SERVICE_TOKEN ? { 'x-face-service-token': config.FACE_SERVICE_TOKEN } : {}) },
             body: JSON.stringify({ image }),
@@ -148,6 +148,154 @@ export const liveController = {
             console.error('Live attendance error:', err)
             const unavailable = /Face service|fetch failed|ECONNREFUSED|aborted|timed out/i.test(err.message)
             return sendLiveError(res, 503, 'FACE_SERVICE_UNAVAILABLE', unavailable ? 'Layanan pengenalan wajah tidak tersedia' : 'Gagal menyimpan absensi')
+        }
+    },
+
+    // Multi-attendance: recognise every face in one frame so the kiosk can build
+    // the confirmation list. Returns top-scoring matches (capped at the batch
+    // limit) with employee metadata attached, so the popup needs no extra trip.
+    async recognizeMulti(req, res) {
+        const image = normalizeImage(req.body?.image)
+        if (!image) return sendLiveError(res, 400, 'INVALID_IMAGE', 'A valid camera image is required')
+
+        try {
+            // 0. Readiness — never fire recognition against a model that is not
+            //    loaded yet. The kiosk auto-retries this 503 once models are up.
+            if (!(await faceServiceReady())) {
+                return sendLiveError(res, 503, 'FACE_MODEL_NOT_READY', 'Layanan AI GSI-Vision sedang dimuat. Silakan coba lagi sebentar.')
+            }
+
+            // 1. Multi recognition — face service returns every match above the
+            //    similarity threshold, best score first.
+            const recognized = await recognize(image, 'recognize_multi')
+            if (!recognized.matched || !Array.isArray(recognized.faces)) {
+                // Unknown faces are silently ignored by design: the kiosk just
+                // restarts the scan when a frame yields no recognised employees.
+                return sendLiveError(res, 404, 'FACE_NOT_MATCHED', faceNotFoundMessage(recognized), { reason: recognized.reason || 'unknown' })
+            }
+
+            // 2. Dedupe (a frame should never map two faces to the same fid)
+            //    and cap the list at the batch limit.
+            const seen = new Set()
+            const fids = []
+            for (const face of recognized.faces) {
+                const fid = String(face.fid)
+                if (seen.has(fid)) continue
+                seen.add(fid)
+                fids.push(fid)
+                if (fids.length >= MAX_MULTI_BATCH) break
+            }
+
+            // 3. Attach employee metadata so the kiosk popup is a single round-trip.
+            const employee = await pool.query(
+                'SELECT user_id, nama, jabatan FROM employee WHERE user_id = ANY($1)',
+                [fids]
+            )
+            const employeeByFid = new Map(employee.rows.map((row) => [String(row.user_id), row]))
+            const scoreByFid = new Map(recognized.faces.map((face) => [String(face.fid), face.score]))
+            const faces = fids.map((fid) => {
+                const row = employeeByFid.get(fid)
+                return {
+                    fid,
+                    score: scoreByFid.get(fid) ?? null,
+                    nama: row?.nama || `FID ${fid}`,
+                    jabatan: row?.jabatan || null
+                }
+            })
+
+            return sendSuccess(res, { faces })
+        } catch (error) {
+            console.error('Multi recognize error:', error)
+            const unavailable = /Face service|fetch failed|ECONNREFUSED|aborted|timed out/i.test(error.message)
+            return sendLiveError(res, 503, 'FACE_SERVICE_UNAVAILABLE', unavailable ? 'Layanan pengenalan wajah tidak tersedia' : 'Gagal mengenali wajah')
+        }
+    },
+
+    // Multi-attendance: record one attendance type for a whole batch of employees
+    // in a single transaction. Duplicates are validated per person and reported
+    // per person — one duplicate never rolls back the others.
+    async multiAttendance(req, res) {
+        const type = Number(req.body?.type)
+        const rawFids = req.body?.fids
+        const fids = Array.isArray(rawFids)
+            ? [...new Set(rawFids.map((fid) => String(fid).trim()).filter(Boolean))]
+            : []
+        if (![0, 1].includes(type)) return sendLiveError(res, 400, 'INVALID_TYPE', 'Attendance type must be 0 (Masuk) or 1 (Pulang)')
+        if (fids.length === 0) return sendLiveError(res, 400, 'INVALID_FIDS', 'At least one recognized employee id is required')
+        if (fids.length > MAX_MULTI_BATCH) return sendLiveError(res, 400, 'TOO_MANY_FACES', `Maksimal ${MAX_MULTI_BATCH} karyawan per batch`)
+
+        try {
+            // 1. Latest attendance row per fid in a single query (deduped).
+            const { rows } = await pool.query(
+                `SELECT DISTINCT ON (user_id) user_id, type, "timestamp"
+                 FROM attendance_logs
+                 WHERE user_id = ANY($1)
+                   AND "timestamp" >= (now() + interval '8 hours') - interval '1 hour' * $2
+                 ORDER BY user_id, "timestamp" DESC`,
+                [fids, SESSION_WINDOW_HOURS]
+            )
+            const latestByFid = new Map(rows.map((row) => [String(row.user_id), row]))
+
+            // 2. Per-person duplicate validation — same rule as a single scan.
+            const decisions = evaluateAttendanceBatch({
+                items: fids.map((fid) => ({ fid, type })),
+                latestByFid,
+                nowMs: Date.now() + WITA_OFFSET_MS
+            })
+
+            const results = decisions.map((decision) => ({
+                fid: decision.fid,
+                ok: decision.ok,
+                code: decision.ok ? 'OK' : decision.code,
+                message: decision.ok ? null : decision.message
+            }))
+            const accepted = decisions.filter((decision) => decision.ok)
+
+            // 3. Persist accepted employees in one transaction.
+            if (accepted.length > 0) {
+                const employee = await pool.query(
+                    'SELECT user_id, nama, jabatan FROM employee WHERE user_id = ANY($1)',
+                    [accepted.map((decision) => decision.fid)]
+                )
+                const employeeByFid = new Map(employee.rows.map((row) => [String(row.user_id), row]))
+
+                const client = await pool.connect()
+                try {
+                    await client.query('BEGIN')
+                    for (const decision of accepted) {
+                        const inserted = await client.query(
+                            `INSERT INTO attendance_logs (user_id, "timestamp", type, device_sn)
+                             VALUES ($1, now() + interval '8 hours', $2, $3) RETURNING id, user_id, "timestamp", type`,
+                            [decision.fid, type, 'LIVE-CAM-MULTI']
+                        )
+                        const row = employeeByFid.get(decision.fid)
+                        const name = row?.nama || `FID ${decision.fid}`
+                        await recordActivity({
+                            username: name,
+                            action: 'attendance',
+                            category: 'attendance',
+                            detail: `Absensi ${type === 0 ? 'Masuk' : 'Pulang'} massal melalui kamera (User ID: ${decision.fid}, device: LIVE-CAM-MULTI)`,
+                            ip: req.ip,
+                            status: 'success'
+                        })
+                        const result = results.find((item) => item.fid === decision.fid)
+                        if (result) {
+                            result.record = { ...inserted.rows[0], fid: decision.fid, nama: name, jabatan: row?.jabatan || null }
+                        }
+                    }
+                    await client.query('COMMIT')
+                } catch (error) {
+                    await client.query('ROLLBACK')
+                    throw error
+                } finally {
+                    client.release()
+                }
+            }
+
+            return sendSuccess(res, { type, results }, 'Absensi massal diproses')
+        } catch (error) {
+            console.error('Multi live attendance error:', error)
+            return sendLiveError(res, 503, 'MULTI_ATTENDANCE_FAILED', 'Gagal memproses absensi massal')
         }
     },
 
