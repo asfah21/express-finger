@@ -19,6 +19,7 @@
             </div>
             <div class="live-header-actions">
                 <button class="live-menu-btn" type="button" id="live-menu-btn"
+                    popovertarget="live-menu"
                     aria-haspopup="menu" aria-controls="live-menu" aria-expanded="false"
                     aria-label="Menu"><i data-icon="menu" aria-hidden="true"></i></button>
             </div>
@@ -76,15 +77,16 @@
             <div class="live-dialog-icon live-info-dialog-icon" aria-hidden="true"><i
                     data-icon="info"></i></div>
             <h2 class="live-dialog-title" id="live-info-title">Tentang AZRA</h2>
-            <p class="live-dialog-text" id="live-info-desc">Sistem absensi kehadiran berbasis
-                pengenalan wajah untuk kiosk bersama.</p>
+            <p class="live-dialog-text" id="live-info-desc">
+                Sistem absensi berbasis Face ID dengan teknologi AI GSI-VISION untuk verifikasi wajah cepat & akurat, bahkan saat menggunakan masker atau kacamata.
+            </p>
             <dl class="live-info-list">
                 <div class="live-info-row"><dt>Versi</dt><dd>v.0.9</dd></div>
-                <div class="live-info-row"><dt>Mode</dt><dd>Live Kiosk</dd></div>
-                <div class="live-info-row"><dt>Hak cipta</dt><dd>© 2026 GSI Corp</dd></div>
+                <div class="live-info-row"><dt>Dibuat</dt><dd class="live-info-accent">Azvan IT</dd></div>
+                <div class="live-info-row"><dt>Copyright</dt><dd>© 2026 GSI Corp</dd></div>
             </dl>
             <div class="live-dialog-actions">
-                <button class="live-btn live-btn-ghost" type="button"
+                <button class="live-btn live-btn-blue" type="button"
                     data-live-info-close>Tutup</button>
             </div>
         </div>
@@ -134,18 +136,13 @@
             liveMenu.style.left = left + 'px';
         };
 
-        menuBtn?.addEventListener('click', () => {
-            if (!liveMenu) return;
-            if (liveMenu.matches(':popover-open')) {
-                liveMenu.hidePopover();
-            } else {
-                liveMenu.showPopover();
-                positionMenu();
-            }
-        });
-
+        // Toggle menu kini ditangani native browser lewat atribut popovertarget
+        // pada tombol hamburger, sehingga klik kedua menutup popover (tanpa
+        // bentrok dengan light dismiss). Di sini cukup posisikan ulang menu tiap
+        // kali popover terbuka.
         liveMenu?.addEventListener('toggle', (event) => {
             menuBtn?.setAttribute('aria-expanded', String(event.newState === 'open'));
+            if (event.newState === 'open') positionMenu();
         });
 
         // Item "Info Aplikasi" membuka dialog Info dan menutup menu.

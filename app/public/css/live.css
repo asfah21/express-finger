@@ -1276,6 +1276,17 @@
     background: rgba(255, 255, 255, .06);
 }
 
+.live-btn-blue {
+    border: 1px solid transparent;
+    background: var(--live-blue);
+    color: #fff;
+    transition: background-color .18s ease-out;
+}
+
+.live-btn-blue:hover {
+    background: var(--live-focus);
+}
+
 .live-btn-danger {
     position: relative;
     overflow: hidden;
@@ -1293,7 +1304,8 @@
 }
 
 .live-btn-ghost:focus-visible,
-.live-btn-danger:focus-visible {
+.live-btn-danger:focus-visible,
+.live-btn-blue:focus-visible {
     outline: 2px solid var(--live-accent);
     outline-offset: 2px;
 }
@@ -1371,6 +1383,10 @@
     font-weight: 700;
     text-align: right;
     white-space: nowrap;
+}
+
+.live-info-accent {
+    color: var(--live-blue);
 }
 
 @keyframes live-dialog-in {
