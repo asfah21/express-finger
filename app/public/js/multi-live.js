@@ -31,19 +31,21 @@ const state = {
     // Idle / popup state
     idleTimer: null,
     popupIdleTimer: null,
-    navigating: false
+    navigating: false,
+    autoScanCount: 0 // consecutive auto-capture attempts with no recognised batch
 }
 
 const $ = (id) => document.getElementById(id)
 
 // ─── Timing / budget ─────────────────────────────────────────────────────────
 const DETECTION_INTERVAL_MS = 100 // analysis cadence (~10 fps, CPU friendly)
-const COUNTDOWN_SECONDS = 5 // auto-capture countdown shown in the camera centre
+const COUNTDOWN_SECONDS = 3 // auto-capture countdown shown in the camera centre
 const MAX_FACES = 5 // batch cap — also the max green boxes drawn
 const REQUEST_TIMEOUT_MS = 15000 // client-side fetch timeout
 const IDLE_TIMEOUT_MS = 90000 // kiosk: auto-return to /live.html when idle
 const POPUP_IDLE_MS = 60000 // abandoned confirmation popup auto-cancels
 const RESULT_DELAY_MS = 3000 // show batch results before returning to scan
+const MAX_AUTO_SCANS = 2 // consecutive auto-captures before a manual "Scan Ulang" is required
 
 function setStatus(message, tone = 'neutral') {
     const status = $('multi-live-status')
@@ -379,6 +381,24 @@ function rearmScan() {
     if (state.stream) scheduleNext()
 }
 
+// Limit consecutive auto-capture attempts: after MAX_AUTO_SCANS captures with no
+// recognised batch, stop the detection loop and require a manual "Scan Ulang".
+function noMatchRescan() {
+    state.autoScanCount += 1
+    if (state.autoScanCount >= MAX_AUTO_SCANS) {
+        stopDetection()
+        stopCountdown()
+        drawFaceBoxes([])
+        setScanLabel(true)
+        setStatus('Batas pemindaian otomatis tercapai. Tekan tombol Scan Ulang untuk memindai kembali.', 'warning')
+        armIdleRedirect()
+        $('multi-live-retry')?.focus()
+        return
+    }
+    setStatus('Tidak ada wajah dikenali, memindai ulang…', 'warning')
+    rearmScan()
+}
+
 // ─── Idle auto-return to kiosk home ──────────────────────────────────────────
 function camReturnToKiosk() {
     if (state.navigating) return
@@ -440,21 +460,19 @@ async function captureAndRecognize() {
         state.busy = false
         state.locked = false
         setBusy(false)
-        if (data.status === 'ok') {
+        if (data.status === 'success') {
             const faces = (data.data && data.data.faces) || []
             if (faces.length === 0) {
                 // No recognised employees in this frame — silently ignore the
                 // unknown faces and start a fresh scan, per the design decision.
-                setStatus('Tidak ada wajah dikenali, memindai ulang…', 'warning')
-                rearmScan()
+                noMatchRescan()
                 return
             }
             openPopup(faces)
             return
         }
         // FACE_NOT_MATCHED (unknown / below threshold) → silently rescan.
-        setStatus('Tidak ada wajah dikenali, memindai ulang…', 'warning')
-        rearmScan()
+        noMatchRescan()
     } catch (error) {
         console.error('Multi recognize request failed:', error)
         state.busy = false
@@ -470,6 +488,7 @@ async function captureAndRecognize() {
 // ─── Confirmation popup ──────────────────────────────────────────────────────
 function openPopup(faces) {
     state.pendingFaces = faces
+    state.autoScanCount = 0
     $('multi-list').hidden = false
     renderPopupList()
     const results = $('multi-dialog-results')
@@ -595,7 +614,7 @@ async function submitBatch(type) {
     try {
         const data = await postJSON('/api/live/multi-attendance', { type, fids })
         state.busy = false
-        const results = (data.status === 'ok' && Array.isArray(data.data?.results)) ? data.data.results : []
+        const results = (data.status === 'success' && Array.isArray(data.data?.results)) ? data.data.results : []
         const nameByFid = new Map(state.pendingFaces.map((face) => [String(face.fid), face.nama || `FID ${face.fid}`]))
         const decorated = results.map((result) => ({
             ...result,
@@ -653,6 +672,7 @@ export async function initMultiLivePage() {
 
     $('multi-live-retry')?.addEventListener('click', async () => {
         if (state.busy) return
+        state.autoScanCount = 0
         if (!state.stream) {
             if (!(await startCam())) return
             setStatus('Kamera siap. Posisikan 1–5 karyawan dalam satu frame.', 'ready')

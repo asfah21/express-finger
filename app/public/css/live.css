@@ -902,6 +902,76 @@
     }
 }
 
+/* ─── live.html (panel pilihan type) dalam lanskap tablet ──────────────────
+   Di lanskap (Tab A9: 1340×800) batasan utamanya adalah tinggi layar, bukan
+   lebar. Media query ini merampingkan elemen vertikal pada halaman pemilihan
+   type absensi — mempertahankan layout tombol 2 baris — sehingga seluruh
+   panel muat di satu layar tanpa scroll, mengikuti pola cam_live di bawah. */
+@media (min-width: 761px) and (orientation: landscape) and (max-height: 900px) {
+    .live-kiosk-shell {
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+    }
+
+    .live-kiosk-header {
+        padding: 12px 0;
+    }
+
+    .live-choice-panel {
+        padding-top: 18px;
+        padding-bottom: 18px;
+    }
+
+    .live-kicker {
+        font-size: .68rem;
+    }
+
+    .live-main-clock {
+        margin-top: 12px;
+        margin-bottom: 6px;
+        font-size: clamp(3.5rem, 8vw, 5rem);
+    }
+
+    .live-kiosk-heading h1 {
+        margin: 12px 0 6px;
+        font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+    }
+
+    .live-kiosk-heading p {
+        font-size: .92rem;
+    }
+
+    .live-choice-buttons {
+        margin-top: 16px;
+        gap: 12px;
+    }
+
+    .live-choice-buttons .live-action {
+        min-height: 108px;
+        padding: 16px;
+    }
+
+    .live-choice-buttons .live-action strong {
+        font-size: 1.25rem;
+    }
+
+    .live-choice-buttons .live-action small {
+        font-size: .8rem;
+    }
+
+    /* Absensi Massal tetap membentang penuh di baris kedua, sedikit lebih pendek. */
+    .live-choice-buttons .live-action-multi {
+        min-height: 96px;
+        gap: 12px;
+    }
+
+    .live-kiosk-footer {
+        padding: 10px 0;
+        font-size: .8rem;
+    }
+}
+
 @media (min-width: 761px) and (max-width: 1100px) {
     .live-kiosk-shell {
         width: min(100% - 28px, 920px);
@@ -1210,8 +1280,9 @@
 }
 
 /* ─── Multi Attendance (/multi_live.html) ────────────────────────────────────
-   Mengikuti gaya cam_live, dengan kamera diperbesar (16:9 penuh), tanpa kotak
-   panduan tengah, plus overlay kotak hijau per wajah + countdown + popup. */
+   Mengikuti tata letak cam_live (shell, workspace 2-kolom, kamera 4:3), tanpa
+   kotak panduan tengah, plus overlay kotak hijau per wajah + countdown +
+   popup konfirmasi. */
 
 .live-action-multi {
     background: color-mix(in srgb, var(--live-blue) 18%, transparent);
@@ -1221,30 +1292,6 @@
 .live-action-multi i {
     color: #eaf4ff;
     background: var(--live-blue);
-}
-
-.multi-live-panel {
-    max-width: 1180px;
-}
-
-.multi-live-workspace {
-    grid-template-columns: 1fr;
-    max-width: 980px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-/* Kamera diperbesar: full width, 16:9, tanpa .live-face-guide. */
-.multi-live-camera-frame {
-    width: 100%;
-    max-width: none;
-    aspect-ratio: 16 / 9;
-}
-
-.multi-live-actions {
-    width: 100%;
-    max-width: 620px;
-    margin: 0 auto;
 }
 
 /* Overlay kotak hijau per wajah terdeteksi (maks 5). */
@@ -1461,37 +1508,6 @@
 .multi-btn-out:focus-visible {
     outline: 2px solid var(--live-accent);
     outline-offset: 2px;
-}
-
-@media (max-width: 760px) {
-    .multi-live-workspace {
-        margin-top: 14px;
-    }
-
-    .multi-live-camera-frame {
-        aspect-ratio: 4 / 3;
-    }
-}
-
-/* Landscape tablet (cam_live mengisi tinggi) — pertahankan tata letak multi
-   satu kolom dan kamera 16:9. */
-@media (min-width: 761px) and (orientation: landscape) and (max-height: 900px) {
-    .multi-live-workspace {
-        grid-template-columns: 1fr;
-        align-items: start;
-    }
-
-    .multi-live-camera-frame {
-        width: 100%;
-        max-width: 720px;
-        height: auto;
-        aspect-ratio: 16 / 9;
-        margin: 0 auto;
-    }
-
-    .multi-live-actions {
-        max-width: 520px;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

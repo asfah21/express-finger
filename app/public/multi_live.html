@@ -11,7 +11,7 @@
 </head>
 
 <body class="live-kiosk-body">
-    <main class="cam-live-shell multi-live-shell">
+    <main class="cam-live-shell">
         <header class="live-kiosk-header">
             <div class="live-brand">
                 <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
@@ -20,23 +20,22 @@
             <a class="live-back-link" href="/live.html"><i data-icon="arrow-left"
                     aria-hidden="true"></i><span>Kembali</span></a>
         </header>
-        <section class="live-panel cam-live-panel multi-live-panel" data-multi-live-root>
-            <div class="cam-live-header multi-live-header">
+        <section class="live-panel cam-live-panel" data-multi-live-root>
+            <div class="cam-live-header">
                 <div>
                     <div class="live-kicker cam-live-kicker"><span class="live-pulse"></span><span
                             id="multi-live-title">Absensi Massal</span></div>
-                    <p class="cam-live-description" id="multi-live-description">Posisikan 1–5 karyawan dalam satu frame.
-                        Pemindaian otomatis dengan hitung mundur.</p>
+                    <!-- <p class="cam-live-description" id="multi-live-description">Posisikan 1–5 karyawan dalam satu frame. Pemindaian otomatis dengan hitung mundur.</p> -->
                 </div>
             </div>
-            <div class="cam-live-workspace multi-live-workspace">
-                <div class="live-camera-frame multi-live-camera-frame" id="multi-live-camera-frame">
+            <div class="cam-live-workspace">
+                <div class="live-camera-frame" id="multi-live-camera-frame">
                     <video id="multi-live-video" autoplay muted playsinline aria-label="Pratinjau kamera"></video>
                     <div class="multi-face-overlay" id="multi-face-overlay" aria-hidden="true"></div>
                     <div class="multi-countdown" id="multi-countdown" role="timer" aria-hidden="true"></div>
                     <canvas id="multi-live-canvas" hidden></canvas>
                 </div>
-                <div class="live-actions cam-live-actions multi-live-actions">
+                <div class="live-actions cam-live-actions">
                     <div class="live-status" id="multi-live-status" role="status" aria-live="polite">Menyiapkan
                         kamera…</div>
                     <button class="live-camera-start" id="multi-live-retry" type="button"><i data-icon="rotate-cw"
