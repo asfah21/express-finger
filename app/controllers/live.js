@@ -2,7 +2,7 @@ import { pool } from '../utils/database.js'
 import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
-import { evaluateAttendance, evaluateAttendanceBatch, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH } from '../utils/live-attendance.js'
+import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH } from '../utils/live-attendance.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 // Rows are stored as UTC values that represent the app's WITA wall-clock time
@@ -193,13 +193,32 @@ export const liveController = {
             )
             const employeeByFid = new Map(employee.rows.map((row) => [String(row.user_id), row]))
             const scoreByFid = new Map(recognized.faces.map((face) => [String(face.fid), face.score]))
+
+            // 3b. Latest attendance per fid so the confirmation popup can warn
+            //     about duplicates before the operator submits. Both types are
+            //     evaluated because the action (Masuk/Pulang) is chosen in the
+            //     popup, after recognition.
+            const attendance = await pool.query(
+                `SELECT DISTINCT ON (user_id) user_id, type, "timestamp"
+                 FROM attendance_logs
+                 WHERE user_id = ANY($1)
+                   AND "timestamp" >= (now() + interval '8 hours') - interval '1 hour' * $2
+                 ORDER BY user_id, "timestamp" DESC`,
+                [fids, SESSION_WINDOW_HOURS]
+            )
+            const latestByFid = new Map(attendance.rows.map((row) => [String(row.user_id), row]))
+            const nowMs = Date.now() + WITA_OFFSET_MS
+
             const faces = fids.map((fid) => {
                 const row = employeeByFid.get(fid)
+                const latest = latestByFid.get(fid) || null
                 return {
                     fid,
                     score: scoreByFid.get(fid) ?? null,
                     nama: row?.nama || `FID ${fid}`,
-                    jabatan: row?.jabatan || null
+                    jabatan: row?.jabatan || null,
+                    duplicateIn: isDuplicate(latest, fid, 0, nowMs),
+                    duplicateOut: isDuplicate(latest, fid, 1, nowMs)
                 }
             })
 

@@ -509,6 +509,7 @@ function renderPopupList() {
     const note = $('multi-dialog-note')
     if (!list) return
     list.textContent = ''
+    let duplicateCount = 0
     state.pendingFaces.forEach((face, index) => {
         const li = document.createElement('li')
         li.className = 'multi-list-item'
@@ -520,6 +521,20 @@ function renderPopupList() {
         const detail = document.createElement('small')
         detail.textContent = `FID ${face.fid}${face.jabatan ? ` · ${face.jabatan}` : ''}`
         meta.append(name, detail)
+
+        // Warn about duplicates (same type within the last 5 minutes) so the
+        // operator knows which employees will be skipped before submitting.
+        const dupWarnings = []
+        if (face.duplicateIn) dupWarnings.push('sudah absen MASUK')
+        if (face.duplicateOut) dupWarnings.push('sudah absen PULANG')
+        if (dupWarnings.length > 0) {
+            duplicateCount += 1
+            li.classList.add('is-duplicate')
+            const warn = document.createElement('small')
+            warn.className = 'multi-list-dup'
+            warn.textContent = `⚠ Duplikat: ${dupWarnings.join(' & ')} (dalam 5 menit terakhir)`
+            meta.append(warn)
+        }
 
         const remove = document.createElement('button')
         remove.type = 'button'
@@ -538,7 +553,9 @@ function renderPopupList() {
     })
     if (note) {
         note.textContent = state.pendingFaces.length > 0
-            ? `Terdeteksi ${state.pendingFaces.length} karyawan. Tekan (X) untuk menghapus.`
+            ? duplicateCount > 0
+                ? `Terdeteksi ${state.pendingFaces.length} karyawan, ${duplicateCount} duplikat (sudah absen) dan tidak akan dicatat.`
+                : `Terdeteksi ${state.pendingFaces.length} karyawan. Tekan (X) untuk menghapus.`
             : 'Tidak ada karyawan yang dipilih. Tekan Cancel untuk kembali memindai.'
     }
     updateSubmitState()
