@@ -620,10 +620,8 @@ function handleSubmissionError(status, data) {
     if (status === 404) {
         camSetStatus(message || 'Wajah tidak dikenali. Pastikan wajah terang, terlihat penuh, dan berada di tengah, lalu tekan Scan Ulang.', 'error')
         playSound('error')
-    } else if (status === 409 && code === 'NO_OPEN_SESSION') {
-        camSetStatus(message || 'Belum ada absensi Masuk. Silakan lakukan absensi Masuk terlebih dahulu.', 'warning')
     } else if (status === 409) {
-        camSetStatus(message || 'Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 1 menit.', 'warning')
+        camSetStatus(message || 'Absensi yang sama baru saja tercatat. Silakan coba lagi setelah 5 menit.', 'warning')
     } else if (status >= 500) {
         camSetStatus(message || 'Layanan pengenalan wajah sedang tidak tersedia. Coba lagi sebentar.', 'error')
     } else {

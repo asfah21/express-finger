@@ -1,7 +1,7 @@
 // Uses vitest globals (globals: true in vitest.config.js) — the same convention
 // as the other passing test in this repo. Importing from 'vitest' currently
 // fails in this environment, so rely on the injected globals instead.
-import { evaluateAttendance, hasOpenSession, isDuplicate, SESSION_WINDOW_HOURS, DUPLICATE_WINDOW_MS } from '../utils/live-attendance.js'
+import { evaluateAttendance, isDuplicate, SESSION_WINDOW_HOURS, DUPLICATE_WINDOW_MS } from '../utils/live-attendance.js'
 
 // All helpers use the WITA wall-clock convention: `nowMs` and row timestamps
 // must be on the same clock. We use a fixed "now" and build rows relative to it.
@@ -12,24 +12,6 @@ const row = (user_id, type, secondsAgo) => ({
     user_id,
     type,
     timestamp: new Date(NOW_MS - secondsAgo * 1000).toISOString()
-})
-
-describe('hasOpenSession', () => {
-    it('returns false when there is no previous record', () => {
-        expect(hasOpenSession(null, NOW_MS)).toBe(false)
-    })
-
-    it('returns false when the latest record is a Pulang (type 1)', () => {
-        expect(hasOpenSession(row('12', 1, 60), NOW_MS)).toBe(false)
-    })
-
-    it('returns true when a Masuk (type 0) is still inside the session window', () => {
-        expect(hasOpenSession(row('12', 0, SESSION_WINDOW_HOURS * 3600 - 1), NOW_MS)).toBe(true)
-    })
-
-    it('returns false when the open Masuk is older than the session window', () => {
-        expect(hasOpenSession(row('12', 0, SESSION_WINDOW_HOURS * 3600), NOW_MS)).toBe(false)
-    })
 })
 
 describe('isDuplicate', () => {
@@ -59,19 +41,20 @@ describe('evaluateAttendance', () => {
         expect(evaluateAttendance({ latestRow: null, fid: '12', type: 0, nowMs: NOW_MS })).toEqual({ ok: true })
     })
 
-    it('rejects Pulang (type 1) with no open Masuk session', () => {
-        const decision = evaluateAttendance({ latestRow: null, fid: '12', type: 1, nowMs: NOW_MS })
-        expect(decision.ok).toBe(false)
-        expect(decision.code).toBe('NO_OPEN_SESSION')
+    it('accepts Pulang (type 1) with no previous record', () => {
+        expect(evaluateAttendance({ latestRow: null, fid: '12', type: 1, nowMs: NOW_MS })).toEqual({ ok: true })
     })
 
-    it('rejects Pulang after the previous record was also a Pulang', () => {
-        const decision = evaluateAttendance({ latestRow: row('12', 1, 3600), fid: '12', type: 1, nowMs: NOW_MS })
-        expect(decision.code).toBe('NO_OPEN_SESSION')
+    it('accepts Pulang even when the previous record was also a Pulang', () => {
+        expect(evaluateAttendance({ latestRow: row('12', 1, 3600), fid: '12', type: 1, nowMs: NOW_MS })).toEqual({ ok: true })
     })
 
     it('accepts Pulang when a Masuk session is open', () => {
         expect(evaluateAttendance({ latestRow: row('12', 0, 3600), fid: '12', type: 1, nowMs: NOW_MS })).toEqual({ ok: true })
+    })
+
+    it('accepts Pulang even when the open Masuk session has expired', () => {
+        expect(evaluateAttendance({ latestRow: row('12', 0, SESSION_WINDOW_HOURS * 3600 + 60), fid: '12', type: 1, nowMs: NOW_MS })).toEqual({ ok: true })
     })
 
     it('rejects a duplicate Masuk within the window', () => {
@@ -84,9 +67,9 @@ describe('evaluateAttendance', () => {
         expect(evaluateAttendance({ latestRow: row('12', 0, 30), fid: '12', type: 1, nowMs: NOW_MS })).toEqual({ ok: true })
     })
 
-    it('rejects Pulang when the open Masuk session has expired', () => {
-        const decision = evaluateAttendance({ latestRow: row('12', 0, SESSION_WINDOW_HOURS * 3600 + 60), fid: '12', type: 1, nowMs: NOW_MS })
+    it('rejects a duplicate Pulang within the window', () => {
+        const decision = evaluateAttendance({ latestRow: row('12', 1, 30), fid: '12', type: 1, nowMs: NOW_MS })
         expect(decision.ok).toBe(false)
-        expect(decision.code).toBe('NO_OPEN_SESSION')
+        expect(decision.code).toBe('DUPLICATE')
     })
 })

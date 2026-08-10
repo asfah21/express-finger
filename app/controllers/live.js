@@ -107,9 +107,10 @@ export const liveController = {
             }
             const fid = String(recognized.fid)
 
-            // 2. Attendance decision — the backend validates duplicate and
-            //    shift/type ordering before anything is saved. The latest record
-            //    within the session window is enough to drive both rules.
+            // 2. Attendance decision — the backend validates duplicates before
+            //    anything is saved. Ordering (Masuk → Pulang) is intentionally
+            //    not enforced here: a Pulang without a Masuk is still recorded
+            //    and later flagged as an anomaly by the reporting engine.
             const { rows } = await pool.query(
                 `SELECT user_id, type, "timestamp" FROM attendance_logs
                  WHERE user_id = $1
