@@ -5,8 +5,8 @@
 //      camera; at 0 the frame is captured and sent for multi-recognition.
 //   3. A confirmation popup lists the recognised employees (name, FID, position)
 //      with a remove (×) per row and a single global Masuk / Pulang / Cancel.
-//   4. Submit records the chosen type for the whole batch in one request, and
-//      the popup reports per-person success/duplicate results.
+//   4. Submit records the chosen type for the whole batch in one request, then
+//      returns straight to the kiosk home — no result screen.
 //
 // Camera state is deliberately self-contained here (mirrors /cam_live) so the
 // existing single-scan page is never at risk of regression.
@@ -44,7 +44,6 @@ const MAX_FACES = 5 // batch cap — also the max green boxes drawn
 const REQUEST_TIMEOUT_MS = 15000 // client-side fetch timeout
 const IDLE_TIMEOUT_MS = 90000 // kiosk: auto-return to /live.html when idle
 const POPUP_IDLE_MS = 60000 // abandoned confirmation popup auto-cancels
-const RESULT_DELAY_MS = 3000 // show batch results before returning to scan
 const MAX_AUTO_SCANS = 2 // consecutive auto-captures before a manual "Scan Ulang" is required
 
 function setStatus(message, tone = 'neutral') {
@@ -390,7 +389,7 @@ function noMatchRescan() {
         stopCountdown()
         drawFaceBoxes([])
         setScanLabel(true)
-        setStatus('Batas pemindaian otomatis tercapai. Tekan tombol Scan Ulang untuk memindai kembali.', 'warning')
+        setStatus('Tekan tombol Scan Ulang untuk memindai kembali.', 'warning')
         armIdleRedirect()
         $('multi-live-retry')?.focus()
         return
@@ -539,7 +538,7 @@ function renderPopupList() {
     })
     if (note) {
         note.textContent = state.pendingFaces.length > 0
-            ? `Pilih aksi yang berlaku untuk ${state.pendingFaces.length} karyawan di bawah. Hapus (×) bila ada yang tidak ikut.`
+            ? `Terdeteksi ${state.pendingFaces.length} karyawan. Tekan (X) untuk menghapus.`
             : 'Tidak ada karyawan yang dipilih. Tekan Cancel untuk kembali memindai.'
     }
     updateSubmitState()
@@ -553,55 +552,6 @@ function updateSubmitState() {
     if (outBtn) outBtn.disabled = !has
 }
 
-function showPopupResults(results) {
-    const resultsEl = $('multi-dialog-results')
-    const list = $('multi-list')
-    const note = $('multi-dialog-note')
-    if (!resultsEl) return
-    resultsEl.textContent = ''
-
-    const okCount = results.filter((result) => result.ok).length
-    if (note) {
-        note.textContent = okCount > 0
-            ? `${okCount} dari ${results.length} absensi berhasil dicatat.`
-            : 'Tidak ada absensi yang berhasil dicatat.'
-    }
-    if (list) list.hidden = true
-
-    const ul = document.createElement('ul')
-    ul.className = 'multi-results-list'
-    results.forEach((result) => {
-        const li = document.createElement('li')
-        li.className = `multi-results-item ${result.ok ? 'is-ok' : 'is-fail'}`
-        const status = document.createElement('span')
-        status.className = 'multi-results-status'
-        status.textContent = result.ok ? '✓' : '⚠'
-        const meta = document.createElement('div')
-        meta.className = 'multi-list-meta'
-        const name = document.createElement('strong')
-        name.textContent = result.nama || `FID ${result.fid}`
-        const detail = document.createElement('small')
-        detail.textContent = result.ok
-            ? `Absensi ${result.type === 0 ? 'masuk' : 'pulang'} tercatat`
-            : (result.message || 'Gagal diproses')
-        meta.append(name, detail)
-        li.append(status, meta)
-        ul.appendChild(li)
-    })
-    resultsEl.appendChild(ul)
-    resultsEl.hidden = false
-
-    const inBtn = $('multi-submit-in')
-    const outBtn = $('multi-submit-out')
-    if (inBtn) inBtn.disabled = true
-    if (outBtn) outBtn.disabled = true
-
-    // Let the operator read the per-person results, then return to scanning.
-    setTimeout(() => {
-        $('multi-dialog')?.close()
-    }, RESULT_DELAY_MS)
-}
-
 async function submitBatch(type) {
     if (state.pendingFaces.length === 0 || state.busy) return
     state.busy = true
@@ -612,16 +562,13 @@ async function submitBatch(type) {
 
     const fids = state.pendingFaces.map((face) => String(face.fid))
     try {
-        const data = await postJSON('/api/live/multi-attendance', { type, fids })
+        await postJSON('/api/live/multi-attendance', { type, fids })
         state.busy = false
-        const results = (data.status === 'success' && Array.isArray(data.data?.results)) ? data.data.results : []
-        const nameByFid = new Map(state.pendingFaces.map((face) => [String(face.fid), face.nama || `FID ${face.fid}`]))
-        const decorated = results.map((result) => ({
-            ...result,
-            type,
-            nama: nameByFid.get(String(result.fid)) || result.nama
-        }))
-        showPopupResults(decorated)
+        // The operator already confirmed the action in the popup, so a
+        // successful batch submit returns straight to the kiosk home instead
+        // of showing a per-person result screen.
+        $('multi-dialog')?.close()
+        camReturnToKiosk()
     } catch (error) {
         console.error('Multi attendance submit failed:', error)
         state.busy = false
@@ -675,7 +622,7 @@ export async function initMultiLivePage() {
         state.autoScanCount = 0
         if (!state.stream) {
             if (!(await startCam())) return
-            setStatus('Kamera siap. Posisikan 1–5 karyawan dalam satu frame.', 'ready')
+            setStatus('Maksimal 5 karyawan dalam satu frame.', 'ready')
         }
         rearmScan()
     })
@@ -704,7 +651,7 @@ export async function initMultiLivePage() {
     window.addEventListener('pagehide', cleanup)
 
     if (await startCam()) {
-        setStatus('Kamera siap. Posisikan 1–5 karyawan dalam satu frame.', 'ready')
+        setStatus('Maksimal 5 karyawan dalam satu frame.', 'ready')
         rearmScan()
     } else {
         // A dead-end screen (camera denied / not found) still returns home.
