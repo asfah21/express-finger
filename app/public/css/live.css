@@ -1061,44 +1061,128 @@
     }
 }
 
-/* ─── Logout button (header, kanan atas) ─────────────────────────────────── */
-.live-logout-btn {
-    display: inline-flex;
+/* ─── Header actions & menu hamburger (kanan atas) ───────────────────────── */
+.live-header-actions {
+    position: relative;
+    display: flex;
     align-items: center;
-    gap: .5rem;
-    min-height: 44px;
-    padding: 10px 14px;
+}
+
+.live-menu-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--live-line);
     border-radius: var(--live-radius-control);
     background: transparent;
     color: var(--live-muted);
-    font: inherit;
-    font-size: .9rem;
-    font-weight: 600;
-    letter-spacing: .01em;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: color .18s ease-out, border-color .18s ease-out, background-color .18s ease-out;
 }
 
-.live-logout-btn i {
-    font-size: 1.05rem;
+.live-menu-btn i {
+    font-size: 1.3rem;
 }
 
-.live-logout-btn:hover,
-.live-logout-btn:focus-visible {
+.live-menu-btn:hover,
+.live-menu-btn:focus-visible {
     color: var(--live-ink);
-    border-color: rgba(248, 113, 113, .45);
-    background: rgba(248, 113, 113, .08);
+    border-color: var(--live-accent-line);
+    background: var(--live-accent-wash);
 }
 
-.live-logout-btn:focus-visible {
+.live-menu-btn:focus-visible {
     outline: 2px solid var(--live-accent);
     outline-offset: 2px;
 }
 
-.live-logout-btn:active {
+.live-menu-btn:active {
     transform: translateY(1px);
+}
+
+/* Dropdown menu — memakai popover API (top layer), jadi tidak terpotong
+   kontainer; posisi (top/left) diatur dari JS per pembukaan. */
+.live-menu {
+    width: max-content;
+    min-width: 224px;
+    max-width: calc(100vw - 24px);
+    margin: 0;
+    padding: 8px;
+    border: 1px solid var(--live-line);
+    border-radius: var(--live-radius-control);
+    background: var(--live-surface);
+    color: var(--live-ink);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.live-menu[popover] {
+    position: fixed;
+    inset: auto;
+}
+
+.live-menu[popover]:popover-open {
+    animation: live-menu-in .18s cubic-bezier(.22, .8, .24, 1);
+}
+
+.live-menu-item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--live-ink);
+    font: inherit;
+    font-size: .95rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color .18s ease-out, color .18s ease-out;
+}
+
+.live-menu-item i {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+.live-menu-item:hover,
+.live-menu-item:focus-visible {
+    background: rgba(255, 255, 255, .06);
+}
+
+.live-menu-item:focus-visible {
+    outline: 2px solid var(--live-accent);
+    outline-offset: -2px;
+}
+
+.live-menu-item-danger {
+    color: var(--live-error);
+}
+
+.live-menu-item-danger:hover,
+.live-menu-item-danger:focus-visible {
+    background: rgba(248, 113, 113, .08);
+    color: var(--live-error);
+}
+
+@keyframes live-menu-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 /* ─── Dialog konfirmasi logout ───────────────────────────────────────────── */
@@ -1251,6 +1335,44 @@
     }
 }
 
+/* ─── Dialog Info (Tentang AZRA) ─────────────────────────────────────────── */
+.live-info-dialog-icon {
+    background: color-mix(in srgb, var(--live-blue) 16%, transparent);
+    color: #9dc6ee;
+}
+
+.live-info-list {
+    display: grid;
+    gap: 2px;
+    margin: 0 0 24px;
+    padding: 6px 0;
+    border-top: 1px solid var(--live-line);
+    border-bottom: 1px solid var(--live-line);
+    text-align: left;
+}
+
+.live-info-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 9px 4px;
+}
+
+.live-info-row dt {
+    color: var(--live-muted);
+    font-size: .85rem;
+    font-weight: 600;
+}
+
+.live-info-row dd {
+    margin: 0;
+    font-size: .9rem;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
 @keyframes live-dialog-in {
     from {
         opacity: 0;
@@ -1265,7 +1387,8 @@
 
 @media (prefers-reduced-motion: reduce) {
     .live-dialog[open],
-    .live-logout-btn,
+    .live-menu-btn,
+    .live-menu[popover],
     .live-btn-ghost,
     .live-btn-danger {
         animation: none;

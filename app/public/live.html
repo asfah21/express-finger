@@ -17,11 +17,22 @@
                 <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
                 <div class="live-brand-name"><strong>AZRA</strong><small>v.0.9</small></div>
             </div>
-            <button class="live-logout-btn" type="button" id="live-logout-btn"
-                aria-haspopup="dialog" aria-controls="live-logout-dialog"
-                aria-label="Logout dari halaman ini"><i data-icon="log-out"
-                    aria-hidden="true"></i><span>Logout</span></button>
+            <div class="live-header-actions">
+                <button class="live-menu-btn" type="button" id="live-menu-btn"
+                    aria-haspopup="menu" aria-controls="live-menu" aria-expanded="false"
+                    aria-label="Menu"><i data-icon="menu" aria-hidden="true"></i></button>
+            </div>
         </header>
+        <div class="live-menu" id="live-menu" popover="auto" role="menu"
+            aria-labelledby="live-menu-btn">
+            <button class="live-menu-item" type="button" role="menuitem"
+                data-live-info><i data-icon="info" aria-hidden="true"></i><span>Info
+                    Aplikasi</span></button>
+            <button class="live-menu-item live-menu-item-danger" type="button"
+                role="menuitem" id="live-logout-btn" aria-haspopup="dialog"
+                aria-controls="live-logout-dialog"><i data-icon="log-out"
+                    aria-hidden="true"></i><span>Logout</span></button>
+        </div>
         <section class="live-panel live-choice-panel" data-live-root>
             <div class="live-kiosk-heading">
                 <div class="live-kicker"><span class="live-pulse"></span> FACE ID ATTENDANCE</div>
@@ -59,6 +70,25 @@
             </div>
         </div>
     </dialog>
+    <dialog class="live-dialog live-info-dialog" id="live-info-dialog"
+        aria-labelledby="live-info-title" aria-describedby="live-info-desc">
+        <div class="live-dialog-card">
+            <div class="live-dialog-icon live-info-dialog-icon" aria-hidden="true"><i
+                    data-icon="info"></i></div>
+            <h2 class="live-dialog-title" id="live-info-title">Tentang AZRA</h2>
+            <p class="live-dialog-text" id="live-info-desc">Sistem absensi kehadiran berbasis
+                pengenalan wajah untuk kiosk bersama.</p>
+            <dl class="live-info-list">
+                <div class="live-info-row"><dt>Versi</dt><dd>v.0.9</dd></div>
+                <div class="live-info-row"><dt>Mode</dt><dd>Live Kiosk</dd></div>
+                <div class="live-info-row"><dt>Hak cipta</dt><dd>© 2026 GSI Corp</dd></div>
+            </dl>
+            <div class="live-dialog-actions">
+                <button class="live-btn live-btn-ghost" type="button"
+                    data-live-info-close>Tutup</button>
+            </div>
+        </div>
+    </dialog>
     <script src="js/icon.js"></script>
     <script type="module">
         import { initLivePage } from './js/live.js';
@@ -79,7 +109,65 @@
         updateClock();
         setInterval(updateClock, 1000);
 
-        // ─── Logout (ikon di header) ────────────────────────────────────────────
+        // ─── Menu hamburger (header kanan) & dialog Info ────────────────────────
+        const menuBtn = document.getElementById('live-menu-btn');
+        const liveMenu = document.getElementById('live-menu');
+
+        // Popover dibuka di top layer, jadi posisi dihitung dari tombol menu tiap
+        // dibuka supaya selalu mengikuti tombol dan tidak terpotong header.
+        const positionMenu = () => {
+            if (!menuBtn || !liveMenu) return;
+            const btnRect = menuBtn.getBoundingClientRect();
+            const menuRect = liveMenu.getBoundingClientRect();
+            const GAP = 8;
+            const MARGIN = 12;
+            let top = btnRect.bottom + GAP;
+            let left = btnRect.right - menuRect.width;
+            if (left < MARGIN) left = MARGIN;
+            if (left + menuRect.width > window.innerWidth - MARGIN) {
+                left = window.innerWidth - menuRect.width - MARGIN;
+            }
+            if (top + menuRect.height > window.innerHeight - MARGIN) {
+                top = Math.max(MARGIN, btnRect.top - menuRect.height - GAP);
+            }
+            liveMenu.style.top = top + 'px';
+            liveMenu.style.left = left + 'px';
+        };
+
+        menuBtn?.addEventListener('click', () => {
+            if (!liveMenu) return;
+            if (liveMenu.matches(':popover-open')) {
+                liveMenu.hidePopover();
+            } else {
+                liveMenu.showPopover();
+                positionMenu();
+            }
+        });
+
+        liveMenu?.addEventListener('toggle', (event) => {
+            menuBtn?.setAttribute('aria-expanded', String(event.newState === 'open'));
+        });
+
+        // Item "Info Aplikasi" membuka dialog Info dan menutup menu.
+        liveMenu?.querySelectorAll('[data-live-info]').forEach((button) => {
+            button.addEventListener('click', () => {
+                if (liveMenu.matches(':popover-open')) liveMenu.hidePopover();
+                document.getElementById('live-info-dialog')?.showModal();
+            });
+        });
+
+        const infoDialog = document.getElementById('live-info-dialog');
+        infoDialog?.addEventListener('click', (event) => {
+            const rect = infoDialog.getBoundingClientRect();
+            const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
+                event.clientY >= rect.top && event.clientY <= rect.bottom;
+            if (!inside) infoDialog.close();
+        });
+        infoDialog?.querySelectorAll('[data-live-info-close]').forEach((button) => {
+            button.addEventListener('click', () => infoDialog.close());
+        });
+
+        // ─── Logout (item menu) ──────────────────────────────────────────────────
         const logoutBtn = document.getElementById('live-logout-btn');
         const logoutDialog = document.getElementById('live-logout-dialog');
         const logoutConfirm = document.getElementById('live-logout-confirm');
