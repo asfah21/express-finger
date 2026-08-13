@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/version.js"></script>
 
     <script type="module">
         async function loadIncludes() {
@@ -29,6 +30,9 @@
                     console.error('Error loading include:', e);
                 }
             }));
+
+            // Fill [data-app-version] placeholders now that includes are in the DOM
+            if (window.applyAppVersion) window.applyAppVersion();
 
             // Now load the main app.js
             const script = document.createElement('script');
@@ -78,7 +82,7 @@
             <div class="mobile-header">
                 <div class="sidebar-logo" style="margin-bottom: 0;">
                     <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-fingerprint-pattern-icon lucide-fingerprint-pattern" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></div>
-                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.0.9</small></span>
+                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;" data-app-version></small></span>
                 </div>
                 <div style="display: flex; gap: 0.75rem; align-items: center;">
                     <button class="icon-btn theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode"
@@ -97,7 +101,7 @@
             <nav class="sidebar">
                 <div class="sidebar-logo">
                     <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-fingerprint-pattern-icon lucide-fingerprint-pattern" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></div>
-                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;">v.0.9</small></span>
+                    <span>AZRA <small style="font-size: 0.6rem; opacity: 0.7;" data-app-version></small></span>
                 </div>
                 <div class="nav-item active" onclick="showPage('overview')">
                     <i class="fas fa-chart-line"></i>
