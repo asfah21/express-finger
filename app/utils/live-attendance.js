@@ -97,3 +97,41 @@ export function evaluateAttendanceBatch({ items, latestByFid, nowMs }) {
         return { fid: key, type, ...decision }
     })
 }
+
+/**
+ * Validate a normalized guide box sent by the kiosk.
+ *
+ * The box is `[x1, y1, x2, y2]` in 0..1 relative to the native camera frame,
+ * with `x1 < x2` and `y1 < y2`. It narrows face recognition to the on-screen
+ * guide box so a bystander beside the frame can never be matched instead.
+ *
+ * @param {unknown} box
+ * @returns {box is [number, number, number, number]}
+ */
+export function isValidBox(box) {
+    return Array.isArray(box) && box.length === 4 &&
+        box.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1) &&
+        box[0] < box[2] && box[1] < box[3]
+}
+
+/**
+ * Human-facing message for a face recognition failure reason, so the kiosk can
+ * guide the employee. Kept here (pure) so it is unit-testable without a DB.
+ *
+ * @param {string} reason
+ * @returns {string}
+ */
+export function liveNotFoundMessage(reason) {
+    switch (reason) {
+        case 'no_face':
+            return 'Wajah tidak terdeteksi, posisikan wajah di bingkai lalu scan ulang.'
+        case 'no_face_in_box':
+            return 'Wajah tidak berada di dalam bingkai. Posisikan wajah di tengah boks lalu scan ulang.'
+        case 'no_reference_faces':
+            return 'Belum ada data wajah karyawan untuk verifikasi. Hubungi IT.'
+        case 'below_threshold':
+            return 'Wajah tidak dikenali. Pastikan pencahayaan cukup lalu scan ulang.'
+        default:
+            return 'Wajah tidak dikenali'
+    }
+}

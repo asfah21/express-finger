@@ -1,7 +1,7 @@
 // Uses vitest globals (globals: true in vitest.config.js) — the same convention
 // as the other passing test in this repo. Importing from 'vitest' currently
 // fails in this environment, so rely on the injected globals instead.
-import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, DUPLICATE_WINDOW_MS, MAX_MULTI_BATCH } from '../utils/live-attendance.js'
+import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, DUPLICATE_WINDOW_MS, MAX_MULTI_BATCH, isValidBox, liveNotFoundMessage } from '../utils/live-attendance.js'
 
 // All helpers use the WITA wall-clock convention: `nowMs` and row timestamps
 // must be on the same clock. We use a fixed "now" and build rows relative to it.
@@ -116,5 +116,64 @@ describe('evaluateAttendanceBatch', () => {
 
     it('exports a batch cap of 5 employees', () => {
         expect(MAX_MULTI_BATCH).toBe(5)
+    })
+})
+
+describe('isValidBox', () => {
+    it('accepts a valid normalized box', () => {
+        expect(isValidBox([0.2, 0.1, 0.8, 0.9])).toBe(true)
+    })
+
+    it('accepts box edges at 0 and 1', () => {
+        expect(isValidBox([0, 0, 1, 1])).toBe(true)
+    })
+
+    it('rejects non-array values', () => {
+        expect(isValidBox(null)).toBe(false)
+        expect(isValidBox('0,0,1,1')).toBe(false)
+        expect(isValidBox(undefined)).toBe(false)
+    })
+
+    it('rejects boxes without exactly 4 entries', () => {
+        expect(isValidBox([0.2, 0.1, 0.8])).toBe(false)
+        expect(isValidBox([0.2, 0.1, 0.8, 0.9, 0.5])).toBe(false)
+    })
+
+    it('rejects out-of-range values', () => {
+        expect(isValidBox([-0.1, 0.1, 0.8, 0.9])).toBe(false)
+        expect(isValidBox([0.2, 0.1, 1.1, 0.9])).toBe(false)
+    })
+
+    it('rejects inverted or zero-area boxes', () => {
+        expect(isValidBox([0.8, 0.1, 0.2, 0.9])).toBe(false)
+        expect(isValidBox([0.2, 0.9, 0.8, 0.1])).toBe(false)
+        expect(isValidBox([0.2, 0.1, 0.2, 0.9])).toBe(false)
+    })
+
+    it('rejects non-finite values', () => {
+        expect(isValidBox([0.2, 0.1, NaN, 0.9])).toBe(false)
+        expect(isValidBox([0.2, 0.1, 0.8, Infinity])).toBe(false)
+    })
+})
+
+describe('liveNotFoundMessage', () => {
+    it('maps no_face to a guidance message', () => {
+        expect(liveNotFoundMessage('no_face')).toContain('Wajah tidak terdeteksi')
+    })
+
+    it('maps no_face_in_box to a center-the-face message', () => {
+        expect(liveNotFoundMessage('no_face_in_box')).toContain('tengah boks')
+    })
+
+    it('maps no_reference_faces to an IT-contact message', () => {
+        expect(liveNotFoundMessage('no_reference_faces')).toContain('Hubungi IT')
+    })
+
+    it('maps below_threshold to a lighting message', () => {
+        expect(liveNotFoundMessage('below_threshold')).toContain('pencahayaan')
+    })
+
+    it('falls back to a generic message for unknown reasons', () => {
+        expect(liveNotFoundMessage('unknown')).toBe('Wajah tidak dikenali')
     })
 })

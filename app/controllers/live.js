@@ -2,7 +2,7 @@ import { pool } from '../utils/database.js'
 import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
-import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH } from '../utils/live-attendance.js'
+import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH, isValidBox, liveNotFoundMessage } from '../utils/live-attendance.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 // Rows are stored as UTC values that represent the app's WITA wall-clock time
@@ -47,13 +47,15 @@ function normalizeImage(image) {
     return null
 }
 
-async function recognize(image, endpoint = 'recognize') {
+async function recognize(image, endpoint = 'recognize', opts = {}) {
     let response
+    const body = { image }
+    if (Array.isArray(opts.box) && opts.box.length === 4) body.box = opts.box
     try {
         response = await fetch(`${config.FACE_SERVICE_URL}/${endpoint}`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...(config.FACE_SERVICE_TOKEN ? { 'x-face-service-token': config.FACE_SERVICE_TOKEN } : {}) },
-            body: JSON.stringify({ image }),
+            body: JSON.stringify(body),
             signal: AbortSignal.timeout(config.FACE_SERVICE_TIMEOUT_MS)
         })
     } catch (error) {
@@ -66,17 +68,11 @@ async function recognize(image, endpoint = 'recognize') {
 
 // The face service only reports whether a face matched and its confidence. The
 // human-facing reason is resolved here so the kiosk can guide the employee.
+// The face service only reports whether a face matched and its confidence. The
+// human-facing reason is resolved by the pure util so the kiosk can guide the
+// employee (and so it stays unit-testable without a database).
 function faceNotFoundMessage(recognized) {
-    switch (recognized.reason) {
-        case 'no_face':
-            return 'Wajah tidak terdeteksi, posisikan wajah di bingkai lalu scan ulang.'
-        case 'no_reference_faces':
-            return 'Belum ada data wajah karyawan untuk verifikasi. Hubungi IT.'
-        case 'below_threshold':
-            return 'Wajah tidak dikenali. Pastikan pencahayaan cukup lalu scan ulang.'
-        default:
-            return 'Wajah tidak dikenali'
-    }
+    return liveNotFoundMessage(recognized.reason || 'unknown')
 }
 
 export const liveController = {
@@ -91,6 +87,16 @@ export const liveController = {
         if (![0, 1].includes(type)) return sendLiveError(res, 400, 'INVALID_TYPE', 'Attendance type must be 0 (Masuk) or 1 (Pulang)')
         if (!image) return sendLiveError(res, 400, 'INVALID_IMAGE', 'A valid camera image is required')
 
+        // Optional guide box (normalized [x1, y1, x2, y2] in native video coords)
+        // so the face service only considers the face inside the on-screen frame.
+        // Absent → server falls back to the largest face in the whole frame.
+        const rawBox = req.body?.box
+        let box = null
+        if (rawBox !== undefined && rawBox !== null) {
+            if (!isValidBox(rawBox)) return sendLiveError(res, 400, 'INVALID_BOX', 'A valid normalized box [x1,y1,x2,y2] is required')
+            box = rawBox
+        }
+
         try {
             // 0. Readiness — never fire recognition against a model that is not
             //    loaded yet. The kiosk auto-retries this 503 once models are up.
@@ -99,7 +105,8 @@ export const liveController = {
             }
 
             // 1. Recognition — face service only recognises the face + confidence.
-            const recognized = await recognize(image)
+            //    Focused path: the largest (closest) face inside the guide box.
+            const recognized = await recognize(image, 'recognize_focused', { box })
             if (!recognized.matched || !recognized.fid) {
                 // `reason` lets the kiosk skip useless retries (e.g. no reference
                 // faces) and retry the recoverable ones (no_face / below_threshold).

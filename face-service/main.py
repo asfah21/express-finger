@@ -37,6 +37,7 @@ known_faces: dict[str, dict] = {}
 
 class RecognizeRequest(BaseModel):
     image: str = Field(..., min_length=32, description="base64 image or data URL")
+    box: list[float] | None = Field(default=None, description="normalized [x1, y1, x2, y2] in 0..1 (native video coordinates)")
 
 
 def require_token(token: str | None):
@@ -117,6 +118,47 @@ def image_embeddings(image: np.ndarray) -> list[np.ndarray]:
             if embedding is not None:
                 embeddings.append(normalize_embedding(embedding))
     return embeddings
+
+
+def largest_face_embedding(image: np.ndarray, box: list[float] | None = None):
+    """Embedding of the single largest (closest-to-camera) face in a frame.
+
+    Optionally restrict detection to a normalized ``box`` ([x1, y1, x2, y2] in
+    0..1 relative to the native image), which is how the kiosk's on-screen guide
+    box is passed in. The YOLO pass crops every face, then the largest crop —
+    the proxy for "closest to the camera" — is embedded by buffalo_l. If the
+    crop still contains several buffalo_l detections, the dominant face (largest
+    bounding box) wins.
+
+    Returns ``(embedding, None)`` on success, otherwise ``(None, reason)`` where
+    reason is ``no_face`` (nothing in the frame) or ``no_face_in_box`` (nothing
+    inside the requested box).
+    """
+    ensure_models()
+    height, width = image.shape[:2]
+    if box:
+        x1, y1, x2, y2 = [float(v) for v in box]
+        x1 = max(0, min(width, int(round(x1 * width))))
+        y1 = max(0, min(height, int(round(y1 * height))))
+        x2 = max(0, min(width, int(round(x2 * width))))
+        y2 = max(0, min(height, int(round(y2 * height))))
+        if x2 <= x1 or y2 <= y1:
+            return None, "no_face_in_box"
+        image = image[y1:y2, x1:x2]
+    crops = yolo_face_crops(image)
+    if not crops:
+        return None, ("no_face_in_box" if box else "no_face")
+    crop = max(crops, key=lambda c: c.shape[0] * c.shape[1])
+    faces = face_app.get(crop)
+    if not faces:
+        return None, ("no_face_in_box" if box else "no_face")
+    face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+    embedding = getattr(face, "normed_embedding", None)
+    if embedding is None:
+        embedding = getattr(face, "embedding", None)
+    if embedding is None:
+        return None, ("no_face_in_box" if box else "no_face")
+    return normalize_embedding(embedding), None
 
 
 def face_id_from_file(file: Path) -> str | None:
@@ -223,6 +265,36 @@ def recognize(payload: RecognizeRequest, x_face_service_token: str | None = Head
     if not probes:
         return {"matched": False, "reason": "no_face"}
     scored = score_all(probes)
+    if scored is None:
+        return {"matched": False, "reason": "no_reference_faces"}
+    score, best = scored[0]
+    if score < FACE_SIM_THRESHOLD:
+        return {"matched": False, "reason": "below_threshold", "score": round(score, 5)}
+    return {"matched": True, "fid": best["fid"], "score": round(score, 5), "file": best["files"][0] if best.get("files") else None}
+
+
+@app.post("/recognize_focused")
+def recognize_focused(payload: RecognizeRequest, x_face_service_token: str | None = Header(default=None)):
+    """Recognise the single largest (closest) face, optionally inside a box.
+
+    Unlike /recognize, this never scores every face in the frame against the
+    reference index, so a closer known bystander (e.g. IT staff assisting an
+    employee) can no longer win over the person in front of the kiosk. The
+    optional ``box`` ([x1, y1, x2, y2], normalized 0..1) restricts the search
+    to the kiosk's on-screen guide box, matching the employee's expectation of
+    "my face must be inside the frame".
+    """
+    require_token(x_face_service_token)
+    try:
+        image = decode_image(payload.image)
+        embedding, reason = largest_face_embedding(image, payload.box)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if embedding is None:
+        return {"matched": False, "reason": reason}
+    scored = score_all([embedding])
     if scored is None:
         return {"matched": False, "reason": "no_reference_faces"}
     score, best = scored[0]

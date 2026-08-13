@@ -17,6 +17,13 @@ const REQUEST_TIMEOUT_MS = 15000 // client-side fetch timeout
 const IDLE_TIMEOUT_MS = 90000 // kiosk: auto-return to /live.html after this long with no activity (1.5 min)
 const IDLE_HINT_MS = 10000 // show a "returning to home" hint this long before the redirect
 
+// On-screen face-guide geometry. Must stay in sync with .live-face-guide in
+// css/live.css (inset: 12% 22%). Used to (1) pre-gate skin sampling to the box
+// and (2) send the normalized box to the face service so it only considers the
+// face inside the frame.
+const GUIDE_INSET_X = 0.22
+const GUIDE_INSET_Y = 0.12
+
 const camState = {
     stream: null,
     startPromise: null,
@@ -277,12 +284,51 @@ async function detectWithApi(video) {
     }
 }
 
+/**
+ * Normalized guide-box in native video coordinates ([x1, y1, x2, y2] in 0..1).
+ * Maps the on-screen box (drawn on top of the object-fit:cover-displayed video)
+ * back to the raw camera frame the face service receives, so the "inside the
+ * box" constraint matches what the employee sees on screen. Falls back to the
+ * proportional insets when the layout cannot be resolved.
+ */
+function guideBoxNative() {
+    const video = $('cam-live-video')
+    const guide = $('cam-live-camera-frame')?.querySelector('.live-face-guide')
+    const nativeW = video?.videoWidth
+    const nativeH = video?.videoHeight
+    if (!nativeW || !nativeH || !guide) {
+        return [GUIDE_INSET_X, GUIDE_INSET_Y, 1 - GUIDE_INSET_X, 1 - GUIDE_INSET_Y]
+    }
+    const rect = video.getBoundingClientRect()
+    const g = guide.getBoundingClientRect()
+    if (!rect.width || !rect.height || !g.width || !g.height) {
+        return [GUIDE_INSET_X, GUIDE_INSET_Y, 1 - GUIDE_INSET_X, 1 - GUIDE_INSET_Y]
+    }
+    // object-fit: cover — the native frame is scaled to cover the element,
+    // centred, and any overflow is cropped equally on both sides.
+    const scale = Math.max(rect.width / nativeW, rect.height / nativeH)
+    const offsetX = (rect.width - nativeW * scale) / 2
+    const offsetY = (rect.height - nativeH * scale) / 2
+    const x1 = (g.left - rect.left - offsetX) / (nativeW * scale)
+    const y1 = (g.top - rect.top - offsetY) / (nativeH * scale)
+    const x2 = (g.right - rect.left - offsetX) / (nativeW * scale)
+    const y2 = (g.bottom - rect.top - offsetY) / (nativeH * scale)
+    return [
+        Math.min(1, Math.max(0, x1)),
+        Math.min(1, Math.max(0, y1)),
+        Math.min(1, Math.max(0, x2)),
+        Math.min(1, Math.max(0, y2))
+    ]
+}
+
 function detectSkinFace(data, w, h) {
-    // Sample the face-guide region (roughly the central area of the frame).
-    const x0 = Math.floor(w * 0.25)
-    const x1 = Math.floor(w * 0.75)
-    const y0 = Math.floor(h * 0.15)
-    const y1 = Math.floor(h * 0.85)
+    // Sample the face-guide region only (matches the on-screen box, see
+    // GUIDE_INSET_*). Tighter than the old 25–75% / 15–85% sampling so a
+    // bystander standing beside the box can no longer satisfy the pre-gate.
+    const x0 = Math.floor(w * GUIDE_INSET_X)
+    const x1 = Math.floor(w * (1 - GUIDE_INSET_X))
+    const y0 = Math.floor(h * GUIDE_INSET_Y)
+    const y1 = Math.floor(h * (1 - GUIDE_INSET_Y))
     let skin = 0
     let region = 0
     for (let y = y0; y < y1; y++) {
@@ -297,7 +343,7 @@ function detectSkinFace(data, w, h) {
             if (r > 40 && g > 25 && b > 12 && r > g && r > b && (maxc - minc) > 8) skin++
         }
     }
-    return region ? skin / region > 0.035 : false
+    return region ? skin / region > 0.05 : false
 }
 
 function toGray(data) {
@@ -571,7 +617,7 @@ async function captureAndSubmit() {
             response = await fetch('/api/live/attendance', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ type: camState.type, image }),
+                body: JSON.stringify({ type: camState.type, image, box: guideBoxNative() }),
                 signal: controller.signal
             })
         } finally {
