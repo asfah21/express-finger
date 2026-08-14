@@ -254,6 +254,39 @@
     box-shadow: 0 0 0 5px var(--live-accent-glow);
 }
 
+/* Kicker brand khusus halaman live.html: nama perusahaan dengan siklus warna.
+   Selector gabungan (specificity lebih tinggi) dipakai supaya ukuran teks tetap
+   menonjol walau media query .live-kicker menyusutkan font di layout tablet.
+   Tidak menyentuh .live-pulse/.live-kicker umum yang dipakai cam_live &
+   multi_live (di sana .live-pulse punya arti state hijau/kuning). */
+.live-kicker.live-kicker-anim {
+    font-size: 1rem;
+    letter-spacing: .08em;
+    animation: live-kicker-cycle 8s linear infinite;
+}
+
+@keyframes live-kicker-cycle {
+    0% {
+        color: var(--live-accent);
+    }
+
+    25% {
+        color: #60a5fa;
+    }
+
+    50% {
+        color: var(--live-warning);
+    }
+
+    75% {
+        color: var(--live-ink);
+    }
+
+    100% {
+        color: var(--live-accent);
+    }
+}
+
 /* Cam-live title now lives inside the kicker; make it the prominent heading.
    Green (--live-accent) by default for Masuk, yellow (--live-warning) when the
    `.is-out` class is set for Pulang. */
@@ -734,6 +767,12 @@
     .live-result,
     .live-result-card {
         transition: none;
+    }
+
+    /* Kicker brand: hentikan siklus warna, biarkan warna statis hijau brand. */
+    .live-kicker.live-kicker-anim {
+        animation: none;
+        color: var(--live-accent);
     }
 }
 

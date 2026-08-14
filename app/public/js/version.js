@@ -13,7 +13,7 @@
     'use strict';
 
     /* ── Ganti versi hanya di sini ─────────────────────────────────────── */
-    const APP_VERSION = 'v.0.9.2';
+    const APP_VERSION = 'v.0.9.3';
     /* ──────────────────────────────────────────────────────────────────── */
 
     window.APP_VERSION = APP_VERSION;

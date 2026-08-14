@@ -2,7 +2,7 @@ import { pool } from '../utils/database.js'
 import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
-import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH, isValidBox, liveNotFoundMessage } from '../utils/live-attendance.js'
+import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH, liveNotFoundMessage } from '../utils/live-attendance.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 // Rows are stored as UTC values that represent the app's WITA wall-clock time
@@ -50,7 +50,6 @@ function normalizeImage(image) {
 async function recognize(image, endpoint = 'recognize', opts = {}) {
     let response
     const body = { image }
-    if (Array.isArray(opts.box) && opts.box.length === 4) body.box = opts.box
     try {
         response = await fetch(`${config.FACE_SERVICE_URL}/${endpoint}`, {
             method: 'POST',
@@ -87,16 +86,6 @@ export const liveController = {
         if (![0, 1].includes(type)) return sendLiveError(res, 400, 'INVALID_TYPE', 'Attendance type must be 0 (Masuk) or 1 (Pulang)')
         if (!image) return sendLiveError(res, 400, 'INVALID_IMAGE', 'A valid camera image is required')
 
-        // Optional guide box (normalized [x1, y1, x2, y2] in native video coords)
-        // so the face service only considers the face inside the on-screen frame.
-        // Absent → server falls back to the largest face in the whole frame.
-        const rawBox = req.body?.box
-        let box = null
-        if (rawBox !== undefined && rawBox !== null) {
-            if (!isValidBox(rawBox)) return sendLiveError(res, 400, 'INVALID_BOX', 'A valid normalized box [x1,y1,x2,y2] is required')
-            box = rawBox
-        }
-
         try {
             // 0. Readiness — never fire recognition against a model that is not
             //    loaded yet. The kiosk auto-retries this 503 once models are up.
@@ -105,8 +94,10 @@ export const liveController = {
             }
 
             // 1. Recognition — face service only recognises the face + confidence.
-            //    Focused path: the largest (closest) face inside the guide box.
-            const recognized = await recognize(image, 'recognize_focused', { box })
+            //    Focused path: the largest (closest) face in the whole frame — no
+            //    on-screen box constraint, so the employee no longer needs to be
+            //    perfectly centred inside the guide box.
+            const recognized = await recognize(image, 'recognize_focused')
             if (!recognized.matched || !recognized.fid) {
                 // `reason` lets the kiosk skip useless retries (e.g. no reference
                 // faces) and retry the recoverable ones (no_face / below_threshold).
