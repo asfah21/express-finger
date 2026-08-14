@@ -151,6 +151,143 @@
     min-height: 128px;
 }
 
+/* ─── live.html: tombol pilihan premium glass-glow (MASUK / PULANG /
+     ABSENSI MASSAL) ──────────────────────────────────────────────────────────
+   Semua aturan di-scope di bawah .live-choice-buttons .live-action sehingga
+   hanya memengaruhi 3 tombol ini di live.html — tombol/element lain di halaman
+   maupun halaman cam_live / multi_live tidak tersentuh. Layout, ukuran, posisi,
+   spacing, struktur & fungsi tetap; hanya lapisan visual yang diubah:
+   rounded card, sheen gradien halus, glowing border + soft shadow, icon bulat
+   bercahaya, tipografi tegas, dot pattern halftone halus di pojok, dan efek
+   pressed/touch. */
+.live-choice-buttons .live-action {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .18s ease-out, box-shadow .18s ease-out,
+        border-color .18s ease-out, background-color .18s ease-out;
+}
+
+/* Sheen gradien halus di seluruh kartu (lapisan cahaya atas). */
+.live-choice-buttons .live-action::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(120% 90% at 14% 0%, rgba(255, 255, 255, .10), transparent 46%),
+        linear-gradient(180deg, rgba(255, 255, 255, .055), transparent 55%);
+}
+
+/* Dot pattern halftone halus di pojok kanan-bawah, difade dengan mask supaya
+   tidak mengganggu teks maupun icon. */
+.live-choice-buttons .live-action::after {
+    content: '';
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    width: 108px;
+    height: 88px;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, .20) 1.1px, transparent 1.5px);
+    background-size: 9px 9px;
+    -webkit-mask-image: radial-gradient(85% 85% at 100% 100%, #000 28%, transparent 78%);
+    mask-image: radial-gradient(85% 85% at 100% 100%, #000 28%, transparent 78%);
+    opacity: .85;
+}
+
+/* Konten (icon + teks) selalu di atas lapisan dekorasi. */
+.live-choice-buttons .live-action > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Icon bulat premium: sheen glossy + glow ring senada warna tombol. */
+.live-choice-buttons .live-action i {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 55%);
+    box-shadow: 0 0 22px -4px var(--live-action-glow, rgba(0, 0, 0, .4)),
+        0 4px 14px -4px rgba(0, 0, 0, .45);
+}
+
+/* Tipografi tegas. */
+.live-choice-buttons .live-action strong {
+    font-weight: 800;
+    letter-spacing: -.01em;
+}
+
+.live-choice-buttons .live-action small {
+    color: color-mix(in srgb, var(--live-muted) 78%, white);
+    letter-spacing: .02em;
+}
+
+/* Glow ring + soft shadow per warna tombol. */
+.live-choice-buttons .live-action-in {
+    --live-action-glow: var(--live-accent-glow);
+    border-color: color-mix(in srgb, var(--live-accent) 60%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10),
+        0 0 24px -8px var(--live-accent-glow),
+        0 12px 28px -10px rgba(0, 0, 0, .55);
+}
+
+.live-choice-buttons .live-action-out {
+    --live-action-glow: rgba(246, 201, 75, .20);
+    border-color: rgba(246, 201, 75, .60);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10),
+        0 0 24px -8px rgba(246, 201, 75, .20),
+        0 12px 28px -10px rgba(0, 0, 0, .55);
+}
+
+.live-choice-buttons .live-action-multi {
+    --live-action-glow: rgba(36, 97, 150, .24);
+    border-color: color-mix(in srgb, var(--live-blue) 60%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10),
+        0 0 24px -8px rgba(36, 97, 150, .24),
+        0 12px 28px -10px rgba(0, 0, 0, .55);
+}
+
+/* Hover/focus per warna: nyalakan glow lebih terang. */
+.live-choice-buttons .live-action-in:hover:not(:disabled),
+.live-choice-buttons .live-action-in:focus-visible {
+    border-color: color-mix(in srgb, var(--live-accent) 80%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12),
+        0 0 32px -6px var(--live-accent-glow),
+        0 14px 32px -10px rgba(0, 0, 0, .6);
+}
+
+.live-choice-buttons .live-action-out:hover:not(:disabled),
+.live-choice-buttons .live-action-out:focus-visible {
+    border-color: rgba(246, 201, 75, .82);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12),
+        0 0 32px -6px rgba(246, 201, 75, .22),
+        0 14px 32px -10px rgba(0, 0, 0, .6);
+}
+
+.live-choice-buttons .live-action-multi:hover:not(:disabled),
+.live-choice-buttons .live-action-multi:focus-visible {
+    border-color: color-mix(in srgb, var(--live-blue) 82%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12),
+        0 0 32px -6px rgba(36, 97, 150, .26),
+        0 14px 32px -10px rgba(0, 0, 0, .6);
+}
+
+/* Efek pressed/touch halus. */
+.live-choice-buttons .live-action:active:not(:disabled) {
+    transform: translateY(1px) scale(.985);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, .30),
+        0 2px 10px -4px rgba(0, 0, 0, .5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-choice-buttons .live-action {
+        transition: none;
+    }
+}
+
 .cam-live-panel {
     width: 100%;
     max-width: 1080px;
