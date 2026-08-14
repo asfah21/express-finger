@@ -115,9 +115,9 @@ function armAudioUnlock() {
     if (audioUnlockArmed) return
     audioUnlockArmed = true
     preloadSounds()
-    ;['pointerdown', 'keydown', 'touchstart', 'click'].forEach((eventName) => {
-        document.addEventListener(eventName, flushPendingSounds, { passive: true, once: true })
-    })
+        ;['pointerdown', 'keydown', 'touchstart', 'click'].forEach((eventName) => {
+            document.addEventListener(eventName, flushPendingSounds, { passive: true, once: true })
+        })
 }
 
 export async function initLivePage() {
@@ -626,7 +626,7 @@ function showResult(result) {
     playSound('success')
     // Generous redirect so the result is fully read (including by screen
     // readers) before returning to the kiosk for the next employee.
-    setTimeout(() => window.location.assign('/live.html'), 2500)
+    setTimeout(() => window.location.assign('/live.html'), 1800)
 }
 
 function handleSubmissionError(status, data) {
@@ -682,11 +682,11 @@ export async function initCamLivePage() {
         }
     })
 
-    // Any real interaction resets the idle auto-return countdown. Pure pointer
-    // movement is intentionally excluded so an abandoned kiosk still returns home.
-    ;['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll', 'click'].forEach((eventName) => {
-        document.addEventListener(eventName, armIdleRedirect, { passive: true })
-    })
+        // Any real interaction resets the idle auto-return countdown. Pure pointer
+        // movement is intentionally excluded so an abandoned kiosk still returns home.
+        ;['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll', 'click'].forEach((eventName) => {
+            document.addEventListener(eventName, armIdleRedirect, { passive: true })
+        })
 
     // Preload + unlock the kiosk notification sounds on the first user gesture.
     armAudioUnlock()

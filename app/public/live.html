@@ -14,30 +14,33 @@
     <main class="live-kiosk-shell">
         <header class="live-kiosk-header">
             <div class="live-brand">
-                <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="live-brand-mark" aria-hidden="true"><use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use></svg></span>
+                <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" class="live-brand-mark" aria-hidden="true">
+                        <use href="/icons/fingerprint-pattern.svg#fingerprint-pattern"></use>
+                    </svg></span>
                 <div class="live-brand-name"><strong>AZRA</strong><small data-app-version></small></div>
             </div>
             <div class="live-header-actions">
-                <button class="live-menu-btn" type="button" id="live-menu-btn"
-                    popovertarget="live-menu"
-                    aria-haspopup="menu" aria-controls="live-menu" aria-expanded="false"
-                    aria-label="Menu"><i data-icon="menu" aria-hidden="true"></i></button>
+                <button class="live-menu-btn" type="button" id="live-menu-btn" popovertarget="live-menu"
+                    aria-haspopup="menu" aria-controls="live-menu" aria-expanded="false" aria-label="Menu"><i
+                        data-icon="menu" aria-hidden="true"></i></button>
             </div>
         </header>
-        <div class="live-menu" id="live-menu" popover="auto" role="menu"
-            aria-labelledby="live-menu-btn">
-            <button class="live-menu-item" type="button" role="menuitem"
-                data-live-info><i data-icon="info" aria-hidden="true"></i><span>Info
+        <div class="live-menu" id="live-menu" popover="auto" role="menu" aria-labelledby="live-menu-btn">
+            <button class="live-menu-item" type="button" role="menuitem" data-live-info><i data-icon="info"
+                    aria-hidden="true"></i><span>Info
                     Aplikasi</span></button>
-            <button class="live-menu-item live-menu-item-danger" type="button"
-                role="menuitem" id="live-logout-btn" aria-haspopup="dialog"
-                aria-controls="live-logout-dialog"><i data-icon="log-out"
+            <button class="live-menu-item live-menu-item-danger" type="button" role="menuitem" id="live-logout-btn"
+                aria-haspopup="dialog" aria-controls="live-logout-dialog"><i data-icon="log-out"
                     aria-hidden="true"></i><span>Logout</span></button>
         </div>
         <section class="live-panel live-choice-panel" data-live-root>
             <div class="live-kiosk-heading">
                 <div class="live-kicker live-kicker-anim">PT GUNUNG SAMUDERA INTERNASIONAL</div>
-                <div class="live-main-clock" aria-hidden="true"><span id="live-time"><span id="live-time-hm">00:00</span><span class="live-time-sec" id="live-time-sec">:00</span></span></div>
+                <div class="live-main-clock" aria-hidden="true"><span id="live-time"><span
+                            id="live-time-hm">00:00</span><span class="live-time-sec"
+                            id="live-time-sec">:00</span></span></div>
                 <p id="live-date">Hari dan tanggal</p>
                 <!-- <p>Pilih type absensi untuk memulai</p> -->
             </div>
@@ -47,47 +50,53 @@
                             bekerja</small></span></button><button class="live-action live-action-out" type="button"
                     data-live-type="1"><i data-icon="log-out"
                         aria-hidden="true"></i><span><strong>PULANG</strong><small>Selesai
-                            bekerja</small></span></button><button class="live-action live-action-multi"
-                    type="button" data-live-multi><i data-icon="users"
-                        aria-hidden="true"></i><span><strong>ABSENSI MASSAL</strong><small>Banyak
-                            karyawan sekaligus</small></span></button></div>
+                            bekerja</small></span></button><button class="live-action live-action-multi" type="button"
+                    data-live-multi><i data-icon="users" aria-hidden="true"></i><span><strong>ABSENSI
+                            MASSAL</strong><small>Hingga 5 karyawan sekaligus</small></span></button></div>
         </section>
         <footer class="live-kiosk-footer">Copyright © 2026 - GSI Corp</footer>
     </main>
-    <dialog class="live-dialog" id="live-logout-dialog"
-        aria-labelledby="live-logout-title" aria-describedby="live-logout-desc">
+    <dialog class="live-dialog" id="live-logout-dialog" aria-labelledby="live-logout-title"
+        aria-describedby="live-logout-desc">
         <div class="live-dialog-card">
             <div class="live-dialog-icon" aria-hidden="true"><i data-icon="log-out"></i></div>
             <h2 class="live-dialog-title" id="live-logout-title">Akhiri Sesi?</h2>
-            <p class="live-dialog-text" id="live-logout-desc">Tahan tombol <strong>Ya</strong> untuk mengakhiri sesi dan kembali ke halaman login.</p>
+            <p class="live-dialog-text" id="live-logout-desc">Tahan tombol <strong>Ya</strong> untuk mengakhiri sesi dan
+                kembali ke halaman login.</p>
             <div class="live-dialog-actions">
-                <button class="live-btn live-btn-ghost" type="button"
-                    data-live-dialog-cancel>Tidak</button>
-                <button class="live-btn live-btn-danger" type="button"
-                    id="live-logout-confirm">
+                <button class="live-btn live-btn-ghost" type="button" data-live-dialog-cancel>Tidak</button>
+                <button class="live-btn live-btn-danger" type="button" id="live-logout-confirm">
                     <span class="live-btn-fill" aria-hidden="true"></span>
                     <span class="live-btn-label">Ya</span>
                 </button>
             </div>
         </div>
     </dialog>
-    <dialog class="live-dialog live-info-dialog" id="live-info-dialog"
-        aria-labelledby="live-info-title" aria-describedby="live-info-desc">
+    <dialog class="live-dialog live-info-dialog" id="live-info-dialog" aria-labelledby="live-info-title"
+        aria-describedby="live-info-desc">
         <div class="live-dialog-card">
-            <div class="live-dialog-icon live-info-dialog-icon" aria-hidden="true"><i
-                    data-icon="info"></i></div>
+            <div class="live-dialog-icon live-info-dialog-icon" aria-hidden="true"><i data-icon="info"></i></div>
             <h2 class="live-dialog-title" id="live-info-title">Tentang AZRA</h2>
             <p class="live-dialog-text" id="live-info-desc">
-                Sistem absensi berbasis Face ID dengan teknologi AI GSI-VISION untuk verifikasi wajah cepat & akurat, bahkan saat menggunakan helm atau kacamata.
+                Sistem absensi berbasis Face ID dengan teknologi AI GSI-VISION untuk verifikasi wajah cepat & akurat,
+                bahkan saat menggunakan helm atau kacamata.
             </p>
             <dl class="live-info-list">
-                <div class="live-info-row"><dt>Versi</dt><dd data-app-version></dd></div>
-                <div class="live-info-row"><dt>Dibuat</dt><dd class="live-info-accent">Azvan IT</dd></div>
-                <div class="live-info-row"><dt>Copyright</dt><dd>© 2026 GSI Corp</dd></div>
+                <div class="live-info-row">
+                    <dt>Versi</dt>
+                    <dd data-app-version></dd>
+                </div>
+                <div class="live-info-row">
+                    <dt>Dibuat</dt>
+                    <dd class="live-info-accent">Azvan IT</dd>
+                </div>
+                <div class="live-info-row">
+                    <dt>Copyright</dt>
+                    <dd>© 2026 GSI Corp</dd>
+                </div>
             </dl>
             <div class="live-dialog-actions">
-                <button class="live-btn live-btn-blue" type="button"
-                    data-live-info-close>Tutup</button>
+                <button class="live-btn live-btn-blue" type="button" data-live-info-close>Tutup</button>
             </div>
         </div>
     </dialog>

@@ -1,7 +1,7 @@
 // ─── Multi-Attendance kiosk (/multi_live.html) ──────────────────────────────
 // Records attendance for a whole batch of employees (up to MAX_FACES) at once:
 //   1. Live scan draws a green box per detected face (Shape Detection API).
-//   2. When 1+ faces are stable, a 5→1 countdown runs in the centre of the
+//   2. When 1+ faces are stable, a 3→1 countdown runs in the centre of the
 //      camera; at 0 the frame is captured and sent for multi-recognition.
 //   3. A confirmation popup lists the recognised employees (name, FID, position)
 //      with a remove (×) per row and a single global Masuk / Pulang / Cancel.
@@ -39,7 +39,8 @@ const $ = (id) => document.getElementById(id)
 
 // ─── Timing / budget ─────────────────────────────────────────────────────────
 const DETECTION_INTERVAL_MS = 100 // analysis cadence (~10 fps, CPU friendly)
-const COUNTDOWN_SECONDS = 3 // auto-capture countdown shown in the camera centre
+const COUNTDOWN_SECONDS = 3 // auto-capture countdown starting value shown in the camera centre
+const COUNTDOWN_TICK_MS = 500 // per-step interval → total 3→1 countdown lasts 1.5s
 const MAX_FACES = 5 // batch cap — also the max green boxes drawn
 const REQUEST_TIMEOUT_MS = 15000 // client-side fetch timeout
 const IDLE_TIMEOUT_MS = 90000 // kiosk: auto-return to /live.html when idle
@@ -308,7 +309,7 @@ function ensureCountdown() {
             return
         }
         renderCountdown()
-    }, 1000)
+    }, COUNTDOWN_TICK_MS)
 }
 
 function stopCountdown() {
