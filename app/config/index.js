@@ -20,4 +20,10 @@ export const config = {
   FACE_SERVICE_TOKEN: process.env.FACE_SERVICE_TOKEN || '',
   FACE_SERVICE_TIMEOUT_MS: Number(process.env.FACE_SERVICE_TIMEOUT_MS || 15_000),
   BUSINESS_TIME_ZONE: process.env.BUSINESS_TIME_ZONE || 'Asia/Makassar',
+  // Sliding session renewal — kiosk attendance devices (role 'public') get
+  // their session auto-extended on each heartbeat so an Android WebView kiosk
+  // never has to re-login while it stays online.
+  SLIDING_SESSION_ROLES: (process.env.SLIDING_SESSION_ROLES || 'public').split(',').map(s => s.trim()),
+  SLIDING_SESSION_TTL_MS: Number(process.env.SLIDING_SESSION_TTL_MS || 3 * 24 * 60 * 60 * 1000), // 3 hari per perpanjangan
+  SLIDING_SESSION_RENEW_THRESHOLD_MS: Number(process.env.SLIDING_SESSION_RENEW_THRESHOLD_MS || 24 * 60 * 60 * 1000), // renew saat sisa < 1 hari
 }

@@ -1,3 +1,5 @@
+import jwt from 'jsonwebtoken'
+import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
 import {
@@ -7,7 +9,10 @@ import {
   revokeAllUserSessions,
   revokeOtherSessions,
   getSessionByJti,
+  extendSessionExpiry,
 } from '../utils/sessions.js'
+
+const SECRET = process.env.JWT_SECRET
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || ''
@@ -155,11 +160,51 @@ export const sessionController = {
     if (!jti) return sendSuccess(res, { tracked: false }, 'ok')
 
     const ok = await touchSession(jti)
+
+    // Sliding renewal — hanya untuk role kiosk (mis. 'public') yang dikonfigurasi.
+    // Jika token mendekati kedaluwarsa, terbitkan ulang JWT dengan `jti` yang
+    // SAMA (identitas session tidak berubah), refresh cookie, dan geser
+    // expires_at di DB ke depan. Selama kiosk online + heartbeat berjalan,
+    // session tidak akan pernah kadaluarsa dan tidak perlu login ulang.
+    let renewed = false
+    const user = req.user
+    if (
+      ok &&
+      user &&
+      config.SLIDING_SESSION_ROLES.includes(user.role) &&
+      typeof user.exp === 'number' &&
+      SECRET
+    ) {
+      const remainingMs = user.exp * 1000 - Date.now()
+      if (remainingMs < config.SLIDING_SESSION_RENEW_THRESHOLD_MS) {
+        try {
+          const newExpMs = Date.now() + config.SLIDING_SESSION_TTL_MS
+          const token = jwt.sign(
+            { id: user.id, username: user.username, role: user.role, jti },
+            SECRET,
+            { expiresIn: Math.ceil(config.SLIDING_SESSION_TTL_MS / 1000) }
+          )
+          const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
+          res.cookie('token', token, {
+            httpOnly: true,
+            secure: isSecure,
+            sameSite: isSecure ? 'none' : 'lax',
+            path: '/',
+            maxAge: config.SLIDING_SESSION_TTL_MS
+          })
+          renewed = await extendSessionExpiry(jti, new Date(newExpMs))
+        } catch (err) {
+          console.error('❌ Heartbeat sliding renewal error:', err.message)
+        }
+      }
+    }
+
     const session = await getSessionByJti(jti)
 
     sendSuccess(res, {
       tracked: ok,
-      username: session?.username || req.user?.username,
+      renewed,
+      username: session?.username || user?.username,
       last_seen: session?.last_seen || new Date().toISOString(),
     })
   },

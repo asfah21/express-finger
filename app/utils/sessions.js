@@ -285,6 +285,31 @@ export async function listSessions({ limit = 25, offset = 0, search = '', status
 }
 
 /**
+ * Extend the expiry of an active session (sliding renewal).
+ * Used by the heartbeat for kiosk 'public' sessions so an Android WebView
+ * kiosk never has to re-login while it stays online.
+ * @returns {Promise<boolean>} true when the expiry was extended.
+ */
+export async function extendSessionExpiry(jti, expiresAt) {
+  if (!jti || !expiresAt) return false
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE user_sessions SET expires_at = $2
+       WHERE jti = $1 AND revoked_at IS NULL AND expires_at > now()`,
+      [jti, expiresAt]
+    )
+    if (rowCount > 0) {
+      sessionCache.set(cacheKeyActive(jti), true, { ttl: ACTIVE_TTL })
+      return true
+    }
+    return false
+  } catch (err) {
+    console.error('❌ extendSessionExpiry error:', err.message)
+    return false
+  }
+}
+
+/**
  * Get a single session by jti (used by heartbeat to confirm the current session).
  */
 export async function getSessionByJti(jti) {
