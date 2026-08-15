@@ -226,11 +226,15 @@ export async function listSessions({ limit = 25, offset = 0, search = '', status
     i++
   }
   if (status && status !== 'all') {
-    // Status is computed after fetch; only 'ended' and 'expired' map directly to SQL.
+    // Status is computed after fetch; only 'ended', 'expired' and 'active'
+    // map directly to SQL. 'active' = still valid (not revoked, not expired),
+    // which covers online + away + idle.
     if (status === 'ended') {
       where.push('revoked_at IS NOT NULL')
     } else if (status === 'expired') {
       where.push('revoked_at IS NULL AND expires_at <= now()')
+    } else if (status === 'active') {
+      where.push('revoked_at IS NULL AND expires_at > now()')
     } else {
       // online / away / idle are relative to now(); do the filtering in JS.
     }
@@ -253,9 +257,9 @@ export async function listSessions({ limit = 25, offset = 0, search = '', status
   const total = countRes.rows[0].total
   const rows = dataRes.rows.map(r => ({ ...r, status: computeSessionStatus(r, now) }))
 
-  // Apply JS-side filter for relative statuses
+  // Apply JS-side filter for relative statuses ('active' is handled in SQL above).
   let filtered = rows
-  if (status && !['ended', 'expired'].includes(status) && status !== 'all') {
+  if (status && !['ended', 'expired', 'active'].includes(status) && status !== 'all') {
     filtered = rows.filter(r => r.status === status)
   }
 

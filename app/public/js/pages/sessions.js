@@ -48,44 +48,16 @@ export function handleSessionSearch(val) {
     }, 600);
 }
 
-export async function refreshSessions() {
-    const s = state.pagination.sessions;
-    const body = document.getElementById('sessions-body');
-    if (!body) return;
+function buildSessionRowHtml(sess, currentJti) {
+    const meta = STATUS_META[sess.status] || STATUS_META.unknown;
+    const isSelf = sess.jti === currentJti;
+    const canKill = !isSelf && sess.status !== 'ended' && sess.status !== 'expired';
+    const user = escapeHtml(sess.username);
+    const safeUser = user.replace(/'/g, "\\'");
+    const jti = escapeHtml(sess.jti);
 
-    const search = document.getElementById('session-search')?.value || '';
-    showSkeleton('sessions-body', Math.min(s.size, 10));
-
-    let url = `/api/sessions?limit=${s.size}&offset=${s.page * s.size}`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
-
-    try {
-        const res = await fetch(url);
-        if (res.status === 401 || res.status === 403) {
-            body.innerHTML = '<tr><td colspan="8" style="text-align: center;">Access denied or session ended. Please refresh.</td></tr>';
-            window.updatePaginationUI('sessions');
-            return;
-        }
-        const data = await res.json();
-        const d = data.data || {};
-        s.total = d.total || 0;
-
-        const currentJti = d.current_jti || null;
-
-        const onlineEl = document.getElementById('sessions-online-count');
-        const activeEl = document.getElementById('sessions-active-count');
-        if (onlineEl) onlineEl.innerText = d.online ?? 0;
-        if (activeEl) activeEl.innerText = d.active ?? 0;
-
-        body.innerHTML = (d.list || []).map(sess => {
-            const meta = STATUS_META[sess.status] || STATUS_META.unknown;
-            const isSelf = sess.jti === currentJti;
-            const canKill = !isSelf && sess.status !== 'ended' && sess.status !== 'expired';
-            const user = escapeHtml(sess.username);
-            const safeUser = user.replace(/'/g, "\\'");
-
-            return `
-            <tr>
+    return `
+            <tr data-jti="${jti}">
                 <td>
                     <span class="badge" style="background: ${meta.color}; color: #fff !important;">${meta.label}${isSelf ? ' · You' : ''}</span>
                 </td>
@@ -98,7 +70,6 @@ export async function refreshSessions() {
                 <td><span class="badge" style="background: rgba(255,255,255,0.1);">${sess.role || '-'}</span></td>
                 <td style="font-size: 0.85rem;">${sess.ip_address || '-'}</td>
                 <td style="font-size: 0.85rem;">${formatDateTime(sess.created_at)}</td>
-                <td style="font-size: 0.85rem;">${formatDateTime(sess.last_seen)}</td>
                 <td style="font-size: 0.85rem;">${formatDateTime(sess.expires_at)}</td>
                 <td>
                     ${canKill ? `
@@ -117,12 +88,103 @@ export async function refreshSessions() {
                     </div>` : '<span style="font-size: 0.75rem; color: var(--text-muted);">—</span>'}
                 </td>
             </tr>`;
-        }).join('') || '<tr><td colspan="8" style="text-align: center;">No sessions found</td></tr>';
+}
+
+/**
+ * Minimal-key diff render: patch only the rows that actually changed instead of
+ * rebuilding the whole tbody, so a silent auto-refresh does not cause flicker.
+ */
+function diffRenderSessionRows(body, rows) {
+    const existing = Array.from(body.querySelectorAll('tr[data-jti]'));
+    const byJti = new Map(existing.map(tr => [tr.dataset.jti, tr]));
+    const newKeys = new Set(rows.map(r => r.jti));
+
+    // Drop rows that no longer exist in the current page.
+    for (const tr of existing) {
+        if (!newKeys.has(tr.dataset.jti)) tr.remove();
+    }
+
+    // Reconcile in reverse so each row is placed right before the one after it.
+    let anchor = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const { jti, html } = rows[i];
+        let tr = byJti.get(jti);
+
+        if (tr) {
+            if (tr.innerHTML !== html) tr.innerHTML = html;
+        } else {
+            tr = document.createElement('tr');
+            tr.dataset.jti = jti;
+            tr.innerHTML = html;
+        }
+
+        if (anchor === null) {
+            body.appendChild(tr);
+        } else if (tr.nextSibling !== anchor) {
+            body.insertBefore(tr, anchor);
+        }
+        anchor = tr;
+    }
+}
+
+export async function refreshSessions({ silent = false } = {}) {
+    const s = state.pagination.sessions;
+    const body = document.getElementById('sessions-body');
+    if (!body) return;
+
+    const search = document.getElementById('session-search')?.value || '';
+
+    // Silent refreshes (auto-poll) skip the skeleton and diff in place so the
+    // table does not blink. A full render is kept for first load / manual
+    // refresh / after actions / search, and as a fallback when the table is not
+    // yet populated with data rows.
+    const hasDataRows = body.querySelectorAll('tr[data-jti]').length > 0;
+    const isFullRender = !silent || !hasDataRows;
+    if (isFullRender) {
+        showSkeleton('sessions-body', Math.min(s.size, 10));
+    }
+
+    // Default to active sessions only (online/away/idle); ended/expired are
+    // hidden by default. The backend can still return them via status=ended|expired
+    // for audit purposes.
+    let url = `/api/sessions?limit=${s.size}&offset=${s.page * s.size}&status=active`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    try {
+        const res = await fetch(url);
+        if (res.status === 401 || res.status === 403) {
+            body.innerHTML = '<tr><td colspan="7" style="text-align: center;">Access denied or session ended. Please refresh.</td></tr>';
+            window.updatePaginationUI('sessions');
+            return;
+        }
+        const data = await res.json();
+        const d = data.data || {};
+        s.total = d.total || 0;
+
+        const currentJti = d.current_jti || null;
+
+        const onlineEl = document.getElementById('sessions-online-count');
+        const activeEl = document.getElementById('sessions-active-count');
+        if (onlineEl) onlineEl.innerText = d.online ?? 0;
+        if (activeEl) activeEl.innerText = d.active ?? 0;
+
+        const rows = (d.list || []).map(sess => ({
+            jti: sess.jti,
+            html: buildSessionRowHtml(sess, currentJti),
+        }));
+
+        if (rows.length === 0) {
+            body.innerHTML = '<tr><td colspan="7" style="text-align: center;">No sessions found</td></tr>';
+        } else if (isFullRender) {
+            body.innerHTML = rows.map(r => r.html).join('');
+        } else {
+            diffRenderSessionRows(body, rows);
+        }
 
         window.updatePaginationUI('sessions');
     } catch (err) {
         console.error('refreshSessions error:', err);
-        body.innerHTML = '<tr><td colspan="8" style="text-align: center;">Failed to load sessions</td></tr>';
+        body.innerHTML = '<tr><td colspan="7" style="text-align: center;">Failed to load sessions</td></tr>';
         window.updatePaginationUI('sessions');
     }
 }
@@ -199,17 +261,19 @@ export function killOtherSessions() {
     });
 }
 
-// Auto-refresh the sessions table every 10s while the page is visible,
-// so "online" status stays real-time.
+// Auto-refresh the sessions table every 30s while the page is visible.
+// 30s sits comfortably inside the 90s "online" window used by
+// computeSessionStatus(), so status stays accurate without wasteful polling.
+// Silent refreshes diff the table in place so it does not blink.
 let sessionAutoRefreshTimer = null;
 
 export function startSessionAutoRefresh() {
     if (sessionAutoRefreshTimer) return;
     sessionAutoRefreshTimer = setInterval(() => {
         if (state.currentUser?.role === 'superadmin' && state.currentPath === 'sessions' && !document.hidden) {
-            refreshSessions();
+            refreshSessions({ silent: true });
         }
-    }, 10000);
+    }, 30000);
 }
 
 export function stopSessionAutoRefresh() {
