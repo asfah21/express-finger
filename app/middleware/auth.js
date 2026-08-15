@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import { config } from '../config/index.js'
 import { getSettingsData } from '../controllers/settings.js'
 import { sendError } from '../utils/response.js'
+import { isSessionActive } from '../utils/sessions.js'
 
 // Wajib: JWT_SECRET harus diset di environment variables.
 // Tidak ada fallback hardcoded untuk keamanan maksimal.
@@ -11,6 +12,16 @@ if (!SECRET) {
   console.error('   Set it in your .env file or docker-compose environment:')
   console.error('   JWT_SECRET=your-strong-random-secret-key')
   process.exit(1)
+}
+
+/**
+ * A token minted after session tracking always carries a `jti` claim.
+ * Legacy tokens (issued before the feature shipped) have no jti and are
+ * treated as valid so existing logins are not broken.
+ */
+async function isTokenSessionActive(decoded) {
+  if (!decoded?.jti) return true
+  return isSessionActive(decoded.jti)
 }
 
 // Combined authentication middleware
@@ -35,6 +46,9 @@ export const requireApiKey = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, SECRET)
+    if (!(await isTokenSessionActive(decoded))) {
+      return sendError(res, 'Session has been ended', 401)
+    }
     req.user = decoded
     next()
   } catch (err) {
@@ -58,7 +72,7 @@ export const requireAdminPrivileges = (req, res, next) => {
 }
 
 // Strictly JWT authentication middleware (for Dashboard internal routes if any)
-export const requireAuth = (req, res, next) => {
+export const requireAuth = async (req, res, next) => {
   const token = req.cookies?.token || req.headers['authorization']?.split(' ')[1]
 
   if (!token) {
@@ -67,6 +81,9 @@ export const requireAuth = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, SECRET)
+    if (!(await isTokenSessionActive(decoded))) {
+      return sendError(res, 'Session has been ended', 401)
+    }
     req.user = decoded
     next()
   } catch (err) {
@@ -77,7 +94,7 @@ export const requireAuth = (req, res, next) => {
 // Protect browser pages that must redirect unauthenticated visitors to the login page.
 // This is intentionally separate from requireAuth because API clients should receive
 // a JSON 401 response, while direct browser navigation should receive an HTTP redirect.
-export const requirePageAuth = (req, res, next) => {
+export const requirePageAuth = async (req, res, next) => {
   const token = req.cookies?.token
 
   if (!token) {
@@ -85,7 +102,11 @@ export const requirePageAuth = (req, res, next) => {
   }
 
   try {
-    req.user = jwt.verify(token, SECRET)
+    const decoded = jwt.verify(token, SECRET)
+    if (!(await isTokenSessionActive(decoded))) {
+      return res.redirect('/')
+    }
+    req.user = decoded
     next()
   } catch (err) {
     return res.redirect('/')
@@ -119,13 +140,15 @@ export const requireSuperAdminPrivileges = (req, res, next) => {
 }
 
 // Middleware to optionally attach user info without blocking
-export const optionalAuth = (req, res, next) => {
+export const optionalAuth = async (req, res, next) => {
   const token = req.cookies?.token || req.headers['authorization']?.split(' ')[1]
 
   if (token) {
     try {
       const decoded = jwt.verify(token, SECRET)
-      req.user = decoded
+      if (await isTokenSessionActive(decoded)) {
+        req.user = decoded
+      }
     } catch (err) {
       // Token invalid, just continue without user
     }

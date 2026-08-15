@@ -166,6 +166,30 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ DEFAULT now()
     );
 
+    -- Active user sessions for the Super Admin "Active Sessions" page.
+    -- Each row corresponds to one issued JWT (keyed by its jti claim).
+    -- revoked_at is NULL while the session is active; a non-NULL value
+    -- means the session was force-ended (force logout).
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id BIGSERIAL PRIMARY KEY,
+      jti TEXT NOT NULL UNIQUE,
+      user_id INTEGER NOT NULL,
+      username TEXT NOT NULL,
+      role TEXT NOT NULL,
+      ip_address TEXT DEFAULT '',
+      user_agent TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT now(),
+      last_seen TIMESTAMPTZ DEFAULT now(),
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      revoked_by TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions (user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_last_seen ON user_sessions (last_seen);
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_active
+      ON user_sessions (jti) WHERE revoked_at IS NULL;
+
     CREATE TABLE IF NOT EXISTS page_permissions (
       id SERIAL PRIMARY KEY,
       page_id TEXT NOT NULL,
@@ -222,6 +246,7 @@ export async function ensureSchema() {
       { page_id: 'hr', page_label: 'HR Settings', roles: '{superadmin,admin}' },
       { page_id: 'late', page_label: 'Attendance Late', roles: '{superadmin,admin,viewer}' },
       { page_id: 'metric', page_label: 'Cache Metrics', roles: '{superadmin}' },
+      { page_id: 'sessions', page_label: 'Active Sessions', roles: '{superadmin}' },
       { page_id: 'live', page_label: 'Live Attendance', roles: '{superadmin,public}' }
 
     ]
@@ -274,6 +299,20 @@ export async function ensureSchema() {
       `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('late', 'Attendance Late', '{superadmin,admin,viewer}')`
     )
     console.log('✅ Attendance Late page permission added')
+  }
+
+  // Ensure Active Sessions page exists (Super Admin only) for existing installations
+  const { rows: sessionRows } = await pool.query(`SELECT allowed_roles FROM page_permissions WHERE page_id = 'sessions'`)
+  if (sessionRows.length === 0) {
+    await pool.query(
+      `INSERT INTO page_permissions (page_id, page_label, allowed_roles) VALUES ('sessions', 'Active Sessions', '{superadmin}')`
+    )
+    console.log('✅ Active Sessions page permission added')
+  } else if (!sessionRows[0].allowed_roles.includes('superadmin')) {
+    await pool.query(
+      `UPDATE page_permissions SET allowed_roles = ARRAY['superadmin'], updated_at = now() WHERE page_id = 'sessions'`
+    )
+    console.log('✅ Active Sessions page permission updated to superadmin only')
   }
 
   // Ensure Live Attendance is available to superadmins and public kiosk accounts.

@@ -14,6 +14,7 @@ import { refreshPair } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
 import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate, loadTemplateDevices, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/biometrics.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
+import { refreshSessions, handleSessionSearch, killSession, killAllUserSessions, killOtherSessions, startSessionAutoRefresh } from './js/pages/sessions.js';
 import { initLivePage, initCamLivePage } from './js/live.js';
 
 
@@ -143,6 +144,12 @@ window.handleLateSearch = handleLateSearch;
 window.showLateExportMenu = showLateExportMenu;
 window.applyLateFilter = () => { state.pagination.late.page = 0; refreshLate(); };
 
+// Sessions Page Functions
+window.refreshSessions = refreshSessions;
+window.handleSessionSearch = handleSessionSearch;
+window.killSession = killSession;
+window.killAllUserSessions = killAllUserSessions;
+window.killOtherSessions = killOtherSessions;
 
 // Metric Page Functions
 window.refreshCacheMetrics = refreshCacheMetrics;
@@ -196,6 +203,7 @@ async function showDashboard() {
     applyDynamicSidebar();
 
     // Apply role-specific visibility after permissions are loaded.
+    applyAdminVisibility();
     applySuperAdminVisibility();
     applyLiveVisibility();
 
@@ -237,12 +245,12 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric', 'sessions'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric'];
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric', 'sessions'];
 
         state.allowedPageLabels = {};
     }
@@ -317,6 +325,17 @@ function applySuperAdminVisibility() {
 }
 
 /**
+ * Sembunyikan elemen dengan class "admin-only" jika user bukan admin/superadmin
+ * (Add/Import/Delete buttons, bulk selection, dll). Backend tetap jadi source of truth.
+ */
+function applyAdminVisibility() {
+    const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
+    document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdmin ? '' : 'none';
+    });
+}
+
+/**
  * Live is intentionally visible only to the kiosk/public role and superadmin.
  * The backend page permission remains the source of truth; this prevents the
  * menu from appearing for admin/viewer users even when fallback permissions
@@ -373,7 +392,8 @@ function showPage(pageId) {
         'settings': 'System Settings',
         'hr': 'HR Settings',
         'late': 'Attendance Late',
-        'metric': 'Cache Metrics'
+        'metric': 'Cache Metrics',
+        'sessions': 'Active Sessions'
     };
 
     // Use dynamic label from server if available, fallback to default
@@ -436,6 +456,8 @@ function showPage(pageId) {
         if (pageId === 'hr') loadHrSettings();
 
         if (pageId === 'metric') refreshCacheMetrics();
+
+        if (pageId === 'sessions') refreshSessions();
 
     }
 
@@ -543,6 +565,7 @@ function updatePageSize(type, val) {
     if (type === 'logs') refreshLogs();
     if (type === 'late') refreshLate();
     if (type === 'activity') refreshActivityLogs();
+    if (type === 'sessions') refreshSessions();
 }
 
 function nextPage(type) {
@@ -555,6 +578,7 @@ function nextPage(type) {
         if (type === 'logs') refreshLogs();
         if (type === 'late') refreshLate();
         if (type === 'activity') refreshActivityLogs();
+        if (type === 'sessions') refreshSessions();
     }
 }
 
@@ -568,6 +592,7 @@ function prevPage(type) {
         if (type === 'logs') refreshLogs();
         if (type === 'late') refreshLate();
         if (type === 'activity') refreshActivityLogs();
+        if (type === 'sessions') refreshSessions();
     }
 }
 
@@ -580,6 +605,7 @@ function goToPage(type, p) {
     if (type === 'logs') refreshLogs();
     if (type === 'late') refreshLate();
     if (type === 'activity') refreshActivityLogs();
+    if (type === 'sessions') refreshSessions();
 
 }
 
@@ -702,6 +728,7 @@ window.addEventListener('resize', () => {
         if (state.currentPath === 'logs') updatePaginationUI('logs');
         if (state.currentPath === 'late') updatePaginationUI('late');
         if (state.currentPath === 'activity') updatePaginationUI('activity');
+        if (state.currentPath === 'sessions') updatePaginationUI('sessions');
 
 
         // Remove collapsed class when entering mobile view
@@ -740,3 +767,6 @@ window.addEventListener('hashchange', () => {
 // Run initial auth check and setup silent token check
 checkAuth();
 setInterval(silentTokenCheck, 60000); // Check token every minute
+
+// Auto-refresh the Active Sessions table while the page is open (real-time online status)
+startSessionAutoRefresh();

@@ -1,0 +1,68 @@
+<div id="page-sessions" class="page" style="display: none;">
+
+    <!-- Summary bar: live online / active session counts -->
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; background: rgba(255,255,255,0.03); padding: 1rem 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--success);">
+            <i class="fas fa-circle" style="font-size: 0.55rem; margin-right: 0.45rem;"></i>
+            <span id="sessions-online-count">0</span> online
+        </span>
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--text);">
+            <i class="fas fa-user-clock" style="margin-right: 0.45rem; color: var(--primary);"></i>
+            <span id="sessions-active-count">0</span> active sessions
+        </span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">
+            <i class="fas fa-sync-alt fa-spin" id="sessions-live-indicator" style="display: none; margin-right: 0.35rem;"></i>
+            auto-refresh 10s
+        </span>
+    </div>
+
+    <!-- Search and Actions section -->
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+        <div style="flex: 2; min-width: 250px;">
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">SEARCH SESSION</label>
+            <div style="position: relative;">
+                <i class="fas fa-search" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                <input type="text" id="session-search" placeholder="Search username, role, or IP address..." style="padding-left: 2.8rem;" oninput="handleSessionSearch(this.value)">
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn-primary" style="width: auto; height: 42px; padding: 0 1.2rem;" onclick="refreshSessions()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn-primary" style="width: auto; height: 42px; padding: 0 1rem; background: var(--error);" onclick="killOtherSessions()">
+                <i class="fas fa-user-slash"></i> End Other Sessions
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>IP Address</th>
+                    <th>Login Time</th>
+                    <th>Last Active</th>
+                    <th>Expires</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="sessions-body"></tbody>
+        </table>
+        <div class="table-footer">
+            <div class="table-info" id="sessions-info">Showing 0 of 0 sessions</div>
+            <div class="table-pagination">
+                <select onchange="updatePageSize('sessions', this.value)">
+                    <option value="25">25 per page</option>
+                    <option value="50">50 per page</option>
+                    <option value="100">100 per page</option>
+                </select>
+                <button onclick="prevPage('sessions')" id="sessions-prev-btn">Prev</button>
+                <div class="pagination-numbers" id="sessions-pagination-numbers"></div>
+                <button onclick="nextPage('sessions')" id="sessions-next-btn">Next</button>
+            </div>
+        </div>
+    </div>
+</div>

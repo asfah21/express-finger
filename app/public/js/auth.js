@@ -8,6 +8,7 @@ export async function checkAuth() {
             const data = await response.json();
             state.currentUser = data.data.user;
             window.showDashboard();
+            startSessionHeartbeat();
         } else {
             // Check if this is a fresh install (no users yet) to show default credentials
             try {
@@ -41,10 +42,21 @@ export async function silentTokenCheck() {
     try {
         const response = await fetch('/auth/me');
         if (!response.ok) {
+            if (response.status === 401) {
+                // Definitive auth failure — the session was revoked (force logout)
+                // or the token expired. Log out immediately instead of waiting
+                // for the 3-fail tolerance (which exists for network glitches only).
+                console.warn('Session rejected by server (401). Logging out.');
+                stopSessionHeartbeat();
+                state.currentUser = null;
+                window.showLogin();
+                return;
+            }
             tokenCheckFailCount++;
             console.warn(`Auth check failed (${tokenCheckFailCount}/${TOKEN_CHECK_MAX_FAIL}): ${response.status}`);
             if (tokenCheckFailCount >= TOKEN_CHECK_MAX_FAIL) {
                 console.warn('Token check failed 3 times, logging out.');
+                stopSessionHeartbeat();
                 state.currentUser = null;
                 window.showLogin();
             }
@@ -57,9 +69,44 @@ export async function silentTokenCheck() {
         console.warn(`Auth check network error (${tokenCheckFailCount}/${TOKEN_CHECK_MAX_FAIL}):`, err.message);
         if (tokenCheckFailCount >= TOKEN_CHECK_MAX_FAIL) {
             console.warn('Token check failed 3 times (network), logging out.');
+            stopSessionHeartbeat();
             state.currentUser = null;
             window.showLogin();
         }
+    }
+}
+
+// ============================================================
+// Session heartbeat — keeps last_seen fresh and lets the server
+// force-logout an active browser within ~30 seconds.
+// ============================================================
+const HEARTBEAT_INTERVAL_MS = 30000; // 30s
+let heartbeatInterval = null;
+
+export function startSessionHeartbeat() {
+    if (heartbeatInterval) return;
+    heartbeatInterval = setInterval(async () => {
+        if (!state.currentUser) return;
+        try {
+            const res = await fetch('/api/sessions/heartbeat', { method: 'POST' });
+            if (res.status === 401) {
+                // Session was revoked (force-logout) or expired → log out now.
+                console.warn('Heartbeat rejected (401) — session ended by server.');
+                stopSessionHeartbeat();
+                state.currentUser = null;
+                window.showLogin();
+                showToast('Your session has been ended by an administrator', 'warning');
+            }
+        } catch (err) {
+            // Network error — ignore; silentTokenCheck handles persistent failures.
+        }
+    }, HEARTBEAT_INTERVAL_MS);
+}
+
+export function stopSessionHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
     }
 }
 
@@ -93,6 +140,7 @@ export async function handleLogin(e) {
         if (response.ok) {
             state.currentUser = data.data.user;
             window.showDashboard();
+            startSessionHeartbeat();
             showToast('Welcome back, ' + state.currentUser.username);
         } else {
             error.innerText = data.message || 'Login failed';
@@ -116,6 +164,7 @@ export async function logout() {
         confirmText: 'Logout',
         confirmColor: 'var(--error)',
         onConfirm: async () => {
+            stopSessionHeartbeat();
             try {
                 await fetch('/auth/logout', { method: 'POST' });
             } catch (_) { /* ignore network errors on logout */ }

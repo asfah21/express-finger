@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import { randomUUID } from 'crypto'
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError } from '../utils/response.js'
+import { createSession, revokeSession, revokeAllUserSessions } from '../utils/sessions.js'
 
 const SECRET = process.env.JWT_SECRET
 if (!SECRET) {
@@ -66,11 +68,29 @@ export const login = async (req, res) => {
             return sendError(res, 'Invalid username or password', 401)
         }
 
+        const jti = randomUUID()
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user.id, username: user.username, role: user.role, jti },
             SECRET,
             { expiresIn: '3d' }
         )
+
+        // Track this login as an active session so Super Admin can see it
+        // and force-logout it later. Non-fatal: if it fails we still allow
+        // the login (the session simply won't appear on the Active Sessions page).
+        try {
+            await createSession({
+                jti,
+                userId: user.id,
+                username: user.username,
+                role: user.role,
+                ip,
+                userAgent: req.get('user-agent') || '',
+                expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            })
+        } catch (err) {
+            console.error('❌ Failed to create session for login:', err.message)
+        }
 
         // Set cookie - sameSite 'lax' agar cookie tetap ada saat refresh
         const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
@@ -193,11 +213,31 @@ export const updateAccount = async (req, res) => {
 
         // Re-generate token with new username if changed
         const user = rows[0]
+        const newJti = randomUUID()
         const token = jwt.sign(
-            { id: userId, username: user.username, role: user.role },
+            { id: userId, username: user.username, role: user.role, jti: newJti },
             SECRET,
             { expiresIn: '3d' }
         )
+
+        // Issue a new tracked session for the fresh token. Only end the old
+        // session when the password changed — a mere username change should
+        // not force other tabs of the same user to log out.
+        const oldJti = req.user?.jti
+        try {
+            if (oldJti && password) await revokeSession(oldJti, req.user.username)
+            await createSession({
+                jti: newJti,
+                userId,
+                username: user.username,
+                role: user.role,
+                ip,
+                userAgent: req.get('user-agent') || '',
+                expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            })
+        } catch (err) {
+            console.error('❌ Failed to re-create session on account update:', err.message)
+        }
 
         const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
         res.cookie('token', token, {
@@ -311,6 +351,7 @@ export const deleteUser = async (req, res) => {
         }
 
         await pool.query('DELETE FROM users WHERE id = $1', [id])
+        await revokeAllUserSessions(parseInt(id, 10), null, req.user.username)
 
         await recordActivity({
             username: req.user.username,
@@ -343,11 +384,14 @@ export const resetUserPassword = async (req, res) => {
         const hashed = await bcrypt.hash(password, 10)
         await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, id])
 
+        // Force logout all active sessions of the target user after a password reset
+        const revoked = await revokeAllUserSessions(parseInt(id, 10), null, req.user.username)
+
         await recordActivity({
             username: req.user.username,
             action: 'reset_password',
             category: 'auth',
-            detail: `Reset password for user: "${targetUser.username}"`,
+            detail: `Reset password for user: "${targetUser.username}"${revoked > 0 ? ` (${revoked} active session(s) ended)` : ''}`,
             ip
         })
 

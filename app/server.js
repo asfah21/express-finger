@@ -14,7 +14,7 @@ import {
 } from './middleware/index.js'
 import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes, pullEmployeeRoutes, syncRoutes, templateSyncRoutes, templateManualRoutes, liveRoutes } from './routes/index.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/index.js'
-import { ensureSchema, ensureRawDir, cleanupOldRawFiles, pool } from './utils/index.js'
+import { ensureSchema, ensureRawDir, cleanupOldRawFiles, pool, cleanupExpiredSessions } from './utils/index.js'
 import { startPullScheduler } from './utils/scheduler.js'
 import { warmCache } from './utils/cache.js'
 import { getSettingsData } from './controllers/settings.js'
@@ -166,8 +166,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'))
       await cleanupOldRawFiles()
       startPullScheduler()
 
-      // Setup cleanup interval
+      // Setup cleanup intervals
       setInterval(cleanupOldRawFiles, config.CLEANUP_INTERVAL_MS)
+      // Prune old/expired user sessions every hour
+      setInterval(cleanupExpiredSessions, 60 * 60 * 1000)
+      cleanupExpiredSessions()
 
       // Cache warming — pre-cache data statis dan overview
       warmCache({

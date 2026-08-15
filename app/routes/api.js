@@ -1,6 +1,6 @@
 import express from 'express'
 import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
-import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController } from '../controllers/index.js'
+import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController, sessionController } from '../controllers/index.js'
 import { getCacheMetrics, clearCache } from '../utils/cache.js'
 
 const router = express.Router()
@@ -25,6 +25,15 @@ router.put('/settings', requireSuperAdminPrivileges, settingsController.updateSe
 // Page Permissions routes (Super Admin only for management)
 router.get('/page-permissions', requireSuperAdminPrivileges, pagePermissionsController.getAll)
 router.put('/page-permissions/:id', requireSuperAdminPrivileges, pagePermissionsController.update)
+
+// Active Sessions routes (Super Admin only)
+router.get('/sessions', requireSuperAdminPrivileges, sessionController.list)
+router.post('/sessions/kill-others', requireSuperAdminPrivileges, sessionController.killOthers)
+router.post('/sessions/:jti/kill', requireSuperAdminPrivileges, sessionController.kill)
+router.post('/sessions/user/:userId/kill', requireSuperAdminPrivileges, sessionController.killAll)
+
+// Session heartbeat — any authenticated user, used for real-time "online" status
+router.post('/sessions/heartbeat', sessionController.heartbeat)
 
 // Get current user's accessible pages (any authenticated user)
 router.get('/my-permissions', requireApiKey, pagePermissionsController.getMyPermissions)
