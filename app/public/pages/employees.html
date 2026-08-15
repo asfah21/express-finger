@@ -34,10 +34,25 @@
                                 onchange="handleImport(event)">
                         </div>
                     </div>
+                    <div id="employee-selection-bar"
+                        style="display: none; align-items: center; justify-content: space-between; gap: 0.75rem; background: rgba(239,68,68,0.08); padding: 0.65rem 1rem; border-radius: 0.75rem; border: 1px solid rgba(239,68,68,0.35); margin-bottom: 1rem;">
+                        <span id="employee-selection-count" style="font-size: 0.85rem; font-weight: 600; color: var(--text);">
+                            <i class="fas fa-check-square" style="margin-right: 0.4rem; color: var(--error);"></i>0 selected
+                        </span>
+                        <button id="btn-bulk-delete" class="btn-primary" disabled
+                            style="width: auto; height: 38px; padding: 0 1.1rem; background: var(--error); opacity: 0.6;"
+                            onclick="bulkDeleteEmployees()">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                    </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
+                                    <th style="width: 36px;">
+                                        <input type="checkbox" id="employee-select-all" class="admin-only" style="cursor: pointer;"
+                                            onclick="toggleEmployeeSelectAll(this)" title="Select all on this page">
+                                    </th>
                                     <th>User ID</th>
                                     <th>NIK</th>
                                     <th>Name</th>

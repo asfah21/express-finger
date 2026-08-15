@@ -46,6 +46,7 @@ export async function refreshActivityLogs() {
             add_employee: 'fa-user-plus',
             edit_employee: 'fa-user-edit',
             delete_employee: 'fa-user-minus',
+            bulk_delete_employee: 'fa-users-slash',
             import_employees: 'fa-file-import',
             add_device: 'fa-plus-circle',
             edit_device: 'fa-edit',

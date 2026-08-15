@@ -20,6 +20,9 @@ export async function refreshEmployees() {
     const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
     body.innerHTML = (data.data?.list || []).map(emp => `
         <tr>
+            <td style="text-align: center;">
+                ${isAdmin ? `<input type="checkbox" class="employee-check" value="${emp.id}" onchange="updateEmployeeSelection()" style="cursor: pointer;">` : ''}
+            </td>
             <td>${emp.user_id}</td>
             <td>${emp.nik || '-'}</td>
             <td>${emp.nama || 'Unnamed'}</td>
@@ -42,9 +45,10 @@ export async function refreshEmployees() {
                 ` : '-'}
             </td>
         </tr>
-    `).join('') || '<tr><td colspan="8" style="text-align: center;">No employees found</td></tr>';
+    `).join('') || '<tr><td colspan="9" style="text-align: center;">No employees found</td></tr>';
 
     window.updatePaginationUI('employees');
+    updateEmployeeSelection();
 }
 
 /**
@@ -232,6 +236,69 @@ export async function deleteEmployee(id) {
                 refreshEmployees();
             } else {
                 showToast('Delete failed', 'error');
+            }
+        }
+    });
+}
+
+// ===== Bulk Delete Support =====
+
+let selectedEmployeeIds = new Set();
+
+export function updateEmployeeSelection() {
+    selectedEmployeeIds = new Set(
+        Array.from(document.querySelectorAll('#employees-body .employee-check:checked'))
+            .map(cb => parseInt(cb.value, 10))
+    );
+
+    // Sync select-all checkbox state (checked / indeterminate)
+    const selectAll = document.getElementById('employee-select-all');
+    const checkboxes = document.querySelectorAll('#employees-body .employee-check');
+    if (selectAll) {
+        selectAll.checked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+        selectAll.indeterminate = !selectAll.checked && selectedEmployeeIds.size > 0;
+    }
+
+    // Update selection bar
+    const bar = document.getElementById('employee-selection-bar');
+    const btn = document.getElementById('btn-bulk-delete');
+    const count = document.getElementById('employee-selection-count');
+    if (bar) bar.style.display = selectedEmployeeIds.size > 0 ? 'flex' : 'none';
+    if (btn) btn.disabled = selectedEmployeeIds.size === 0;
+    if (count) count.innerHTML = `<i class="fas fa-check-square" style="margin-right: 0.4rem; color: var(--error);"></i>${selectedEmployeeIds.size} selected`;
+}
+
+export function toggleEmployeeSelectAll(checkbox) {
+    document.querySelectorAll('#employees-body .employee-check').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateEmployeeSelection();
+}
+
+export async function bulkDeleteEmployees() {
+    updateEmployeeSelection();
+    const ids = Array.from(selectedEmployeeIds);
+    if (ids.length === 0) return showToast('No employees selected', 'warning');
+
+    showConfirm({
+        title: `Delete ${ids.length} Employees`,
+        message: `Are you sure you want to delete <strong>${ids.length}</strong> selected employee(s)? This action cannot be undone. Biometric templates will also be removed, but attendance history will be preserved.`,
+        icon: 'fa-users-slash',
+        confirmText: `Delete ${ids.length} Employees`,
+        confirmColor: 'var(--error)',
+        onConfirm: async () => {
+            const res = await fetch('/api/employees/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.message || `${ids.length} employees deleted`, 'success');
+                selectedEmployeeIds.clear();
+                refreshEmployees();
+            } else {
+                showToast(data.message || 'Bulk delete failed', 'error');
             }
         }
     });

@@ -410,6 +410,81 @@ export const employeeController = {
         }
     },
 
+    async bulkDeleteEmployees(req, res) {
+        const { ids } = req.body
+        const username = req.user?.username || 'api'
+        const ip = getClientIp(req)
+
+        // Validasi input
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return sendError(res, 'ids array is required and must not be empty', 400)
+        }
+        if (ids.length > 500) {
+            return sendError(res, 'Maximum 500 employees per bulk delete', 400)
+        }
+        const parsedIds = [...new Set(ids.map(id => parseInt(id, 10)))]
+        if (parsedIds.some(id => !Number.isInteger(id) || id <= 0)) {
+            return sendError(res, 'ids must be an array of valid positive integers', 400)
+        }
+
+        const client = await pool.connect()
+        try {
+            await client.query('BEGIN')
+
+            // Ambil info karyawan sebelum dihapus (untuk activity log)
+            const { rows: empRows } = await client.query(
+                `SELECT id, user_id, nama FROM employee WHERE id = ANY($1::int[])`,
+                [parsedIds]
+            )
+
+            // Hapus template biometrik milik karyawan yang dihapus (histori absensi tetap dipertahankan)
+            await client.query(
+                `DELETE FROM employee_templates WHERE user_id IN (
+                    SELECT user_id FROM employee WHERE id = ANY($1::int[])
+                 )`,
+                [parsedIds]
+            )
+
+            // Hapus master karyawan (satu query batch, atomik)
+            const { rowCount } = await client.query(
+                `DELETE FROM employee WHERE id = ANY($1::int[])`,
+                [parsedIds]
+            )
+
+            await client.query('COMMIT')
+
+            // Hapus cache employees
+            delCacheByPattern(CACHE_KEYS.EMPLOYEES_LIST + '*')
+            delCacheByPattern(CACHE_KEYS.EMPLOYEE_DETAIL + ':*')
+
+            const notFound = parsedIds.length - rowCount
+
+            // Activity log agregat (dibatasi 50 nama agar tidak terlalu panjang)
+            const nameList = empRows.map(e => `${e.nama || 'N/A'} (${e.user_id || e.id})`)
+            const detail = nameList.length > 50
+                ? `${nameList.slice(0, 50).join(', ')} ... and ${nameList.length - 50} more`
+                : nameList.join(', ')
+
+            // Logging non-fatal: tidak menggagalkan response jika activity log gagal
+            try {
+                await recordActivity({
+                    username, action: 'bulk_delete_employee', category: 'employee',
+                    detail: `Bulk deleted ${rowCount} employees: ${detail || '-'}`,
+                    ip
+                })
+            } catch (logErr) {
+                console.error('Bulk delete activity log failed:', logErr.message)
+            }
+
+            sendSuccess(res, { requested: parsedIds.length, deleted: rowCount, notFound }, `Deleted ${rowCount} employees`)
+        } catch (error) {
+            try { await client.query('ROLLBACK') } catch (rollbackErr) { /* transaksi sudah di-rollback / closed */ }
+            sendError(res, error.message)
+        } finally {
+            client.release()
+        }
+    },
+
     async bulkAddEmployees(req, res) {
         const { employees } = req.body
         if (!Array.isArray(employees)) return sendError(res, 'Invalid data format', 400)
