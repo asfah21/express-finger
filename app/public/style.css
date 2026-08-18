@@ -852,6 +852,32 @@ tr:hover td {
     color: var(--error);
 }
 
+/* Attendance Pair summary chips */
+.pair-summary-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    align-items: center;
+}
+
+.pair-summary-chips .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.8125rem;
+    border: 1px solid var(--glass-border);
+}
+
+.pair-summary-chips .badge i {
+    font-size: 0.9rem;
+}
+
+.pair-summary-chips .badge b {
+    font-weight: 700;
+}
+
 /* Inputs */
 input {
     width: 100%;

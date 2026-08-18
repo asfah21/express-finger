@@ -13,6 +13,7 @@ export async function refreshPair() {
     const fromDate = document.getElementById('pair-date-from').value;
     const toDate = document.getElementById('pair-date-to').value;
     const search = document.getElementById('pair-search').value;
+    const status = document.getElementById('pair-status')?.value || 'all';
 
     // Show skeleton loading
     showSkeleton('pair-body', pairPagination.size);
@@ -21,6 +22,7 @@ export async function refreshPair() {
     if (fromDate) url += `&from_date=${fromDate}`;
     if (toDate) url += `&to_date=${toDate}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (status && status !== 'all') url += `&status=${status}`;
 
     try {
         const res = await fetch(url);
@@ -28,6 +30,8 @@ export async function refreshPair() {
 
         const summary = data.data?.summary || data.data?.list || data.data || [];
         pairPagination.total = data.data?.total || 0;
+
+        updatePairSummaryChips(data.data?.summary_counts);
 
         const body = document.getElementById('pair-body');
         body.innerHTML = summary.map(item => {
@@ -147,6 +151,24 @@ window.applyPairFilter = function() {
     refreshPair();
 };
 
+window.handlePairStatusChange = function() {
+    pairPagination.page = 0;
+    refreshPair();
+};
+
+function updatePairSummaryChips(counts) {
+    const el = document.getElementById('pair-summary-chips');
+    if (!el) return;
+    counts = counts || {};
+    const set = (id, val) => {
+        const node = document.getElementById(id);
+        if (node) node.textContent = Number(val) || 0;
+    };
+    set('pair-count-hadir', counts.hadir_penuh);
+    set('pair-count-belum', counts.belum_pulang);
+    set('pair-count-tidak', counts.tidak_hadir);
+}
+
 let pairSearchTimer;
 window.handlePairSearch = function(val) {
     clearTimeout(pairSearchTimer);
@@ -225,6 +247,9 @@ async function performPairExport(range) {
         if (fromDate) url += `&from_date=${fromDate}`;
         if (toDate) url += `&to_date=${toDate}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
+        // Apply the active status filter only for the "based on current filters" export
+        const activeStatus = document.getElementById('pair-status')?.value || 'all';
+        if (range === 'filtered' && activeStatus && activeStatus !== 'all') url += `&status=${activeStatus}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -598,8 +623,8 @@ async function generatePairPDFSlip() {
             rowData.forEach((val, i) => {
                 if (i === 7) {
                     if (val === 'Hadir Penuh') doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
-                    else if (val === 'Blm Plg') doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
-                    else if (val === 'Tdk Hdr') doc.setTextColor(RED[0], RED[1], RED[2]);
+                    else if (val === 'Belum Pulang' || val === 'Blm Plg') doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
+                    else if (val === 'Tidak Hadir' || val === 'Tdk Hdr') doc.setTextColor(RED[0], RED[1], RED[2]);
                     else doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
                     doc.setFont(undefined, 'bold');
                 } else {

@@ -505,11 +505,14 @@ export const apiController = {
         to_date = todayWita,
         search,
         user_id,
+        status,
         limit = 25,
         offset = 0
       } = req.query;
 
-      const lim = Math.min(parseInt(limit) || 25, 500);
+      // Roster x days can grow quickly, so allow a generous cap for exports
+      // while the on-screen table keeps using 25/50/100.
+      const lim = Math.min(parseInt(limit) || 25, 50000);
       const off = Math.max(parseInt(offset) || 0, 0);
 
       const from = getBusinessDateBounds(from_date).from;
@@ -521,34 +524,37 @@ export const apiController = {
       const fetchTo = new Date(to);
       fetchTo.setDate(fetchTo.getDate() + 1);
 
+      const allowedStatus = ['all', 'hadir_penuh', 'belum_pulang', 'tidak_hadir'];
+      const statusKey = allowedStatus.includes(String(status || '').toLowerCase())
+        ? String(status).toLowerCase()
+        : 'all';
+
       const params = [];
       let i = 1;
 
-      // Base WHERE for attendance_logs time range
-      let whereLogs = `al."timestamp" BETWEEN $${i++} AND $${i++}`;
+      // Base WHERE for attendance_logs time range (expanded fetch window)
+      const whereLogs = `al."timestamp" BETWEEN $${i++} AND $${i++}`;
       params.push(fetchFrom, fetchTo);
 
-      // Search filter (by employee name, nik, or user_id)
+      // Roster-side filters (search by name/NIK/user_id, or a specific user)
+      const rosterWhere = [];
       if (search) {
-        whereLogs += ` AND (e.nama ILIKE $${i} OR e.nik ILIKE $${i} OR al.user_id::text ILIKE $${i})`;
+        rosterWhere.push(`(e.nama ILIKE $${i} OR e.nik ILIKE $${i} OR e.user_id::text ILIKE $${i})`);
         params.push(`%${search}%`);
         i++;
       }
-
-      // Filter by specific user_id
       if (user_id) {
-        whereLogs += ` AND al.user_id = $${i}`;
+        rosterWhere.push(`e.user_id = $${i}`);
         params.push(String(user_id));
         i++;
       }
+      const rosterWhereSql = rosterWhere.length ? `WHERE ${rosterWhere.join(' AND ')}` : '';
 
-      const dateFromStr = from_date;
-      const dateToStr = to_date;
-
-      // Optimized query: single CTE pipeline with accurate COUNT
-      const query = `
+      // Shared CTE prefix: employee roster x every business date in range,
+      // left-joined to the daily pairing so absent employees (zero logs) still appear.
+      const cte = `
         WITH raw_logs AS (
-          SELECT 
+          SELECT
             al.user_id,
             al."timestamp" AT TIME ZONE 'UTC' as ts,
             al.type,
@@ -559,75 +565,146 @@ export const apiController = {
               PARTITION BY al.user_id ORDER BY al."timestamp"
             ) as next_type
           FROM attendance_logs al
-          LEFT JOIN employee e ON al.user_id::text = e.user_id::text
           WHERE ${whereLogs}
         ),
         cleaned_logs AS (
           SELECT * FROM raw_logs
           WHERE COALESCE(
-            type = 0 AND next_type = 1 AND EXTRACT(EPOCH FROM (next_ts - ts)) <= 300, 
+            type = 0 AND next_type = 1 AND EXTRACT(EPOCH FROM (next_ts - ts)) <= 300,
             FALSE
           ) = FALSE
         ),
         daily_logs AS (
-          SELECT 
+          SELECT
             user_id,
             DATE(
-              ts - 
-              CASE 
-                WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9 
-                THEN INTERVAL '12 hours' 
-                ELSE INTERVAL '0 hours' 
+              ts -
+              CASE
+                WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9
+                THEN INTERVAL '12 hours'
+                ELSE INTERVAL '0 hours'
               END
             ) as log_date,
             MIN(ts) FILTER (WHERE type = 0) as check_in_time,
             MAX(ts) FILTER (WHERE type = 1) as check_out_time
           FROM cleaned_logs
           GROUP BY user_id, DATE(
-            ts - 
-            CASE 
-              WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9 
-              THEN INTERVAL '12 hours' 
-              ELSE INTERVAL '0 hours' 
+            ts -
+            CASE
+              WHEN type = 1 AND EXTRACT(HOUR FROM ts) < 9
+              THEN INTERVAL '12 hours'
+              ELSE INTERVAL '0 hours'
             END
           )
         ),
-        filtered_daily AS (
-          SELECT * FROM daily_logs
-          WHERE (log_date >= $${i}::date AND log_date <= $${i + 1}::date)
-             OR (DATE(check_out_time) >= $${i}::date AND DATE(check_out_time) <= $${i + 1}::date)
-             OR (DATE(check_in_time) >= $${i}::date AND DATE(check_in_time) <= $${i + 1}::date)
+        grid AS (
+          SELECT
+            e.user_id,
+            e.nik,
+            e.nama,
+            e.department,
+            e.jabatan,
+            d.day
+          FROM employee e
+          CROSS JOIN LATERAL (
+            SELECT generate_series($${i++}::date, $${i++}::date, '1 day')::date AS day
+          ) d
+          ${rosterWhereSql}
         ),
-        counted AS (
-          SELECT COUNT(*)::bigint AS total FROM filtered_daily
+        joined AS (
+          SELECT
+            g.user_id,
+            g.nik,
+            g.nama,
+            g.department,
+            g.jabatan,
+            g.day,
+            dl.check_in_time,
+            dl.check_out_time
+          FROM grid g
+          LEFT JOIN daily_logs dl
+            ON dl.user_id::text = g.user_id::text AND dl.log_date = g.day
         ),
-        paginated AS (
-          SELECT * FROM filtered_daily
-          ORDER BY log_date DESC, check_in_time DESC NULLS LAST, check_out_time DESC NULLS LAST
-          LIMIT $${i + 2} OFFSET $${i + 3}
+        statused AS (
+          SELECT
+            *,
+            (check_in_time IS NOT NULL)::int AS has_in,
+            (check_out_time IS NOT NULL)::int AS has_out
+          FROM joined
         )
-        SELECT 
-          p.log_date,
-          p.user_id,
-          e.nik,
-          e.nama,
-          e.department,
-          e.jabatan,
-          TO_CHAR(p.check_in_time, 'HH24:MI:SS') as check_in,
-          TO_CHAR(p.check_out_time, 'HH24:MI:SS') as check_out,
-          EXTRACT(EPOCH FROM (p.check_out_time - p.check_in_time)) as diff_seconds,
-          c.total
-        FROM paginated p
-        LEFT JOIN employee e ON p.user_id::text = e.user_id::text
-        CROSS JOIN counted c
-        ORDER BY p.log_date DESC, p.check_in_time DESC NULLS LAST, p.check_out_time DESC NULLS LAST;
       `;
 
-      params.push(dateFromStr, dateToStr, lim, off);
+      // Chips query: overview across the WHOLE range (ignores the status filter),
+      // so the summary stays a truthful full-range picture even after filtering.
+      const chipsQuery = `
+        ${cte}
+        SELECT
+          COUNT(*)::bigint AS total,
+          COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 1)::bigint AS hadir_penuh,
+          COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 0)::bigint AS belum_pulang,
+          COUNT(*) FILTER (WHERE has_in = 0)::bigint AS tidak_hadir
+        FROM statused
+      `;
+      const chipsParams = [...params, from_date, to_date];
+      const { rows: chipsRows } = await pool.query({ text: chipsQuery, values: chipsParams });
 
-      const { rows } = await pool.query({ text: query, values: params });
+      const summaryCounts = {
+        total: chipsRows.length > 0 ? Number(chipsRows[0].total) : 0,
+        hadir_penuh: chipsRows.length > 0 ? Number(chipsRows[0].hadir_penuh) : 0,
+        belum_pulang: chipsRows.length > 0 ? Number(chipsRows[0].belum_pulang) : 0,
+        tidak_hadir: chipsRows.length > 0 ? Number(chipsRows[0].tidak_hadir) : 0
+      };
 
-      const total = rows.length > 0 ? Number(rows[0].total) : 0;
+      // Count query: total of the status-filtered set, so pagination stays consistent
+      // with the rows actually shown on screen. Uses its own placeholder index so the
+      // shared counter (from the CTE build) is never mutated across sibling queries.
+      let countIdx = i;
+      const countQuery = `
+        ${cte}
+        , filtered AS (
+          SELECT * FROM statused
+          WHERE $${countIdx}::text = 'all'
+             OR ($${countIdx}::text = 'hadir_penuh' AND has_in = 1 AND has_out = 1)
+             OR ($${countIdx}::text = 'belum_pulang' AND has_in = 1 AND has_out = 0)
+             OR ($${countIdx}::text = 'tidak_hadir' AND has_in = 0)
+        )
+        SELECT COUNT(*)::bigint AS total FROM filtered
+      `;
+      const countParams = [...params, from_date, to_date, statusKey];
+      const { rows: countRows } = await pool.query({ text: countQuery, values: countParams });
+      const total = countRows.length > 0 ? Number(countRows[0].total) : 0;
+
+      // Data query: paginated rows for the current page.
+      let dataIdx = i;
+      const dataQuery = `
+        ${cte}
+        , filtered AS (
+          SELECT * FROM statused
+          WHERE $${dataIdx}::text = 'all'
+             OR ($${dataIdx}::text = 'hadir_penuh' AND has_in = 1 AND has_out = 1)
+             OR ($${dataIdx}::text = 'belum_pulang' AND has_in = 1 AND has_out = 0)
+             OR ($${dataIdx}::text = 'tidak_hadir' AND has_in = 0)
+        )
+        , paginated AS (
+          SELECT * FROM filtered
+          ORDER BY day DESC, user_id ASC
+          LIMIT $${dataIdx + 1} OFFSET $${dataIdx + 2}
+        )
+        SELECT
+          p.day::text AS log_date,
+          p.user_id,
+          p.nik,
+          p.nama,
+          p.department,
+          p.jabatan,
+          TO_CHAR(p.check_in_time, 'HH24:MI:SS') as check_in,
+          TO_CHAR(p.check_out_time, 'HH24:MI:SS') as check_out,
+          EXTRACT(EPOCH FROM (p.check_out_time - p.check_in_time)) as diff_seconds
+        FROM paginated p
+        ORDER BY p.day DESC, p.user_id ASC;
+      `;
+      const dataParams = [...params, from_date, to_date, statusKey, lim, off];
+      const { rows } = await pool.query({ text: dataQuery, values: dataParams });
 
       const formattedData = rows.map(row => {
         let workHoursStr = null;
@@ -639,12 +716,12 @@ export const apiController = {
 
         const hasCheckIn = !!row.check_in;
         const hasCheckOut = !!row.check_out;
-        let status = "Tidak Hadir";
-        if (hasCheckIn && hasCheckOut) status = "Hadir Penuh";
-        else if (hasCheckIn) status = "Belum Pulang";
+        let statusLabel = "Tidak Hadir";
+        if (hasCheckIn && hasCheckOut) statusLabel = "Hadir Penuh";
+        else if (hasCheckIn) statusLabel = "Belum Pulang";
 
         return {
-          date: new Date(row.log_date).toISOString().split('T')[0],
+          date: row.log_date,
           user_id: row.user_id,
           nik: row.nik || null,
           nama: row.nama || null,
@@ -653,7 +730,7 @@ export const apiController = {
           check_in: row.check_in,
           check_out: row.check_out,
           work_hours: workHoursStr,
-          status
+          status: statusLabel
         };
       });
 
@@ -664,6 +741,7 @@ export const apiController = {
         limit: lim,
         offset: off,
         has_more: off + formattedData.length < total,
+        summary_counts: summaryCounts,
         summary: formattedData
       });
       // Note: getPairSummary tetap menggunakan sendSuccess karena format response berbeda
