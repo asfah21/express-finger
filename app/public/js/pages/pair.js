@@ -16,16 +16,10 @@ export async function refreshPair() {
     const status = document.getElementById('pair-status')?.value || 'all';
     const department = document.getElementById('pair-department')?.value || 'all';
 
+    // Show skeleton loading on every refresh, including filter/page changes
+    showSkeleton('pair-body', pairPagination.size);
+
     const body = document.getElementById('pair-body');
-    // Show skeleton only on the very first load; on filter/page changes keep the
-    // previous rows visible (with a subtle loading state) so the screen doesn't
-    // flicker to blank while the request is in flight.
-    const isFirstLoad = !body || body.children.length === 0;
-    if (isFirstLoad) {
-        showSkeleton('pair-body', pairPagination.size);
-    } else {
-        body.classList.add('table-loading');
-    }
 
     let url = `/api/pair?limit=${pairPagination.size}&offset=${pairPagination.page * pairPagination.size}`;
     if (fromDate) url += `&from_date=${fromDate}`;
@@ -92,11 +86,9 @@ export async function refreshPair() {
             `;
         }).join('') || '<tr><td colspan="8" class="empty-state">No data found</td></tr>';
 
-        body.classList.remove('table-loading');
         updatePairPaginationUI();
     } catch (err) {
         console.error('Failed to fetch pair data:', err);
-        if (body) body.classList.remove('table-loading');
         document.getElementById('pair-body').innerHTML = '<tr><td colspan="8" class="empty-state text-error">Failed to load data</td></tr>';
     }
 }

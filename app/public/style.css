@@ -1787,14 +1787,6 @@ select option {
     }
 }
 
-/* Subtle "refreshing" state: keeps previous rows visible while a new fetch is in flight */
-/* The .table-loading class is applied directly to the <tbody> (e.g. #pair-body) */
-tbody.table-loading {
-    opacity: 0.55;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-}
-
 .skeleton-row {
     animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
