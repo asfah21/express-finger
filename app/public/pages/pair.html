@@ -13,12 +13,12 @@
 
         <div class="filter-group" style="flex: 1; min-width: 140px;">
             <label class="filter-label">FROM DATE</label>
-            <input type="date" id="pair-date-from">
+            <input type="date" id="pair-date-from" onchange="handlePairDateChange()">
         </div>
 
         <div class="filter-group" style="flex: 1; min-width: 140px;">
             <label class="filter-label">TO DATE</label>
-            <input type="date" id="pair-date-to">
+            <input type="date" id="pair-date-to" onchange="handlePairDateChange()">
         </div>
 
         <div class="filter-group" style="flex: 1; min-width: 150px;">
@@ -26,15 +26,20 @@
             <select id="pair-status" onchange="handlePairStatusChange(this.value)">
                 <option value="all">All Status</option>
                 <option value="hadir_penuh">Hadir Penuh</option>
-                <option value="belum_pulang">Belum Pulang</option>
+                <option value="tidak_absen_pulang">Tidak Absen Pulang</option>
+                <option value="tidak_absen_masuk">Tidak Absen Masuk</option>
                 <option value="tidak_hadir">Tidak Hadir</option>
             </select>
         </div>
 
+        <div class="filter-group" style="flex: 1; min-width: 150px;">
+            <label class="filter-label">DEPARTMENT</label>
+            <select id="pair-department" onchange="handlePairDepartmentChange(this.value)">
+                <option value="all">All Departments</option>
+            </select>
+        </div>
+
         <div class="filter-actions">
-            <button class="btn-primary filter-btn" onclick="applyPairFilter()">
-                <i class="fas fa-filter"></i> Filter
-            </button>
             <button class="btn-primary filter-btn btn-export" onclick="showPairExportMenu()">
                 <i class="fas fa-file-export"></i> Export
             </button>
@@ -44,7 +49,8 @@
     <!-- Summary chips: quick glance at who's missing which leg -->
     <div class="pair-summary-chips" id="pair-summary-chips">
         <span class="badge badge-success"><i class="fas fa-user-check"></i> Hadir Penuh: <b id="pair-count-hadir">0</b></span>
-        <span class="badge badge-warning"><i class="fas fa-user-clock"></i> Belum Pulang: <b id="pair-count-belum">0</b></span>
+        <span class="badge badge-warning"><i class="fas fa-user-clock"></i> Tidak Absen Pulang: <b id="pair-count-pulang">0</b></span>
+        <span class="badge badge-error"><i class="fas fa-user-times"></i> Tidak Absen Masuk: <b id="pair-count-masuk">0</b></span>
         <span class="badge badge-error"><i class="fas fa-user-times"></i> Tidak Hadir: <b id="pair-count-tidak">0</b></span>
     </div>
 

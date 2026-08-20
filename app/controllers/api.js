@@ -481,7 +481,7 @@ export const apiController = {
           check_in: row.check_in,
           check_out: row.check_out,
           work_hours: workHoursStr,
-          status: row.check_in && row.check_out ? "Hadir Penuh" : (row.check_in ? "Belum Pulang" : "Tidak Hadir")
+          status: row.check_in && row.check_out ? "Hadir Penuh" : (row.check_in ? "Tidak Absen Pulang" : (row.check_out ? "Tidak Absen Masuk" : "Tidak Hadir"))
         };
       });
 
@@ -505,6 +505,7 @@ export const apiController = {
         to_date = todayWita,
         search,
         user_id,
+        department,
         status,
         limit = 25,
         offset = 0
@@ -524,7 +525,7 @@ export const apiController = {
       const fetchTo = new Date(to);
       fetchTo.setDate(fetchTo.getDate() + 1);
 
-      const allowedStatus = ['all', 'hadir_penuh', 'belum_pulang', 'tidak_hadir'];
+      const allowedStatus = ['all', 'hadir_penuh', 'tidak_absen_pulang', 'tidak_absen_masuk', 'tidak_hadir'];
       const statusKey = allowedStatus.includes(String(status || '').toLowerCase())
         ? String(status).toLowerCase()
         : 'all';
@@ -536,7 +537,7 @@ export const apiController = {
       const whereLogs = `al."timestamp" BETWEEN $${i++} AND $${i++}`;
       params.push(fetchFrom, fetchTo);
 
-      // Roster-side filters (search by name/NIK/user_id, or a specific user)
+      // Roster-side filters (search by name/NIK/user_id, department, or a specific user)
       const rosterWhere = [];
       if (search) {
         rosterWhere.push(`(e.nama ILIKE $${i} OR e.nik ILIKE $${i} OR e.user_id::text ILIKE $${i})`);
@@ -546,6 +547,11 @@ export const apiController = {
       if (user_id) {
         rosterWhere.push(`e.user_id = $${i}`);
         params.push(String(user_id));
+        i++;
+      }
+      if (department) {
+        rosterWhere.push(`e.department = $${i}`);
+        params.push(String(department));
         i++;
       }
       const rosterWhereSql = rosterWhere.length ? `WHERE ${rosterWhere.join(' AND ')}` : '';
@@ -641,8 +647,9 @@ export const apiController = {
         SELECT
           COUNT(*)::bigint AS total,
           COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 1)::bigint AS hadir_penuh,
-          COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 0)::bigint AS belum_pulang,
-          COUNT(*) FILTER (WHERE has_in = 0)::bigint AS tidak_hadir
+          COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 0)::bigint AS tidak_absen_pulang,
+          COUNT(*) FILTER (WHERE has_in = 0 AND has_out = 1)::bigint AS tidak_absen_masuk,
+          COUNT(*) FILTER (WHERE has_in = 0 AND has_out = 0)::bigint AS tidak_hadir
         FROM statused
       `;
       const chipsParams = [...params, from_date, to_date];
@@ -651,7 +658,8 @@ export const apiController = {
       const summaryCounts = {
         total: chipsRows.length > 0 ? Number(chipsRows[0].total) : 0,
         hadir_penuh: chipsRows.length > 0 ? Number(chipsRows[0].hadir_penuh) : 0,
-        belum_pulang: chipsRows.length > 0 ? Number(chipsRows[0].belum_pulang) : 0,
+        tidak_absen_pulang: chipsRows.length > 0 ? Number(chipsRows[0].tidak_absen_pulang) : 0,
+        tidak_absen_masuk: chipsRows.length > 0 ? Number(chipsRows[0].tidak_absen_masuk) : 0,
         tidak_hadir: chipsRows.length > 0 ? Number(chipsRows[0].tidak_hadir) : 0
       };
 
@@ -665,8 +673,9 @@ export const apiController = {
           SELECT * FROM statused
           WHERE $${countIdx}::text = 'all'
              OR ($${countIdx}::text = 'hadir_penuh' AND has_in = 1 AND has_out = 1)
-             OR ($${countIdx}::text = 'belum_pulang' AND has_in = 1 AND has_out = 0)
-             OR ($${countIdx}::text = 'tidak_hadir' AND has_in = 0)
+             OR ($${countIdx}::text = 'tidak_absen_pulang' AND has_in = 1 AND has_out = 0)
+             OR ($${countIdx}::text = 'tidak_absen_masuk' AND has_in = 0 AND has_out = 1)
+             OR ($${countIdx}::text = 'tidak_hadir' AND has_in = 0 AND has_out = 0)
         )
         SELECT COUNT(*)::bigint AS total FROM filtered
       `;
@@ -682,8 +691,9 @@ export const apiController = {
           SELECT * FROM statused
           WHERE $${dataIdx}::text = 'all'
              OR ($${dataIdx}::text = 'hadir_penuh' AND has_in = 1 AND has_out = 1)
-             OR ($${dataIdx}::text = 'belum_pulang' AND has_in = 1 AND has_out = 0)
-             OR ($${dataIdx}::text = 'tidak_hadir' AND has_in = 0)
+             OR ($${dataIdx}::text = 'tidak_absen_pulang' AND has_in = 1 AND has_out = 0)
+             OR ($${dataIdx}::text = 'tidak_absen_masuk' AND has_in = 0 AND has_out = 1)
+             OR ($${dataIdx}::text = 'tidak_hadir' AND has_in = 0 AND has_out = 0)
         )
         , paginated AS (
           SELECT * FROM filtered
@@ -718,7 +728,8 @@ export const apiController = {
         const hasCheckOut = !!row.check_out;
         let statusLabel = "Tidak Hadir";
         if (hasCheckIn && hasCheckOut) statusLabel = "Hadir Penuh";
-        else if (hasCheckIn) statusLabel = "Belum Pulang";
+        else if (hasCheckIn) statusLabel = "Tidak Absen Pulang";
+        else if (hasCheckOut) statusLabel = "Tidak Absen Masuk";
 
         return {
           date: row.log_date,

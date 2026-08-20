@@ -852,6 +852,57 @@ tr:hover td {
     color: var(--error);
 }
 
+/* NEW badge (reusable <new-badge> component) */
+new-badge {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.new-badge {
+    --new-badge-glow: rgba(16, 185, 129, 0.35);
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.45rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    animation: new-badge-pulse 2s ease-in-out infinite;
+}
+
+:root.theme-light .new-badge {
+    --new-badge-glow: rgba(21, 128, 61, 0.3);
+    background: rgba(21, 128, 61, 0.1);
+    color: #15803d;
+    border-color: rgba(21, 128, 61, 0.28);
+}
+
+@keyframes new-badge-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 var(--new-badge-glow);
+        opacity: 1;
+    }
+
+    50% {
+        box-shadow: 0 0 10px 2px var(--new-badge-glow);
+        opacity: 0.85;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .new-badge {
+        animation: none;
+    }
+}
+
 /* Attendance Pair summary chips */
 .pair-summary-chips {
     display: flex;

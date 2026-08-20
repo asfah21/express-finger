@@ -67,7 +67,16 @@ window.updateEmployeeSelection = updateEmployeeSelection;
 window.refreshLogs = refreshLogs;
 window.handleLogSearch = handleLogSearch;
 window.showExportMenu = showExportMenu;
-window.applyLogFilter = () => { state.pagination.logs.page = 0; refreshLogs(); };
+window.applyLogFilter = () => {
+    const fromDate = document.getElementById('log-date-from')?.value;
+    const toDate = document.getElementById('log-date-to')?.value;
+    if (fromDate && toDate && fromDate > toDate) {
+        showToast('Tanggal "From" tidak boleh lebih besar dari "To"', 'warning');
+        return;
+    }
+    state.pagination.logs.page = 0;
+    refreshLogs();
+};
 
 // Activity Page Functions
 window.refreshActivityLogs = refreshActivityLogs;
@@ -142,7 +151,16 @@ window.updateEmployeeDeviceStatus = function () { };
 window.refreshLate = refreshLate;
 window.handleLateSearch = handleLateSearch;
 window.showLateExportMenu = showLateExportMenu;
-window.applyLateFilter = () => { state.pagination.late.page = 0; refreshLate(); };
+window.applyLateFilter = () => {
+    const fromDate = document.getElementById('late-date-from')?.value;
+    const toDate = document.getElementById('late-date-to')?.value;
+    if (fromDate && toDate && fromDate > toDate) {
+        showToast('Tanggal "From" tidak boleh lebih besar dari "To"', 'warning');
+        return;
+    }
+    state.pagination.late.page = 0;
+    refreshLate();
+};
 
 // Sessions Page Functions
 window.refreshSessions = refreshSessions;

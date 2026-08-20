@@ -10,10 +10,13 @@ const pairPagination = {
 };
 
 export async function refreshPair() {
+    populatePairDepartments();
+
     const fromDate = document.getElementById('pair-date-from').value;
     const toDate = document.getElementById('pair-date-to').value;
     const search = document.getElementById('pair-search').value;
     const status = document.getElementById('pair-status')?.value || 'all';
+    const department = document.getElementById('pair-department')?.value || 'all';
 
     // Show skeleton loading
     showSkeleton('pair-body', pairPagination.size);
@@ -23,6 +26,7 @@ export async function refreshPair() {
     if (toDate) url += `&to_date=${toDate}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
     if (status && status !== 'all') url += `&status=${status}`;
+    if (department && department !== 'all') url += `&department=${encodeURIComponent(department)}`;
 
     try {
         const res = await fetch(url);
@@ -35,10 +39,10 @@ export async function refreshPair() {
 
         const body = document.getElementById('pair-body');
         body.innerHTML = summary.map(item => {
-            const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Belum Pulang' : 'Tidak Hadir'));
+            const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Tidak Absen Pulang' : (item.check_out ? 'Tidak Absen Masuk' : 'Tidak Hadir')));
             let statusBadge = 'badge-warning';
             if (status === 'Hadir Penuh') statusBadge = 'badge-success';
-            else if (status === 'Tidak Hadir') statusBadge = 'badge-error';
+            else if (status === 'Tidak Absen Masuk' || status === 'Tidak Hadir') statusBadge = 'badge-error';
 
             // Format date as D/M/YYYY like attendance logs
             let dateFormatted = item.date || '-';
@@ -146,12 +150,23 @@ window.updatePairPageSize = function(val) {
     refreshPair();
 };
 
-window.applyPairFilter = function() {
+window.handlePairDateChange = function() {
+    const fromDate = document.getElementById('pair-date-from').value;
+    const toDate = document.getElementById('pair-date-to').value;
+    if (fromDate && toDate && fromDate > toDate) {
+        showToast('Tanggal "From" tidak boleh lebih besar dari "To"', 'warning');
+        return;
+    }
     pairPagination.page = 0;
     refreshPair();
 };
 
 window.handlePairStatusChange = function() {
+    pairPagination.page = 0;
+    refreshPair();
+};
+
+window.handlePairDepartmentChange = function() {
     pairPagination.page = 0;
     refreshPair();
 };
@@ -165,8 +180,36 @@ function updatePairSummaryChips(counts) {
         if (node) node.textContent = Number(val) || 0;
     };
     set('pair-count-hadir', counts.hadir_penuh);
-    set('pair-count-belum', counts.belum_pulang);
+    set('pair-count-pulang', counts.tidak_absen_pulang);
+    set('pair-count-masuk', counts.tidak_absen_masuk);
     set('pair-count-tidak', counts.tidak_hadir);
+}
+
+let pairDepartmentsLoaded = false;
+async function populatePairDepartments() {
+    if (pairDepartmentsLoaded) return;
+    const select = document.getElementById('pair-department');
+    if (!select) return;
+    try {
+        const res = await fetch('/api/employees?limit=1000');
+        const data = await res.json();
+        const list = data.data?.list || data.data?.rows || data.data || [];
+        const departments = [...new Set(list.map(e => (e.department || '').trim()).filter(Boolean))].sort();
+        select.innerHTML = '<option value="all">All Departments</option>' + departments.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+        pairDepartmentsLoaded = true;
+    } catch (err) {
+        console.error('Failed to load departments:', err);
+    }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&' + 'amp;',
+        '<': '&' + 'lt;',
+        '>': '&' + 'gt;',
+        '"': '&' + 'quot;',
+        "'": '&' + '#39;'
+    }[c]));
 }
 
 let pairSearchTimer;
@@ -250,6 +293,9 @@ async function performPairExport(range) {
         // Apply the active status filter only for the "based on current filters" export
         const activeStatus = document.getElementById('pair-status')?.value || 'all';
         if (range === 'filtered' && activeStatus && activeStatus !== 'all') url += `&status=${activeStatus}`;
+        // Apply the active department filter only for the "based on current filters" export
+        const activeDepartment = document.getElementById('pair-department')?.value || 'all';
+        if (range === 'filtered' && activeDepartment && activeDepartment !== 'all') url += `&department=${encodeURIComponent(activeDepartment)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -265,7 +311,7 @@ async function performPairExport(range) {
             'Check In': item.check_in || '-',
             'Check Out': item.check_out || '-',
             'Work Hours': item.work_hours || '-',
-            Status: item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Belum Pulang' : 'Tidak Hadir'))
+            Status: item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Tidak Absen Pulang' : (item.check_out ? 'Tidak Absen Masuk' : 'Tidak Hadir')))
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -493,7 +539,8 @@ async function generatePairPDFSlip() {
 
         // Calculate stats
         const hadirPenuh = summary.filter(s => s.check_in && s.check_out).length;
-        const belumPulang = summary.filter(s => s.check_in && !s.check_out).length;
+        const tidakAbsenPulang = summary.filter(s => s.check_in && !s.check_out).length;
+        const tidakAbsenMasuk = summary.filter(s => !s.check_in && s.check_out).length;
         const tidakHadir = summary.filter(s => !s.check_in && !s.check_out).length;
         doc.text(`Hadir Penuh :  ${hadirPenuh} days`, col2X, infoY + lineH * 3);
 
@@ -510,11 +557,12 @@ async function generatePairPDFSlip() {
         const summaryItems = [
             { label: 'Total Days', value: summary.length, color: PRIMARY },
             { label: 'Hadir Penuh', value: hadirPenuh, color: GREEN },
-            { label: 'Belum Pulang', value: belumPulang, color: AMBER },
+            { label: 'Tdk Absen Pulang', value: tidakAbsenPulang, color: AMBER },
+            { label: 'Tdk Absen Masuk', value: tidakAbsenMasuk, color: RED },
             { label: 'Tidak Hadir', value: tidakHadir, color: RED },
         ];
 
-        const cardW = (totalTableWidth - 9) / 4;
+        const cardW = (totalTableWidth - 12) / 5;
         summaryItems.forEach((item, i) => {
             const cx = startX + i * (cardW + 3);
             const cy = summaryY;
@@ -601,7 +649,7 @@ async function generatePairPDFSlip() {
                 dateFormatted = `${parseInt(parts[2])}/${parseInt(parts[1])}`;
             }
 
-            const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Blm Plg' : 'Tdk Hdr'));
+            const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Tdk Absen Plg' : (item.check_out ? 'Tdk Absen Msuk' : 'Tdk Hdr')));
             const workHours = item.work_hours || '-';
 
             const rowData = [
@@ -623,8 +671,8 @@ async function generatePairPDFSlip() {
             rowData.forEach((val, i) => {
                 if (i === 7) {
                     if (val === 'Hadir Penuh') doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
-                    else if (val === 'Belum Pulang' || val === 'Blm Plg') doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
-                    else if (val === 'Tidak Hadir' || val === 'Tdk Hdr') doc.setTextColor(RED[0], RED[1], RED[2]);
+                    else if (val === 'Tidak Absen Pulang' || val === 'Tdk Absen Plg' || val === 'Blm Plg') doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
+                    else if (val === 'Tidak Absen Masuk' || val === 'Tdk Absen Msuk' || val === 'Tidak Hadir' || val === 'Tdk Hdr') doc.setTextColor(RED[0], RED[1], RED[2]);
                     else doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);
                     doc.setFont(undefined, 'bold');
                 } else {
