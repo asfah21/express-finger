@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import { pool } from '../utils/database.js'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError } from '../utils/response.js'
-import { createSession, revokeSession, revokeAllUserSessions } from '../utils/sessions.js'
+import { createSession, revokeSession, revokeAllUserSessions, revokeDuplicateDeviceSessions } from '../utils/sessions.js'
 
 const SECRET = process.env.JWT_SECRET
 if (!SECRET) {
@@ -87,6 +87,17 @@ export const login = async (req, res) => {
                 ip,
                 userAgent: req.get('user-agent') || '',
                 expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            })
+
+            // Dedupe per device: revoke older active sessions of the same user
+            // from the SAME device (same IP + user agent) so re-login does not
+            // leave a stale "double" session. Different devices stay logged in.
+            await revokeDuplicateDeviceSessions({
+                userId: user.id,
+                ip,
+                userAgent: req.get('user-agent') || '',
+                exceptJti: jti,
+                revokedBy: user.username,
             })
         } catch (err) {
             console.error('❌ Failed to create session for login:', err.message)
@@ -234,6 +245,18 @@ export const updateAccount = async (req, res) => {
                 ip,
                 userAgent: req.get('user-agent') || '',
                 expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            })
+
+            // Dedupe per device (same as login): revoke older active sessions of
+            // this user from the SAME device (same IP + user agent) so updating
+            // the account does not leave a stale "double" session behind.
+            // Different devices stay logged in.
+            await revokeDuplicateDeviceSessions({
+                userId,
+                ip,
+                userAgent: req.get('user-agent') || '',
+                exceptJti: newJti,
+                revokedBy: user.username,
             })
         } catch (err) {
             console.error('❌ Failed to re-create session on account update:', err.message)

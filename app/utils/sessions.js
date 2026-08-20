@@ -198,6 +198,43 @@ export async function revokeOtherSessions(currentJti = null, revokedBy = '') {
 }
 
 /**
+ * Revoke older active sessions of the same user that originate from the SAME
+ * device (same IP address + user agent) but carry a different jti.
+ *
+ * This prevents "double" sessions when a user re-logs in from the same
+ * browser/device, while still allowing the same user to be logged in from
+ * multiple different devices at once.
+ *
+ * @returns {Promise<number>} number of revoked sessions.
+ */
+export async function revokeDuplicateDeviceSessions({ userId, ip, userAgent, exceptJti = null, revokedBy = '' }) {
+  if (!userId || !ip || !userAgent) return 0
+  try {
+    const params = [revokedBy || null, userId, ip, userAgent]
+    let exceptSql = ''
+    if (exceptJti) {
+      params.push(exceptJti)
+      exceptSql = `AND jti <> $${params.length}`
+    }
+    const { rows } = await pool.query(
+      `UPDATE user_sessions SET revoked_at = now(), revoked_by = $1
+       WHERE user_id = $2 AND ip_address = $3 AND user_agent = $4
+         AND revoked_at IS NULL AND expires_at > now() ${exceptSql}
+       RETURNING jti`,
+      params
+    )
+    for (const r of rows) {
+      sessionCache.set(cacheKeyRevoked(r.jti), true, { ttl: REVOKED_TTL })
+      sessionCache.delete(cacheKeyActive(r.jti))
+    }
+    return rows.length
+  } catch (err) {
+    console.error('❌ revokeDuplicateDeviceSessions error:', err.message)
+    return 0
+  }
+}
+
+/**
  * Compute a human-friendly status for a session row.
  */
 export function computeSessionStatus(row, now = new Date()) {

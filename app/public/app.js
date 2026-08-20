@@ -349,7 +349,10 @@ function applySuperAdminVisibility() {
 function applyAdminVisibility() {
     const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
     document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdmin ? '' : 'none';
+        // Hanya sembunyikan untuk non-admin. Jangan memaksa display='' untuk admin
+        // agar tidak menimpa inline display:none (mis. employee-selection-bar),
+        // yang visibilitasnya diatur oleh logika seleksi, bukan peran.
+        if (!isAdmin) el.style.display = 'none';
     });
 }
 
