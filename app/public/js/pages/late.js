@@ -3,7 +3,18 @@ import { showToast, toggleModal, getWitaDateString, getUtcTimestampParts } from 
 import { showSkeleton } from '../skeleton.js';
 
 
+// Default the From/To date filters to today (WITA) on every page open,
+// but never overwrite a date range the user has already selected.
+function setDefaultLateDates() {
+    const fromEl = document.getElementById('late-date-from');
+    const toEl = document.getElementById('late-date-to');
+    const today = getWitaDateString();
+    if (fromEl && !fromEl.value) fromEl.value = today;
+    if (toEl && !toEl.value) toEl.value = today;
+}
+
 export async function refreshLate() {
+    setDefaultLateDates();
     const s = state.pagination.late;
     const fromDate = document.getElementById('late-date-from').value;
     const toDate = document.getElementById('late-date-to').value;

@@ -9,7 +9,18 @@ const pairPagination = {
     total: 0
 };
 
+// Default the From/To date filters to today (WITA) on every page open,
+// but never overwrite a date range the user has already selected.
+function setDefaultPairDates() {
+    const fromEl = document.getElementById('pair-date-from');
+    const toEl = document.getElementById('pair-date-to');
+    const today = getWitaDateString();
+    if (fromEl && !fromEl.value) fromEl.value = today;
+    if (toEl && !toEl.value) toEl.value = today;
+}
+
 export async function refreshPair() {
+    setDefaultPairDates();
     const fromDate = document.getElementById('pair-date-from').value;
     const toDate = document.getElementById('pair-date-to').value;
     const search = document.getElementById('pair-search').value;

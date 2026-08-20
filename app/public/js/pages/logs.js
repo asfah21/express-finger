@@ -2,7 +2,18 @@ import { state } from '../state.js';
 import { showToast, toggleModal, getWitaDateString, getBusinessTimeParts, BUSINESS_TIME_ZONE } from '../utils.js';
 import { showSkeleton } from '../skeleton.js';
 
+// Default the From/To date filters to today (WITA) on every page open,
+// but never overwrite a date range the user has already selected.
+function setDefaultLogDates() {
+    const fromEl = document.getElementById('log-date-from');
+    const toEl = document.getElementById('log-date-to');
+    const today = getWitaDateString();
+    if (fromEl && !fromEl.value) fromEl.value = today;
+    if (toEl && !toEl.value) toEl.value = today;
+}
+
 export async function refreshLogs() {
+    setDefaultLogDates();
     const s = state.pagination.logs;
     const fromDate = document.getElementById('log-date-from').value;
     const toDate = document.getElementById('log-date-to').value;
