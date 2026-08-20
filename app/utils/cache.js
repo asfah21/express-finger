@@ -25,18 +25,20 @@ export const CACHE_KEYS = {
   EMPLOYEE_LIST: 'emp:list',
   EMPLOYEES_LIST: 'emps:list',
   EMPLOYEE_DETAIL: 'emp:detail',
+  EMPLOYEE_DEPARTMENTS: 'emp:departments',
   DEVICES_LIST: 'dev:list',
   SETTINGS: 'settings',
   ACTIVITY_LOGS_LIST: 'act:list',
   OVERVIEW_STATS: 'overview:stats',
   OVERVIEW_CHART: 'overview:chart',
   OVERVIEW_DEVICES: 'overview:devices',
+  PAIR_SUMMARY: 'pair:summary',
 }
 
 // Cache patterns untuk invalidasi massal
 export const CACHE_PATTERNS = {
-  ATTENDANCE: ['logs:list', 'logs:daily', 'overview:stats', 'overview:chart'],
-  EMPLOYEE: ['emp:list', 'emps:list', 'emp:detail'],
+  ATTENDANCE: ['logs:list', 'logs:daily', 'overview:stats', 'overview:chart', 'pair:summary'],
+  EMPLOYEE: ['emp:list', 'emps:list', 'emp:detail', 'emp:departments'],
   DEVICE: ['dev:list', 'overview:devices'],
   SETTINGS: ['settings'],
   ACTIVITY: ['act:list'],

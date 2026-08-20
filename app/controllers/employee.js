@@ -243,6 +243,31 @@ export const employeeController = {
         }
     },
 
+    async listDepartments(req, res) {
+        try {
+            // Daftar departemen jarang berubah → cache lama (VERY_LONG)
+            const cacheKey = buildCacheKey(CACHE_KEYS.EMPLOYEE_DEPARTMENTS)
+            const cached = getCache(cacheKey)
+            if (cached) {
+                return sendSuccess(res, cached)
+            }
+
+            const { rows } = await pool.query(
+                `SELECT DISTINCT department
+                 FROM employee
+                 WHERE department IS NOT NULL AND TRIM(department) <> ''
+                 ORDER BY department ASC`
+            )
+            const departments = rows.map(r => r.department)
+
+            setCache(cacheKey, departments, TTL.VERY_LONG)
+            sendSuccess(res, departments)
+        } catch (error) {
+            console.error('List Departments Error:', error)
+            sendError(res, error.message)
+        }
+    },
+
     async getEmployee(req, res) {
         const { id } = req.params
         try {

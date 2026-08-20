@@ -10,16 +10,22 @@ const pairPagination = {
 };
 
 export async function refreshPair() {
-    populatePairDepartments();
-
     const fromDate = document.getElementById('pair-date-from').value;
     const toDate = document.getElementById('pair-date-to').value;
     const search = document.getElementById('pair-search').value;
     const status = document.getElementById('pair-status')?.value || 'all';
     const department = document.getElementById('pair-department')?.value || 'all';
 
-    // Show skeleton loading
-    showSkeleton('pair-body', pairPagination.size);
+    const body = document.getElementById('pair-body');
+    // Show skeleton only on the very first load; on filter/page changes keep the
+    // previous rows visible (with a subtle loading state) so the screen doesn't
+    // flicker to blank while the request is in flight.
+    const isFirstLoad = !body || body.children.length === 0;
+    if (isFirstLoad) {
+        showSkeleton('pair-body', pairPagination.size);
+    } else {
+        body.classList.add('table-loading');
+    }
 
     let url = `/api/pair?limit=${pairPagination.size}&offset=${pairPagination.page * pairPagination.size}`;
     if (fromDate) url += `&from_date=${fromDate}`;
@@ -37,7 +43,6 @@ export async function refreshPair() {
 
         updatePairSummaryChips(data.data?.summary_counts);
 
-        const body = document.getElementById('pair-body');
         body.innerHTML = summary.map(item => {
             const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Tidak Absen Pulang' : (item.check_out ? 'Tidak Absen Masuk' : 'Tidak Hadir')));
             let statusBadge = 'badge-warning';
@@ -87,9 +92,11 @@ export async function refreshPair() {
             `;
         }).join('') || '<tr><td colspan="8" class="empty-state">No data found</td></tr>';
 
+        body.classList.remove('table-loading');
         updatePairPaginationUI();
     } catch (err) {
         console.error('Failed to fetch pair data:', err);
+        if (body) body.classList.remove('table-loading');
         document.getElementById('pair-body').innerHTML = '<tr><td colspan="8" class="empty-state text-error">Failed to load data</td></tr>';
     }
 }
@@ -188,15 +195,16 @@ function updatePairSummaryChips(counts) {
 }
 
 let pairDepartmentsLoaded = false;
-async function populatePairDepartments() {
+export async function populatePairDepartments() {
     if (pairDepartmentsLoaded) return;
     const select = document.getElementById('pair-department');
     if (!select) return;
     try {
-        const res = await fetch('/api/employees?limit=1000');
+        // Use the lightweight dedicated endpoint instead of pulling up to 1000
+        // full employee records (SELECT * FROM employee) just to extract names.
+        const res = await fetch('/api/employees/departments');
         const data = await res.json();
-        const list = data.data?.list || data.data?.rows || data.data || [];
-        const departments = [...new Set(list.map(e => (e.department || '').trim()).filter(Boolean))].sort();
+        const departments = Array.isArray(data?.data) ? data.data : [];
         select.innerHTML = '<option value="all">All Departments</option>' + departments.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
         pairDepartmentsLoaded = true;
     } catch (err) {

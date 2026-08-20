@@ -10,7 +10,7 @@ import { loadSettings, saveSystemSettings, saveTemplateSyncSettings, updateAccou
 import { loadHrSettings, saveHrAttendanceSettings, saveHrRemarksSettings, saveHrShiftSettings, switchHrTab } from './js/pages/hr.js';
 import { refreshCacheMetrics, flushCache } from './js/pages/metric.js';
 import { refreshPull, pullDataFromDevice, switchPullView, nextPullPage, prevPullPage, updatePullPageSize, exportPulledData, downloadRawData } from './js/pages/pull.js';
-import { refreshPair } from './js/pages/pair.js';
+import { refreshPair, populatePairDepartments } from './js/pages/pair.js';
 import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView, nextPullEmployeePage, prevPullEmployeePage, updatePullEmployeePageSize, exportPulledEmployeeData, downloadRawEmployeeData, showSyncModal, closeSyncModal } from './js/pages/pull-employee.js';
 import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate, loadTemplateDevices, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/biometrics.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
@@ -460,7 +460,7 @@ function showPage(pageId) {
         if (pageId === 'devices') refreshDevices();
         if (pageId === 'employees') refreshEmployees();
         if (pageId === 'logs') refreshLogs();
-        if (pageId === 'pair') refreshPair();
+        if (pageId === 'pair') { populatePairDepartments(); refreshPair(); }
         if (pageId === 'activity') refreshActivityLogs();
         if (pageId === 'pull') refreshPull();
         if (pageId === 'pull-employee') refreshPullEmployee();

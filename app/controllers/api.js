@@ -530,6 +530,29 @@ export const apiController = {
         ? String(status).toLowerCase()
         : 'all';
 
+      // ─── Response cache ──────────────────────────────────────────────────
+      // The pair query is expensive (a long CTE with window functions, an
+      // employee×date grid, and per-row shift matching), and it is re-run on
+      // every filter/page change. Cache the computed response per filter
+      // combination with a short TTL: new attendance data invalidates it via
+      // CACHE_PATTERNS.ATTENDANCE, and the short TTL bounds any staleness of
+      // the time-sensitive "Sedang Bekerja" status.
+      const cacheKey = buildCacheKey(
+        CACHE_KEYS.PAIR_SUMMARY,
+        from_date,
+        to_date,
+        search || '',
+        department || '',
+        user_id || '',
+        statusKey,
+        lim,
+        off
+      );
+      const cached = getCache(cacheKey);
+      if (cached) {
+        return sendSuccess(res, cached);
+      }
+
       // ─── Shift-aware "Sedang Bekerja" support ─────────────────────────────
       // For TODAY's rows where an employee checked in but hasn't checked out,
       // decide between "Sedang Bekerja" (still within their shift, or no shift
@@ -754,51 +777,38 @@ export const apiController = {
         )
       `;
 
-      // Chips query: overview across the WHOLE range (ignores the status filter),
-      // so the summary stays a truthful full-range picture even after filtering.
-      const chipsQuery = `
-        ${cte}
-        SELECT
-          COUNT(*)::bigint AS total,
-          COUNT(*) FILTER (WHERE status_key = 'hadir_penuh')::bigint AS hadir_penuh,
-          COUNT(*) FILTER (WHERE status_key = 'sedang_bekerja')::bigint AS sedang_bekerja,
-          COUNT(*) FILTER (WHERE status_key = 'tidak_absen_pulang')::bigint AS tidak_absen_pulang,
-          COUNT(*) FILTER (WHERE status_key = 'tidak_absen_masuk')::bigint AS tidak_absen_masuk,
-          COUNT(*) FILTER (WHERE status_key = 'tidak_hadir')::bigint AS tidak_hadir
-        FROM statused_final
-      `;
-      const chipsParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita];
-      const { rows: chipsRows } = await pool.query({ text: chipsQuery, values: chipsParams });
-
-      const summaryCounts = {
-        total: chipsRows.length > 0 ? Number(chipsRows[0].total) : 0,
-        hadir_penuh: chipsRows.length > 0 ? Number(chipsRows[0].hadir_penuh) : 0,
-        sedang_bekerja: chipsRows.length > 0 ? Number(chipsRows[0].sedang_bekerja) : 0,
-        tidak_absen_pulang: chipsRows.length > 0 ? Number(chipsRows[0].tidak_absen_pulang) : 0,
-        tidak_absen_masuk: chipsRows.length > 0 ? Number(chipsRows[0].tidak_absen_masuk) : 0,
-        tidak_hadir: chipsRows.length > 0 ? Number(chipsRows[0].tidak_hadir) : 0
-      };
-
-      // Count query: total of the status-filtered set, so pagination stays consistent
-      // with the rows actually shown on screen.
-      const countQuery = `
+      // ─── Single combined query ────────────────────────────────────────────
+      // Previously this endpoint executed the shared CTE THREE times — once for
+      // the summary chips, once for the total count, and once for the page rows —
+      // each re-running the expensive raw_logs LEAD window, the employee×date
+      // grid, and the per-row shift matching. That tripled the DB cost on every
+      // filter change. Now the CTE is evaluated once and reused for all three
+      // results in a single round-trip.
+      //
+      // Semantics preserved:
+      //  - summary_counts : computed over the WHOLE range (ignores the status
+      //    filter), so chips stay a truthful full-range picture after filtering.
+      //  - total          : count of the status-filtered set (for pagination).
+      //
+      // The final SELECT is driven by `stats` (always exactly one row) and
+      // LEFT JOIN LATERAL to the paginated rows, so the chips are still returned
+      // even when the filtered set is empty.
+      const mergedQuery = `
         ${cte}
         , filtered AS (
           SELECT * FROM statused_final
           WHERE $${statusIdx}::text = 'all' OR status_key = $${statusIdx}::text
         )
-        SELECT COUNT(*)::bigint AS total FROM filtered
-      `;
-      const countParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita, statusKey];
-      const { rows: countRows } = await pool.query({ text: countQuery, values: countParams });
-      const total = countRows.length > 0 ? Number(countRows[0].total) : 0;
-
-      // Data query: paginated rows for the current page.
-      const dataQuery = `
-        ${cte}
-        , filtered AS (
-          SELECT * FROM statused_final
-          WHERE $${statusIdx}::text = 'all' OR status_key = $${statusIdx}::text
+        , stats AS (
+          SELECT
+            (SELECT COUNT(*)::bigint FROM filtered)::bigint AS filtered_total,
+            COUNT(*)::bigint AS range_total,
+            COUNT(*) FILTER (WHERE status_key = 'hadir_penuh')::bigint AS hadir_penuh,
+            COUNT(*) FILTER (WHERE status_key = 'sedang_bekerja')::bigint AS sedang_bekerja,
+            COUNT(*) FILTER (WHERE status_key = 'tidak_absen_pulang')::bigint AS tidak_absen_pulang,
+            COUNT(*) FILTER (WHERE status_key = 'tidak_absen_masuk')::bigint AS tidak_absen_masuk,
+            COUNT(*) FILTER (WHERE status_key = 'tidak_hadir')::bigint AS tidak_hadir
+          FROM statused_final
         )
         , paginated AS (
           SELECT * FROM filtered
@@ -815,12 +825,29 @@ export const apiController = {
           TO_CHAR(p.check_in_time, 'HH24:MI:SS') as check_in,
           TO_CHAR(p.check_out_time, 'HH24:MI:SS') as check_out,
           EXTRACT(EPOCH FROM (p.check_out_time - p.check_in_time)) as diff_seconds,
-          p.status_key
-        FROM paginated p
-        ORDER BY p.day DESC, p.user_id ASC;
+          p.status_key,
+          s.filtered_total,
+          s.hadir_penuh,
+          s.sedang_bekerja,
+          s.tidak_absen_pulang,
+          s.tidak_absen_masuk,
+          s.tidak_hadir
+        FROM stats s
+        LEFT JOIN LATERAL (SELECT * FROM paginated) p ON TRUE
+        ORDER BY p.day DESC, p.user_id ASC
       `;
-      const dataParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita, statusKey, lim, off];
-      const { rows } = await pool.query({ text: dataQuery, values: dataParams });
+      const mergedParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita, statusKey, lim, off];
+      const { rows } = await pool.query({ text: mergedQuery, values: mergedParams });
+
+      const summaryCounts = {
+        total: rows.length > 0 ? Number(rows[0].range_total) : 0,
+        hadir_penuh: rows.length > 0 ? Number(rows[0].hadir_penuh) : 0,
+        sedang_bekerja: rows.length > 0 ? Number(rows[0].sedang_bekerja) : 0,
+        tidak_absen_pulang: rows.length > 0 ? Number(rows[0].tidak_absen_pulang) : 0,
+        tidak_absen_masuk: rows.length > 0 ? Number(rows[0].tidak_absen_masuk) : 0,
+        tidak_hadir: rows.length > 0 ? Number(rows[0].tidak_hadir) : 0
+      };
+      const total = rows.length > 0 ? Number(rows[0].filtered_total) : 0;
 
       const STATUS_LABELS = {
         hadir_penuh: 'Hadir Penuh',
@@ -830,29 +857,33 @@ export const apiController = {
         tidak_hadir: 'Tidak Hadir'
       };
 
-      const formattedData = rows.map(row => {
-        let workHoursStr = null;
-        if (row.check_out && row.diff_seconds > 0) {
-          const diffHrs = Math.floor(row.diff_seconds / 3600);
-          const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
-          workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
-        }
+      // When the filtered set is empty, `stats` still yields one row (with NULL
+      // page columns) so the chips survive; drop that placeholder here.
+      const formattedData = rows
+        .filter(row => row.log_date != null)
+        .map(row => {
+          let workHoursStr = null;
+          if (row.check_out && row.diff_seconds > 0) {
+            const diffHrs = Math.floor(row.diff_seconds / 3600);
+            const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
+            workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
+          }
 
-        return {
-          date: row.log_date,
-          user_id: row.user_id,
-          nik: row.nik || null,
-          nama: row.nama || null,
-          department: row.department || null,
-          jabatan: row.jabatan || null,
-          check_in: row.check_in,
-          check_out: row.check_out,
-          work_hours: workHoursStr,
-          status: STATUS_LABELS[row.status_key] || 'Tidak Hadir'
-        };
-      });
+          return {
+            date: row.log_date,
+            user_id: row.user_id,
+            nik: row.nik || null,
+            nama: row.nama || null,
+            department: row.department || null,
+            jabatan: row.jabatan || null,
+            check_in: row.check_in,
+            check_out: row.check_out,
+            work_hours: workHoursStr,
+            status: STATUS_LABELS[row.status_key] || 'Tidak Hadir'
+          };
+        });
 
-      sendSuccess(res, {
+      const payload = {
         from_date,
         to_date,
         total,
@@ -861,7 +892,11 @@ export const apiController = {
         has_more: off + formattedData.length < total,
         summary_counts: summaryCounts,
         summary: formattedData
-      });
+      };
+
+      setCache(cacheKey, payload, TTL.SHORT);
+
+      sendSuccess(res, payload);
       // Note: getPairSummary tetap menggunakan sendSuccess karena format response berbeda
       // dari sendPaginated (ada from_date, to_date, summary)
 

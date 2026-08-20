@@ -60,6 +60,9 @@ router.delete('/devices/:id', requireAdminPrivileges, deviceManagerController.de
 
 // Employee Management Routes
 router.get('/employees', employeeController.listEmployees)
+// NOTE: must be registered BEFORE '/employees/:id' so 'departments' is not
+// captured as the :id parameter.
+router.get('/employees/departments', employeeController.listDepartments)
 router.get('/employees/:id', employeeController.getEmployee)
 router.post('/employees', requireAdminPrivileges, employeeController.addEmployee)
 router.post('/employees/bulk', requireAdminPrivileges, employeeController.bulkAddEmployees)
