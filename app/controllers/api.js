@@ -525,10 +525,39 @@ export const apiController = {
       const fetchTo = new Date(to);
       fetchTo.setDate(fetchTo.getDate() + 1);
 
-      const allowedStatus = ['all', 'hadir_penuh', 'tidak_absen_pulang', 'tidak_absen_masuk', 'tidak_hadir'];
+      const allowedStatus = ['all', 'hadir_penuh', 'sedang_bekerja', 'tidak_absen_pulang', 'tidak_absen_masuk', 'tidak_hadir'];
       const statusKey = allowedStatus.includes(String(status || '').toLowerCase())
         ? String(status).toLowerCase()
         : 'all';
+
+      // ─── Shift-aware "Sedang Bekerja" support ─────────────────────────────
+      // For TODAY's rows where an employee checked in but hasn't checked out,
+      // decide between "Sedang Bekerja" (still within their shift, or no shift
+      // configured for them) and "Tidak Absen Pulang" (shift end already passed).
+      // Past dates keep the original has_in/has_out logic.
+      const paramSettings = await getSettingsData();
+      const shiftTypes = paramSettings?.shift_types || {};
+      const toMinutes = (t) => {
+        if (!t) return null;
+        const [h, m] = String(t).split(':').map(Number);
+        return (h || 0) * 60 + (m || 0);
+      };
+      const shiftMap = {};
+      for (const [type, cfg] of Object.entries(shiftTypes)) {
+        if (cfg && typeof cfg === 'object') {
+          if (cfg.start && cfg.end) {
+            shiftMap[type] = { kind: 'single', start: toMinutes(cfg.start), end: toMinutes(cfg.end) };
+          } else if (Array.isArray(cfg.shifts)) {
+            shiftMap[type] = {
+              kind: 'multi',
+              shifts: cfg.shifts.map(([s, e]) => [toMinutes(s), toMinutes(e)])
+            };
+          }
+        }
+      }
+      // Current WITA wall-clock time as minute-of-day (Asia/Makassar = UTC+8, no DST)
+      const nowDate = new Date();
+      const nowMin = (((nowDate.getUTCHours() + 8) % 24) * 60 + nowDate.getUTCMinutes());
 
       const params = [];
       let i = 1;
@@ -556,8 +585,23 @@ export const apiController = {
       }
       const rosterWhereSql = rosterWhere.length ? `WHERE ${rosterWhere.join(' AND ')}` : '';
 
+      // Fixed placeholder positions shared by all three queries below
+      // (base params first, then from_date/to_date, then the shift-aware
+      //  params, then the per-query status/limit/offset params).
+      const fromIdx = i;          // from_date
+      const toIdx = i + 1;        // to_date
+      const shiftMapIdx = i + 2;  // shiftMap (jsonb)
+      const nowMinIdx = i + 3;    // nowMin (int)
+      const todayIdx = i + 4;     // today (date)
+      const statusIdx = i + 5;    // statusKey (text)
+      const limitIdx = i + 6;     // limit
+      const offsetIdx = i + 7;    // offset
+
       // Shared CTE prefix: employee roster x every business date in range,
       // left-joined to the daily pairing so absent employees (zero logs) still appear.
+      // `statused_final` adds a shift-aware `status_key` that is used by the
+      // chips, the status filter, and the displayed rows — keeping them all
+      // consistent about "Sedang Bekerja" vs "Tidak Absen Pulang".
       const cte = `
         WITH raw_logs AS (
           SELECT
@@ -610,10 +654,11 @@ export const apiController = {
             e.nama,
             e.department,
             e.jabatan,
+            e.type AS emp_type,
             d.day
           FROM employee e
           CROSS JOIN LATERAL (
-            SELECT generate_series($${i++}::date, $${i++}::date, '1 day')::date AS day
+            SELECT generate_series($${fromIdx}::date, $${toIdx}::date, '1 day')::date AS day
           ) d
           ${rosterWhereSql}
         ),
@@ -624,6 +669,7 @@ export const apiController = {
             g.nama,
             g.department,
             g.jabatan,
+            g.emp_type,
             g.day,
             dl.check_in_time,
             dl.check_out_time
@@ -635,8 +681,76 @@ export const apiController = {
           SELECT
             *,
             (check_in_time IS NOT NULL)::int AS has_in,
-            (check_out_time IS NOT NULL)::int AS has_out
+            (check_out_time IS NOT NULL)::int AS has_out,
+            CASE WHEN check_in_time IS NULL THEN NULL
+                 ELSE EXTRACT(HOUR FROM check_in_time)::int * 60 + EXTRACT(MINUTE FROM check_in_time)::int
+            END AS check_in_min
           FROM joined
+        ),
+        shifted AS (
+          SELECT
+            st.*,
+            -- Single-shift config: shift end (minutes) + overnight flag
+            CASE WHEN $${shiftMapIdx}::jsonb->st.emp_type->>'kind' = 'single'
+                 THEN ($${shiftMapIdx}::jsonb->st.emp_type->>'end')::int
+                 ELSE NULL END AS single_end_min,
+            CASE WHEN $${shiftMapIdx}::jsonb->st.emp_type->>'kind' = 'single'
+                 THEN (($${shiftMapIdx}::jsonb->st.emp_type->>'end')::int
+                       < ($${shiftMapIdx}::jsonb->st.emp_type->>'start')::int)::int
+                 ELSE NULL END AS single_overnight,
+            -- Multi-shift config: match the check-in time to a shift, take its end
+            CASE WHEN $${shiftMapIdx}::jsonb->st.emp_type->>'kind' = 'multi' AND st.check_in_min IS NOT NULL THEN (
+              SELECT sm.end
+              FROM jsonb_array_elements($${shiftMapIdx}::jsonb->st.emp_type->'shifts') AS sh
+              CROSS JOIN LATERAL (SELECT (sh->>0)::int AS start, (sh->>1)::int AS end) sm
+              WHERE (sm.end > sm.start AND st.check_in_min >= sm.start AND st.check_in_min < sm.end)
+                 OR (sm.end < sm.start AND (st.check_in_min >= sm.start OR st.check_in_min < sm.end))
+              ORDER BY
+                CASE WHEN sm.end > sm.start THEN ABS(st.check_in_min - sm.start)
+                     ELSE LEAST(ABS(st.check_in_min - sm.start), ABS(st.check_in_min - sm.start - 1440))
+                END
+              LIMIT 1
+            ) ELSE NULL END AS multi_end_min,
+            CASE WHEN $${shiftMapIdx}::jsonb->st.emp_type->>'kind' = 'multi' AND st.check_in_min IS NOT NULL THEN (
+              SELECT (sm.end < sm.start)::int
+              FROM jsonb_array_elements($${shiftMapIdx}::jsonb->st.emp_type->'shifts') AS sh
+              CROSS JOIN LATERAL (SELECT (sh->>0)::int AS start, (sh->>1)::int AS end) sm
+              WHERE (sm.end > sm.start AND st.check_in_min >= sm.start AND st.check_in_min < sm.end)
+                 OR (sm.end < sm.start AND (st.check_in_min >= sm.start OR st.check_in_min < sm.end))
+              ORDER BY
+                CASE WHEN sm.end > sm.start THEN ABS(st.check_in_min - sm.start)
+                     ELSE LEAST(ABS(st.check_in_min - sm.start), ABS(st.check_in_min - sm.start - 1440))
+                END
+              LIMIT 1
+            ) ELSE NULL END AS multi_overnight
+          FROM statused st
+        ),
+        shifted_combined AS (
+          SELECT
+            sd.*,
+            COALESCE(sd.single_end_min, sd.multi_end_min) AS shift_end_min,
+            COALESCE(sd.single_overnight, sd.multi_overnight, 0) AS shift_overnight
+          FROM shifted sd
+        ),
+        statused_final AS (
+          SELECT
+            sc.*,
+            CASE
+              WHEN sc.has_in = 1 AND sc.has_out = 1 THEN 'hadir_penuh'
+              WHEN sc.has_in = 1 AND sc.has_out = 0 THEN
+                CASE WHEN sc.day = $${todayIdx}::date THEN
+                  CASE
+                    WHEN sc.shift_end_min IS NULL THEN 'sedang_bekerja'      -- no shift configured → still working
+                    WHEN sc.shift_overnight = 1 THEN 'sedang_bekerja'         -- overnight shift ends next day
+                    WHEN $${nowMinIdx}::int < sc.shift_end_min THEN 'sedang_bekerja'
+                    ELSE 'tidak_absen_pulang'
+                  END
+                ELSE 'tidak_absen_pulang'                                     -- past dates keep original logic
+                END
+              WHEN sc.has_in = 0 AND sc.has_out = 1 THEN 'tidak_absen_masuk'
+              ELSE 'tidak_hadir'
+            END AS status_key
+          FROM shifted_combined sc
         )
       `;
 
@@ -646,59 +760,50 @@ export const apiController = {
         ${cte}
         SELECT
           COUNT(*)::bigint AS total,
-          COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 1)::bigint AS hadir_penuh,
-          COUNT(*) FILTER (WHERE has_in = 1 AND has_out = 0)::bigint AS tidak_absen_pulang,
-          COUNT(*) FILTER (WHERE has_in = 0 AND has_out = 1)::bigint AS tidak_absen_masuk,
-          COUNT(*) FILTER (WHERE has_in = 0 AND has_out = 0)::bigint AS tidak_hadir
-        FROM statused
+          COUNT(*) FILTER (WHERE status_key = 'hadir_penuh')::bigint AS hadir_penuh,
+          COUNT(*) FILTER (WHERE status_key = 'sedang_bekerja')::bigint AS sedang_bekerja,
+          COUNT(*) FILTER (WHERE status_key = 'tidak_absen_pulang')::bigint AS tidak_absen_pulang,
+          COUNT(*) FILTER (WHERE status_key = 'tidak_absen_masuk')::bigint AS tidak_absen_masuk,
+          COUNT(*) FILTER (WHERE status_key = 'tidak_hadir')::bigint AS tidak_hadir
+        FROM statused_final
       `;
-      const chipsParams = [...params, from_date, to_date];
+      const chipsParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita];
       const { rows: chipsRows } = await pool.query({ text: chipsQuery, values: chipsParams });
 
       const summaryCounts = {
         total: chipsRows.length > 0 ? Number(chipsRows[0].total) : 0,
         hadir_penuh: chipsRows.length > 0 ? Number(chipsRows[0].hadir_penuh) : 0,
+        sedang_bekerja: chipsRows.length > 0 ? Number(chipsRows[0].sedang_bekerja) : 0,
         tidak_absen_pulang: chipsRows.length > 0 ? Number(chipsRows[0].tidak_absen_pulang) : 0,
         tidak_absen_masuk: chipsRows.length > 0 ? Number(chipsRows[0].tidak_absen_masuk) : 0,
         tidak_hadir: chipsRows.length > 0 ? Number(chipsRows[0].tidak_hadir) : 0
       };
 
       // Count query: total of the status-filtered set, so pagination stays consistent
-      // with the rows actually shown on screen. Uses its own placeholder index so the
-      // shared counter (from the CTE build) is never mutated across sibling queries.
-      let countIdx = i;
+      // with the rows actually shown on screen.
       const countQuery = `
         ${cte}
         , filtered AS (
-          SELECT * FROM statused
-          WHERE $${countIdx}::text = 'all'
-             OR ($${countIdx}::text = 'hadir_penuh' AND has_in = 1 AND has_out = 1)
-             OR ($${countIdx}::text = 'tidak_absen_pulang' AND has_in = 1 AND has_out = 0)
-             OR ($${countIdx}::text = 'tidak_absen_masuk' AND has_in = 0 AND has_out = 1)
-             OR ($${countIdx}::text = 'tidak_hadir' AND has_in = 0 AND has_out = 0)
+          SELECT * FROM statused_final
+          WHERE $${statusIdx}::text = 'all' OR status_key = $${statusIdx}::text
         )
         SELECT COUNT(*)::bigint AS total FROM filtered
       `;
-      const countParams = [...params, from_date, to_date, statusKey];
+      const countParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita, statusKey];
       const { rows: countRows } = await pool.query({ text: countQuery, values: countParams });
       const total = countRows.length > 0 ? Number(countRows[0].total) : 0;
 
       // Data query: paginated rows for the current page.
-      let dataIdx = i;
       const dataQuery = `
         ${cte}
         , filtered AS (
-          SELECT * FROM statused
-          WHERE $${dataIdx}::text = 'all'
-             OR ($${dataIdx}::text = 'hadir_penuh' AND has_in = 1 AND has_out = 1)
-             OR ($${dataIdx}::text = 'tidak_absen_pulang' AND has_in = 1 AND has_out = 0)
-             OR ($${dataIdx}::text = 'tidak_absen_masuk' AND has_in = 0 AND has_out = 1)
-             OR ($${dataIdx}::text = 'tidak_hadir' AND has_in = 0 AND has_out = 0)
+          SELECT * FROM statused_final
+          WHERE $${statusIdx}::text = 'all' OR status_key = $${statusIdx}::text
         )
         , paginated AS (
           SELECT * FROM filtered
           ORDER BY day DESC, user_id ASC
-          LIMIT $${dataIdx + 1} OFFSET $${dataIdx + 2}
+          LIMIT $${limitIdx} OFFSET $${offsetIdx}
         )
         SELECT
           p.day::text AS log_date,
@@ -709,12 +814,21 @@ export const apiController = {
           p.jabatan,
           TO_CHAR(p.check_in_time, 'HH24:MI:SS') as check_in,
           TO_CHAR(p.check_out_time, 'HH24:MI:SS') as check_out,
-          EXTRACT(EPOCH FROM (p.check_out_time - p.check_in_time)) as diff_seconds
+          EXTRACT(EPOCH FROM (p.check_out_time - p.check_in_time)) as diff_seconds,
+          p.status_key
         FROM paginated p
         ORDER BY p.day DESC, p.user_id ASC;
       `;
-      const dataParams = [...params, from_date, to_date, statusKey, lim, off];
+      const dataParams = [...params, from_date, to_date, JSON.stringify(shiftMap), nowMin, todayWita, statusKey, lim, off];
       const { rows } = await pool.query({ text: dataQuery, values: dataParams });
+
+      const STATUS_LABELS = {
+        hadir_penuh: 'Hadir Penuh',
+        sedang_bekerja: 'Sedang Bekerja',
+        tidak_absen_pulang: 'Tidak Absen Pulang',
+        tidak_absen_masuk: 'Tidak Absen Masuk',
+        tidak_hadir: 'Tidak Hadir'
+      };
 
       const formattedData = rows.map(row => {
         let workHoursStr = null;
@@ -723,13 +837,6 @@ export const apiController = {
           const diffMins = Math.floor((row.diff_seconds % 3600) / 60);
           workHoursStr = `${String(diffHrs).padStart(2, '0')}:${String(diffMins).padStart(2, '0')}`;
         }
-
-        const hasCheckIn = !!row.check_in;
-        const hasCheckOut = !!row.check_out;
-        let statusLabel = "Tidak Hadir";
-        if (hasCheckIn && hasCheckOut) statusLabel = "Hadir Penuh";
-        else if (hasCheckIn) statusLabel = "Tidak Absen Pulang";
-        else if (hasCheckOut) statusLabel = "Tidak Absen Masuk";
 
         return {
           date: row.log_date,
@@ -741,7 +848,7 @@ export const apiController = {
           check_in: row.check_in,
           check_out: row.check_out,
           work_hours: workHoursStr,
-          status: statusLabel
+          status: STATUS_LABELS[row.status_key] || 'Tidak Hadir'
         };
       });
 

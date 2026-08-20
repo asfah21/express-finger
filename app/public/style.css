@@ -852,6 +852,11 @@ tr:hover td {
     color: var(--error);
 }
 
+.badge-info {
+    background: rgba(36, 97, 150, 0.14);
+    color: #6cb2e8;
+}
+
 /* NEW badge (reusable <new-badge> component) */
 new-badge {
     display: inline-flex;
@@ -863,11 +868,11 @@ new-badge {
     --new-badge-glow: rgba(16, 185, 129, 0.35);
     display: inline-flex;
     align-items: center;
-    padding: 0.15rem 0.45rem;
+    padding: 0.1rem 0.35rem;
     border-radius: 9999px;
-    font-size: 0.625rem;
+    font-size: 0.5rem;
     font-weight: 700;
-    line-height: 1.35;
+    line-height: 1.3;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -1335,6 +1340,7 @@ select option {
     .activity-detail-text {
         display: -webkit-box;
         -webkit-line-clamp: 2;
+        line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1355,6 +1361,7 @@ select option {
 
     .activity-detail-text {
         -webkit-line-clamp: 1;
+        line-clamp: 1;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

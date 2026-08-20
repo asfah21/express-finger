@@ -42,6 +42,7 @@ export async function refreshPair() {
             const status = item.status || (item.check_in && item.check_out ? 'Hadir Penuh' : (item.check_in ? 'Tidak Absen Pulang' : (item.check_out ? 'Tidak Absen Masuk' : 'Tidak Hadir')));
             let statusBadge = 'badge-warning';
             if (status === 'Hadir Penuh') statusBadge = 'badge-success';
+            else if (status === 'Sedang Bekerja') statusBadge = 'badge-info';
             else if (status === 'Tidak Absen Masuk' || status === 'Tidak Hadir') statusBadge = 'badge-error';
 
             // Format date as D/M/YYYY like attendance logs
@@ -180,6 +181,7 @@ function updatePairSummaryChips(counts) {
         if (node) node.textContent = Number(val) || 0;
     };
     set('pair-count-hadir', counts.hadir_penuh);
+    set('pair-count-bekerja', counts.sedang_bekerja);
     set('pair-count-pulang', counts.tidak_absen_pulang);
     set('pair-count-masuk', counts.tidak_absen_masuk);
     set('pair-count-tidak', counts.tidak_hadir);
@@ -671,6 +673,7 @@ async function generatePairPDFSlip() {
             rowData.forEach((val, i) => {
                 if (i === 7) {
                     if (val === 'Hadir Penuh') doc.setTextColor(GREEN[0], GREEN[1], GREEN[2]);
+                    else if (val === 'Sedang Bekerja' || val === 'Sdg Bkerja') doc.setTextColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
                     else if (val === 'Tidak Absen Pulang' || val === 'Tdk Absen Plg' || val === 'Blm Plg') doc.setTextColor(AMBER[0], AMBER[1], AMBER[2]);
                     else if (val === 'Tidak Absen Masuk' || val === 'Tdk Absen Msuk' || val === 'Tidak Hadir' || val === 'Tdk Hdr') doc.setTextColor(RED[0], RED[1], RED[2]);
                     else doc.setTextColor(TEXT_DARK[0], TEXT_DARK[1], TEXT_DARK[2]);

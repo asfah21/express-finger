@@ -22,22 +22,23 @@
         </div>
 
         <div class="filter-group" style="flex: 1; min-width: 150px;">
-            <label class="filter-label">STATUS</label>
-            <select id="pair-status" onchange="handlePairStatusChange(this.value)">
-                <option value="all">All Status</option>
-                <option value="hadir_penuh">Hadir Penuh</option>
-                <option value="tidak_absen_pulang">Tidak Absen Pulang</option>
-                <option value="tidak_absen_masuk">Tidak Absen Masuk</option>
-                <option value="tidak_hadir">Tidak Hadir</option>
-            </select>
-        </div>
-
-        <div class="filter-group" style="flex: 1; min-width: 150px;">
             <label class="filter-label">DEPARTMENT</label>
             <select id="pair-department" onchange="handlePairDepartmentChange(this.value)">
                 <option value="all">All Departments</option>
             </select>
         </div>
+
+        <div class="filter-group" style="flex: 1; min-width: 150px;">
+            <label class="filter-label">STATUS</label>
+            <select id="pair-status" onchange="handlePairStatusChange(this.value)">
+                <option value="all">All Status</option>
+                <option value="hadir_penuh">Hadir Penuh</option>
+                <option value="sedang_bekerja">Sedang Bekerja</option>
+                <option value="tidak_absen_pulang">Tidak Absen Pulang</option>
+                <option value="tidak_absen_masuk">Tidak Absen Masuk</option>
+                <option value="tidak_hadir">Tidak Hadir</option>
+            </select>
+        </div>        
 
         <div class="filter-actions">
             <button class="btn-primary filter-btn btn-export" onclick="showPairExportMenu()">
@@ -49,8 +50,9 @@
     <!-- Summary chips: quick glance at who's missing which leg -->
     <div class="pair-summary-chips" id="pair-summary-chips">
         <span class="badge badge-success"><i class="fas fa-user-check"></i> Hadir Penuh: <b id="pair-count-hadir">0</b></span>
+        <span class="badge badge-info"><i class="fas fa-user-clock"></i> Sedang Bekerja: <b id="pair-count-bekerja">0</b></span>
         <span class="badge badge-warning"><i class="fas fa-user-clock"></i> Tidak Absen Pulang: <b id="pair-count-pulang">0</b></span>
-        <span class="badge badge-error"><i class="fas fa-user-times"></i> Tidak Absen Masuk: <b id="pair-count-masuk">0</b></span>
+        <span class="badge badge-primary"><i class="fas fa-user-times"></i> Tidak Absen Masuk: <b id="pair-count-masuk">0</b></span>
         <span class="badge badge-error"><i class="fas fa-user-times"></i> Tidak Hadir: <b id="pair-count-tidak">0</b></span>
     </div>
 
