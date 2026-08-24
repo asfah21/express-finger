@@ -48,7 +48,7 @@ export async function refreshKioskDevices() {
         const url = filter ? `/api/kiosk-devices?status=${encodeURIComponent(filter)}` : '/api/kiosk-devices';
         const res = await fetch(url);
         if (res.status === 401 || res.status === 403) {
-            body.innerHTML = '<tr><td colspan="8" style="text-align:center;">Access denied. Super Admin required.</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" style="text-align:center;">Access denied. Super Admin required.</td></tr>';
             return;
         }
         const data = await res.json();
@@ -63,14 +63,14 @@ export async function refreshKioskDevices() {
         if (infoEl) infoEl.innerText = `Showing ${list.length} of ${data.data?.total ?? list.length} devices`;
 
         if (list.length === 0) {
-            body.innerHTML = '<tr><td colspan="8" style="text-align:center;">No kiosk devices found. Devices register automatically on first login attempt and appear here as <strong>Pending</strong>.</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" style="text-align:center;">No kiosk devices found. Devices register automatically on first login attempt and appear here as <strong>Pending</strong>.</td></tr>';
             return;
         }
 
         body.innerHTML = list.map(dev => buildRowHtml(dev)).join('');
     } catch (err) {
         console.error('refreshKioskDevices error:', err);
-        body.innerHTML = `<tr><td colspan="8" style="text-align:center; color: var(--error);">${escapeHtml(err.message)}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--error);">${escapeHtml(err.message)}</td></tr>`;
     }
 }
 
@@ -96,7 +96,6 @@ function buildRowHtml(dev) {
             <td><code title="${escapeHtml(dev.device_id)}">${shortDeviceId(dev.device_id)}</code></td>
             <td>${escapeHtml(dev.name || '-')}</td>
             <td>${bound}</td>
-            <td style="font-size: 0.85rem;">${formatDateTime(dev.first_seen_at)}</td>
             <td style="font-size: 0.85rem;">${formatDateTime(dev.last_seen)}</td>
             <td style="font-size: 0.85rem;">${escapeHtml(dev.approved_by || '-')}</td>
             <td>

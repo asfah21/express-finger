@@ -92,11 +92,11 @@ export const kioskDeviceController = {
             const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
             const { rows } = await pool.query(
                 `SELECT k.id, k.device_id, k.name, k.status, k.user_id, u.username AS bound_username,
-                        k.approved_by, k.approved_at, k.revoked_at, k.last_seen, k.first_seen_at, k.created_at
+                        k.approved_by, k.approved_at, k.revoked_at, k.last_seen, k.created_at
                  FROM kiosk_devices k
                  LEFT JOIN users u ON u.id = k.user_id
                  ${whereSql}
-                 ORDER BY (k.status = 'pending') DESC, k.first_seen_at DESC
+                 ORDER BY (k.status = 'pending') DESC, k.last_seen DESC NULLS LAST, k.created_at DESC
                  LIMIT $${i++} OFFSET $${i++}`,
                 [...params, limit, offset]
             )
