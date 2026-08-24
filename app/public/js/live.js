@@ -1,3 +1,5 @@
+import { deviceHeaders, kioskDeviceErrorMessage } from './device.js'
+
 const state = { initialized: false }
 
 const $ = (id) => document.getElementById(id)
@@ -581,7 +583,7 @@ async function captureAndSubmit() {
         try {
             response = await fetch('/api/live/attendance', {
                 method: 'POST',
-                headers: { 'content-type': 'application/json' },
+                headers: { 'content-type': 'application/json', ...deviceHeaders() },
                 body: JSON.stringify({ type: camState.type, image }),
                 signal: controller.signal
             })
@@ -589,6 +591,14 @@ async function captureAndSubmit() {
             clearTimeout(timeout)
         }
         const data = await response.json().catch(() => ({}))
+        // Kiosk device gate (403 DEVICE_*) is terminal — never auto-retry; show
+        // the friendly reason and stop so the kiosk does not hammer the server.
+        if (response.status === 403 && kioskDeviceErrorMessage(data.code)) {
+            endAttempt()
+            camSetScanLabel(true)
+            camSetStatus(kioskDeviceErrorMessage(data.code), 'error')
+            return
+        }
         if (response.ok) {
             camState.submitted = true
             endAttempt()

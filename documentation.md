@@ -10,6 +10,7 @@ Express Finger adalah aplikasi Node.js berkinerja tinggi yang dirancang sebagai 
 -   **Manajemen Karyawan**: Fitur upload/tambah karyawan dan sinkronisasi data dari mesin ke database.
 -   **Hybrid Sync Logic**: Kombinasi PUSH (real-time) dan PULL (scheduled) untuk memastikan integritas data 100%.
 -   **Sistem Auth Keamanan**: Login dashboard menggunakan JWT (JSON Web Token) dan proteksi API menggunakan API Key.
+-   **Kiosk Attendance Lock (Device Whitelist)**: Akun role `public` untuk kiosk absensi wajib terdaftar & di-approve admin (1 device = 1 user), sesinya tidak pernah kedaluwarsa selama kiosk online (sliding renewal), dan endpoint attendance digerbang oleh device yang sudah di-approve.
 -   **Siap Docker**: Deployment instan menggunakan Docker Compose.
 
 ## Screenshot Dashboard

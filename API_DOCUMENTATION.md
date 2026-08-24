@@ -18,6 +18,16 @@ You can find or configure the API Key in the AZRA Dashboard under the **Settings
 x-api-key: your-secret-api-key
 ```
 
+### Kiosk `public` login (device-bound)
+
+Login with a role `public` account additionally requires an approved kiosk
+device: include the `x-device-id` header (the persistent UUID the kiosk keeps in
+`localStorage`). Unknown devices are auto-registered as `pending`; login is only
+allowed once a Super Admin approves and binds the device to the account. A
+`public` session is effectively immortal — the heartbeat re-issues the JWT on
+every beat — but it is strictly **1 user = 1 device**: any other active session
+of the same account is revoked on login.
+
 ---
 
 ## 1. Attendance Logs
@@ -328,11 +338,68 @@ Request JSON options for dry-run and push operations:
 
 Deletes occur only when both delete flags are `true`; the default is non-destructive.
 Responses contain operation status, actions, counts, checksums, and reasons for skipped/error items. Raw biometric payloads are never returned in sync logs.
+# Kiosk Device Whitelist / Approval
+
+Kiosk attendance devices (role `public`) must be registered and approved by a
+Super Admin before they can log in or record attendance. Each approved device is
+bound to exactly one public account (1 device = 1 user). Kiosk requests identify
+themselves with the `x-device-id` header (configurable via `KIOSK_DEVICE_HEADER`).
+
+## Kiosk device error codes
+
+The server returns these machine-readable `code` values (HTTP 400/403) so the
+kiosk can branch on the exact reason:
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `DEVICE_REQUIRED` | 400 | `x-device-id` header missing |
+| `DEVICE_UNREGISTERED` | 403 | Device not registered yet |
+| `DEVICE_PENDING` | 403 | Device awaiting admin approval |
+| `DEVICE_REVOKED` | 403 | Device access revoked |
+| `DEVICE_BOUND_OTHER` | 403 | Device bound to another account |
+| `FORBIDDEN_ROLE` | 403 | Non-public/superadmin role on a gated endpoint |
+
+## `POST /api/kiosk-devices/register`
+
+Registers (or refreshes) a kiosk device. Unknown devices are auto-registered as
+`pending` so a Super Admin can approve them from the dashboard.
+
+Request header: `x-device-id: <uuid>` (optional `name` in the JSON body).
+
+## `GET /api/kiosk-devices`
+
+Super Admin only. Lists all registered kiosk devices. Query params: `status`
+(`pending` | `approved` | `revoked`), `limit`, `offset`.
+
+## `PUT /api/kiosk-devices/:id/approve`
+
+Super Admin only. Approves a device and binds it to a public account. Body:
+`{ "user_id": <id> }`. Any existing sessions of the bound account are ended.
+
+## `PUT /api/kiosk-devices/:id/revoke`
+
+Super Admin only. Revokes a device (all its active sessions are force-logged-out).
+
+## `PUT /api/kiosk-devices/:id/rename`
+
+Super Admin only. Body: `{ "name": "<label>" }`.
+
+## `PUT /api/kiosk-devices/:id/unbind`
+
+Super Admin only. Unbinds the bound public account; the device returns to
+`pending` and must be re-approved.
+
 # Live Face Attendance
 
 The public kiosk is available at `GET /live.html` and does not require a dashboard login. It uses the browser `getUserMedia` camera API and sends a captured JPEG image to `POST /api/live/attendance`. Unlike an RTSP worker, the Python service does not open a camera stream: the browser owns the camera permission and sends a current frame only when Masuk or Pulang is selected.
+> **Gate (since kiosk device lock):** the attendance endpoints below require a
+> valid JWT session **and** an approved kiosk device. The kiosk must send the
+> `x-device-id` header and be logged in as the bound public account (or a
+> superadmin). Unapproved / pending / revoked devices are rejected with the
+> `DEVICE_*` codes above.
 
 ## `POST /api/live/attendance`
+
 
 Request body:
 

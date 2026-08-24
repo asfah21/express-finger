@@ -33,16 +33,18 @@ function cacheKeyRevoked(jti) { return `revoked:${jti}` }
 
 /**
  * Register a newly issued JWT as an active session.
+ * @param {object} opts
+ * @param {string} [opts.deviceId] - kiosk device id this session is bound to (role 'public').
  * @returns {Promise<object|null>} the inserted row, or null on failure.
  */
-export async function createSession({ jti, userId, username, role, ip = '', userAgent = '', expiresAt }) {
+export async function createSession({ jti, userId, username, role, ip = '', userAgent = '', deviceId = '', expiresAt }) {
   if (!jti || !userId || !expiresAt) return null
   try {
     const { rows } = await pool.query(
-      `INSERT INTO user_sessions (jti, user_id, username, role, ip_address, user_agent, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, jti, username, role, created_at, expires_at`,
-      [jti, userId, username, role, ip || '', userAgent || '', expiresAt]
+      `INSERT INTO user_sessions (jti, user_id, username, role, ip_address, user_agent, device_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, jti, username, role, device_id, created_at, expires_at`,
+      [jti, userId, username, role, ip || '', userAgent || '', deviceId || '', expiresAt]
     )
     sessionCache.set(cacheKeyActive(jti), true, { ttl: ACTIVE_TTL })
     return rows[0]
@@ -198,6 +200,32 @@ export async function revokeOtherSessions(currentJti = null, revokedBy = '') {
 }
 
 /**
+ * Revoke every active session bound to a kiosk device id. Used when a kiosk
+ * device is revoked / unbound / re-approved by a Super Admin so the kiosk is
+ * forced to re-authenticate immediately.
+ * @returns {Promise<number>} number of revoked sessions.
+ */
+export async function revokeDeviceSessions(deviceId, revokedBy = '') {
+  if (!deviceId) return 0
+  try {
+    const { rows } = await pool.query(
+      `UPDATE user_sessions SET revoked_at = now(), revoked_by = $1
+       WHERE device_id = $2 AND revoked_at IS NULL
+       RETURNING jti`,
+      [revokedBy || null, deviceId]
+    )
+    for (const r of rows) {
+      sessionCache.set(cacheKeyRevoked(r.jti), true, { ttl: REVOKED_TTL })
+      sessionCache.delete(cacheKeyActive(r.jti))
+    }
+    return rows.length
+  } catch (err) {
+    console.error('❌ revokeDeviceSessions error:', err.message)
+    return 0
+  }
+}
+
+/**
  * Revoke older active sessions of the same user that originate from the SAME
  * device (same IP address + user agent) but carry a different jti.
  *
@@ -282,7 +310,7 @@ export async function listSessions({ limit = 25, offset = 0, search = '', status
 
   const [dataRes, countRes] = await Promise.all([
     pool.query(
-      `SELECT id, jti, user_id, username, role, ip_address, user_agent, created_at, last_seen, expires_at, revoked_at, revoked_by
+      `SELECT id, jti, user_id, username, role, ip_address, user_agent, device_id, created_at, last_seen, expires_at, revoked_at, revoked_by
        FROM user_sessions ${whereSql}
        ORDER BY (revoked_at IS NOT NULL) ASC, last_seen DESC
        LIMIT $${i++} OFFSET $${i++}`,
@@ -353,7 +381,7 @@ export async function getSessionByJti(jti) {
   if (!jti) return null
   try {
     const { rows } = await pool.query(
-      `SELECT id, jti, user_id, username, role, ip_address, created_at, last_seen, expires_at, revoked_at
+      `SELECT id, jti, user_id, username, role, ip_address, device_id, created_at, last_seen, expires_at, revoked_at
        FROM user_sessions WHERE jti = $1`,
       [jti]
     )

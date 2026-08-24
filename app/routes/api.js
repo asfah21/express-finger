@@ -1,6 +1,6 @@
 import express from 'express'
 import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
-import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController, sessionController } from '../controllers/index.js'
+import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController, sessionController, kioskDeviceController } from '../controllers/index.js'
 import { getCacheMetrics, clearCache } from '../utils/cache.js'
 
 const router = express.Router()
@@ -34,6 +34,14 @@ router.post('/sessions/user/:userId/kill', requireSuperAdminPrivileges, sessionC
 
 // Session heartbeat — any authenticated user, used for real-time "online" status
 router.post('/sessions/heartbeat', sessionController.heartbeat)
+
+// Kiosk device whitelist / approval (Super Admin management + kiosk registration)
+router.get('/kiosk-devices', requireSuperAdminPrivileges, kioskDeviceController.list)
+router.post('/kiosk-devices/register', kioskDeviceController.register)
+router.put('/kiosk-devices/:id/approve', requireSuperAdminPrivileges, kioskDeviceController.approve)
+router.put('/kiosk-devices/:id/revoke', requireSuperAdminPrivileges, kioskDeviceController.revoke)
+router.put('/kiosk-devices/:id/rename', requireSuperAdminPrivileges, kioskDeviceController.rename)
+router.put('/kiosk-devices/:id/unbind', requireSuperAdminPrivileges, kioskDeviceController.unbind)
 
 // Get current user's accessible pages (any authenticated user)
 router.get('/my-permissions', requireApiKey, pagePermissionsController.getMyPermissions)

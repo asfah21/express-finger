@@ -1,7 +1,9 @@
 import jwt from 'jsonwebtoken'
 import { config } from '../config/index.js'
+import { pool } from '../utils/database.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
+import { getKioskDevice } from '../utils/kiosk-device.js'
 import {
   listSessions,
   touchSession,
@@ -154,20 +156,53 @@ export const sessionController = {
    * sessions page can show a real-time "online" status. A revoked session
    * is rejected here by the auth middleware (401), which the frontend uses
    * to force an immediate logout.
+   *
+   * For kiosk role 'public' the heartbeat is ALSO a device gate: if the bound
+   * device was revoked / unbound / re-pended by an admin, the heartbeat is
+   * rejected (403) so the kiosk is force-logged-out right away.
    */
   async heartbeat(req, res) {
     const jti = req.user?.jti
     if (!jti) return sendSuccess(res, { tracked: false }, 'ok')
 
+    const user = req.user
+
+    // Kiosk device gate — role 'public' must still come from an approved device
+    // that is bound to this account. Revoked/pending/unbound devices are rejected.
+    if (user?.role === 'public') {
+      const deviceId = (req.headers?.[config.KIOSK_DEVICE_HEADER] || '').toString().trim()
+      if (!deviceId) {
+        return res.status(400).json({ status: 'error', code: 'DEVICE_REQUIRED', message: 'Kiosk device is not identified' })
+      }
+      const device = await getKioskDevice(deviceId)
+      if (!device) {
+        return res.status(403).json({ status: 'error', code: 'DEVICE_UNREGISTERED', message: 'Kiosk device is not registered' })
+      }
+      if (device.status === 'pending') {
+        return res.status(403).json({ status: 'error', code: 'DEVICE_PENDING', message: 'Kiosk device is pending approval' })
+      }
+      if (device.status === 'revoked') {
+        return res.status(403).json({ status: 'error', code: 'DEVICE_REVOKED', message: 'Kiosk device access has been revoked' })
+      }
+      if (device.user_id !== user.id) {
+        return res.status(403).json({ status: 'error', code: 'DEVICE_BOUND_OTHER', message: 'Kiosk device is bound to another account' })
+      }
+      // Keep the device's last_seen fresh (light write; fine on every beat).
+      try {
+        await pool.query('UPDATE kiosk_devices SET last_seen = now() WHERE device_id = $1', [deviceId])
+      } catch (err) {
+        console.error('❌ update kiosk_devices last_seen error:', err.message)
+      }
+    }
+
     const ok = await touchSession(jti)
 
     // Sliding renewal — hanya untuk role kiosk (mis. 'public') yang dikonfigurasi.
-    // Jika token mendekati kedaluwarsa, terbitkan ulang JWT dengan `jti` yang
-    // SAMA (identitas session tidak berubah), refresh cookie, dan geser
-    // expires_at di DB ke depan. Selama kiosk online + heartbeat berjalan,
-    // session tidak akan pernah kadaluarsa dan tidak perlu login ulang.
+    // RENEWAL AGGRESSIVE: setiap heartbeat untuk role sliding langsung
+    // memperpanjang expires_at di DB dan menerbitkan ulang JWT dengan `jti` yang
+    // SAMA (identitas session tidak berubah). Selama kiosk online + heartbeat
+    // berjalan, session tidak akan pernah kadaluarsa dan tidak perlu login ulang.
     let renewed = false
-    const user = req.user
     if (
       ok &&
       user &&
@@ -175,27 +210,27 @@ export const sessionController = {
       typeof user.exp === 'number' &&
       SECRET
     ) {
-      const remainingMs = user.exp * 1000 - Date.now()
-      if (remainingMs < config.SLIDING_SESSION_RENEW_THRESHOLD_MS) {
-        try {
-          const newExpMs = Date.now() + config.SLIDING_SESSION_TTL_MS
-          const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role, jti },
-            SECRET,
-            { expiresIn: Math.ceil(config.SLIDING_SESSION_TTL_MS / 1000) }
-          )
-          const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
-          res.cookie('token', token, {
-            httpOnly: true,
-            secure: isSecure,
-            sameSite: isSecure ? 'none' : 'lax',
-            path: '/',
-            maxAge: config.SLIDING_SESSION_TTL_MS
-          })
-          renewed = await extendSessionExpiry(jti, new Date(newExpMs))
-        } catch (err) {
-          console.error('❌ Heartbeat sliding renewal error:', err.message)
-        }
+      const ttlMs = user.role === 'public'
+        ? config.PUBLIC_SESSION_TTL_MS
+        : config.SLIDING_SESSION_TTL_MS
+      try {
+        const newExpMs = Date.now() + ttlMs
+        const token = jwt.sign(
+          { id: user.id, username: user.username, role: user.role, jti },
+          SECRET,
+          { expiresIn: Math.ceil(ttlMs / 1000) }
+        )
+        const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
+        res.cookie('token', token, {
+          httpOnly: true,
+          secure: isSecure,
+          sameSite: isSecure ? 'none' : 'lax',
+          path: '/',
+          maxAge: ttlMs
+        })
+        renewed = await extendSessionExpiry(jti, new Date(newExpMs))
+      } catch (err) {
+        console.error('❌ Heartbeat sliding renewal error:', err.message)
       }
     }
 

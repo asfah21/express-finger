@@ -26,4 +26,10 @@ export const config = {
   SLIDING_SESSION_ROLES: (process.env.SLIDING_SESSION_ROLES || 'public').split(',').map(s => s.trim()),
   SLIDING_SESSION_TTL_MS: Number(process.env.SLIDING_SESSION_TTL_MS || 3 * 24 * 60 * 60 * 1000), // 3 hari per perpanjangan
   SLIDING_SESSION_RENEW_THRESHOLD_MS: Number(process.env.SLIDING_SESSION_RENEW_THRESHOLD_MS || 24 * 60 * 60 * 1000), // renew saat sisa < 1 hari
+  // Kiosk 'public' sessions are effectively immortal: the login TTL is very long
+  // and the heartbeat re-issues the JWT on EVERY beat (see SLIDING_SESSION_ROLES
+  // renewal below), so a kiosk never has to re-login while it stays online.
+  PUBLIC_SESSION_TTL_MS: Number(process.env.PUBLIC_SESSION_TTL_MS || 365 * 24 * 60 * 60 * 1000), // 365 hari untuk sesi login public
+  // Header name the kiosk uses to identify itself (device whitelist / approval).
+  KIOSK_DEVICE_HEADER: process.env.KIOSK_DEVICE_HEADER || 'x-device-id',
 }

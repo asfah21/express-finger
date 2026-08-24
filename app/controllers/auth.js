@@ -2,9 +2,21 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
 import { pool } from '../utils/database.js'
+import { config } from '../config/index.js'
 import { recordActivity } from './activity-log.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { createSession, revokeSession, revokeAllUserSessions, revokeDuplicateDeviceSessions } from '../utils/sessions.js'
+import { getKioskDevice } from '../utils/kiosk-device.js'
+
+function getDeviceId(req) {
+    return (req.headers?.[config.KIOSK_DEVICE_HEADER] || req.body?.device_id || '').toString().trim()
+}
+
+// Kiosk gate errors carry a machine-readable `code` in the body so the kiosk
+// frontend can branch on the exact reason (pending / revoked / unregistered...).
+function sendKioskError(res, code, message, statusCode = 403) {
+    return res.status(statusCode).json({ status: 'error', code, message })
+}
 
 const SECRET = process.env.JWT_SECRET
 if (!SECRET) {
@@ -68,11 +80,36 @@ export const login = async (req, res) => {
             return sendError(res, 'Invalid username or password', 401)
         }
 
+        // Kiosk gate — role 'public' MUST come from a registered + approved device.
+        // Only role 'public' is locked this way; other roles keep their flow.
+        let deviceId = ''
+        let sessionTtlMs = 3 * 24 * 60 * 60 * 1000 // default 3 hari
+        if (user.role === 'public') {
+            deviceId = getDeviceId(req)
+            if (!deviceId) {
+                return sendKioskError(res, 'DEVICE_REQUIRED', 'Kiosk device is not identified (missing device id header)', 400)
+            }
+            const device = await getKioskDevice(deviceId)
+            if (!device) {
+                return sendKioskError(res, 'DEVICE_UNREGISTERED', 'Kiosk device is not registered yet')
+            }
+            if (device.status === 'pending') {
+                return sendKioskError(res, 'DEVICE_PENDING', 'Kiosk device is pending approval by an administrator')
+            }
+            if (device.status === 'revoked') {
+                return sendKioskError(res, 'DEVICE_REVOKED', 'Kiosk device access has been revoked')
+            }
+            if (device.user_id !== user.id) {
+                return sendKioskError(res, 'DEVICE_BOUND_OTHER', 'This kiosk device is bound to another account')
+            }
+            sessionTtlMs = config.PUBLIC_SESSION_TTL_MS
+        }
+
         const jti = randomUUID()
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role, jti },
             SECRET,
-            { expiresIn: '3d' }
+            { expiresIn: Math.ceil(sessionTtlMs / 1000) }
         )
 
         // Track this login as an active session so Super Admin can see it
@@ -86,19 +123,27 @@ export const login = async (req, res) => {
                 role: user.role,
                 ip,
                 userAgent: req.get('user-agent') || '',
-                expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+                deviceId: user.role === 'public' ? deviceId : '',
+                expiresAt: new Date(Date.now() + sessionTtlMs)
             })
 
-            // Dedupe per device: revoke older active sessions of the same user
-            // from the SAME device (same IP + user agent) so re-login does not
-            // leave a stale "double" session. Different devices stay logged in.
-            await revokeDuplicateDeviceSessions({
-                userId: user.id,
-                ip,
-                userAgent: req.get('user-agent') || '',
-                exceptJti: jti,
-                revokedBy: user.username,
-            })
+            if (user.role === 'public') {
+                // 1 user = 1 device (global): the public kiosk account may only
+                // be active on a single device, so end every other session of
+                // this user regardless of which device it came from.
+                await revokeAllUserSessions(user.id, jti, user.username)
+            } else {
+                // Dedupe per device: revoke older active sessions of the same user
+                // from the SAME device (same IP + user agent) so re-login does not
+                // leave a stale "double" session. Different devices stay logged in.
+                await revokeDuplicateDeviceSessions({
+                    userId: user.id,
+                    ip,
+                    userAgent: req.get('user-agent') || '',
+                    exceptJti: jti,
+                    revokedBy: user.username,
+                })
+            }
         } catch (err) {
             console.error('❌ Failed to create session for login:', err.message)
         }
@@ -111,7 +156,7 @@ export const login = async (req, res) => {
             secure: isSecure, // true jika HTTPS
             sameSite: isSecure ? 'none' : 'lax', // none jika HTTPS/cross, lax jika HTTP
             path: '/',
-            maxAge: 3 * 24 * 60 * 60 * 1000 // 3 hari
+            maxAge: sessionTtlMs
         })
 
         await recordActivity({ username: user.username, action: 'login', category: 'auth', detail: `Login successful (role: ${user.role})`, ip, status: 'success' })

@@ -1,0 +1,51 @@
+<div id="page-kiosk-devices" class="page" style="display: none;">
+
+    <!-- Info banner -->
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; background: rgba(255,255,255,0.03); padding: 1rem 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--text);">
+            <i class="fas fa-tablet-alt" style="margin-right: 0.45rem; color: var(--primary);"></i>
+            <span id="kiosk-devices-total">0</span> registered kiosk devices
+        </span>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">
+            <i class="fas fa-info-circle" style="margin-right: 0.35rem;"></i>
+            Kiosk attendance devices (role <strong>public</strong>) must be approved here before they can log in or record attendance. Each approved device is bound to exactly one public account (1 device = 1 user).
+        </span>
+    </div>
+
+    <!-- Toolbar -->
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 1rem; border: 1px solid var(--glass-border); margin-bottom: 1.5rem;">
+        <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">STATUS FILTER</label>
+            <select id="kiosk-devices-filter" onchange="refreshKioskDevices()" style="width: 100%; height: 42px; padding: 0 1rem; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); border-radius: 0.75rem; color: var(--text);">
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="revoked">Revoked</option>
+            </select>
+        </div>
+        <button class="btn-primary" style="width: auto; height: 42px; padding: 0 1.2rem;" onclick="refreshKioskDevices()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Device ID</th>
+                    <th>Name</th>
+                    <th>Bound User</th>
+                    <th>First Seen</th>
+                    <th>Last Seen</th>
+                    <th>Approved By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="kiosk-devices-body"></tbody>
+        </table>
+        <div class="table-footer">
+            <div class="table-info" id="kiosk-devices-info">Showing 0 of 0 devices</div>
+        </div>
+    </div>
+</div>

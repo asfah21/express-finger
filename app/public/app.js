@@ -15,6 +15,7 @@ import { refreshPullEmployee, pullEmployeeDataFromDevice, switchPullEmployeeView
 import { refreshBiometrics, loadBiometricTemplates, openBiometricModal, saveBiometricTemplate, deleteBiometricTemplate, downloadBiometricTemplate, loadTemplateDevices, pullTemplateMaster, dryRunTemplateSync, pushTemplateSync, pushAllTemplateSync } from './js/pages/biometrics.js';
 import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/late.js';
 import { refreshSessions, handleSessionSearch, killSession, killAllUserSessions, killOtherSessions, startSessionAutoRefresh } from './js/pages/sessions.js';
+import { refreshKioskDevices, approveKioskDevice, revokeKioskDevice, unbindKioskDevice, renameKioskDevice } from './js/pages/kiosk-devices.js';
 import { initLivePage, initCamLivePage } from './js/live.js';
 
 
@@ -169,6 +170,13 @@ window.killSession = killSession;
 window.killAllUserSessions = killAllUserSessions;
 window.killOtherSessions = killOtherSessions;
 
+// Kiosk Devices Page Functions
+window.refreshKioskDevices = refreshKioskDevices;
+window.approveKioskDevice = approveKioskDevice;
+window.revokeKioskDevice = revokeKioskDevice;
+window.unbindKioskDevice = unbindKioskDevice;
+window.renameKioskDevice = renameKioskDevice;
+
 // Metric Page Functions
 window.refreshCacheMetrics = refreshCacheMetrics;
 window.flushCache = flushCache;
@@ -263,12 +271,12 @@ async function loadUserPermissions() {
             }, {});
         } else {
             // Fallback: allow all pages for backward compatibility
-            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric', 'sessions'];
+            state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric', 'sessions', 'kiosk-devices'];
             state.allowedPageLabels = {};
         }
     } catch (err) {
         console.warn('Failed to load permissions, using defaults:', err);
-        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric', 'sessions'];
+        state.allowedPages = ['overview', 'devices', 'employees', 'logs', 'pair', 'pull', 'pull-employee', 'late', 'activity', 'account', 'settings', 'hr', 'metric', 'sessions', 'kiosk-devices'];
 
         state.allowedPageLabels = {};
     }
@@ -414,7 +422,8 @@ function showPage(pageId) {
         'hr': 'HR Settings',
         'late': 'Attendance Late',
         'metric': 'Cache Metrics',
-        'sessions': 'Active Sessions'
+        'sessions': 'Active Sessions',
+        'kiosk-devices': 'Kiosk Devices'
     };
 
     // Use dynamic label from server if available, fallback to default
@@ -479,6 +488,8 @@ function showPage(pageId) {
         if (pageId === 'metric') refreshCacheMetrics();
 
         if (pageId === 'sessions') refreshSessions();
+
+        if (pageId === 'kiosk-devices') refreshKioskDevices();
 
     }
 

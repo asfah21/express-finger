@@ -51,8 +51,13 @@ app.use(express.static(publicDir))
 // directly after selecting an attendance type. Keep this explicit fallback
 // so deployments with a static-file mount/configuration cannot send the
 // request to the JSON 404 handler merely because the query string is present.
-app.get('/cam_live.html', (_req, res) => {
+// Both kiosk camera pages are now behind login (like /live.html) so an
+// unauthenticated device cannot reach the kiosk UI.
+app.get('/cam_live.html', requirePageAuth, (_req, res) => {
   res.sendFile(path.join(publicDir, 'cam_live.html'))
+})
+app.get('/multi_live.html', requirePageAuth, (_req, res) => {
+  res.sendFile(path.join(publicDir, 'multi_live.html'))
 })
 
 // Routes

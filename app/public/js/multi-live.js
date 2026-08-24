@@ -11,6 +11,8 @@
 // Camera state is deliberately self-contained here (mirrors /cam_live) so the
 // existing single-scan page is never at risk of regression.
 
+import { deviceHeaders, kioskDeviceErrorMessage } from './device.js'
+
 const state = {
     initialized: false,
     stream: null,
@@ -96,11 +98,17 @@ async function postJSON(url, body) {
     try {
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json', ...deviceHeaders() },
             body: JSON.stringify(body),
             signal: controller.signal
         })
-        return await response.json().catch(() => ({}))
+        const data = await response.json().catch(() => ({}))
+        // Kiosk device gate (403 DEVICE_*) is terminal — stop the kiosk with a
+        // friendly message instead of silently rescanning forever.
+        if (response.status === 403 && kioskDeviceErrorMessage(data.code)) {
+            throw Object.assign(new Error(kioskDeviceErrorMessage(data.code)), { kioskDeviceError: true })
+        }
+        return data
     } finally {
         clearTimeout(timeout)
     }
@@ -478,6 +486,10 @@ async function captureAndRecognize() {
         state.busy = false
         state.locked = false
         setBusy(false)
+        if (error?.kioskDeviceError) {
+            setStatus(error.message, 'error')
+            return
+        }
         setStatus(error?.name === 'AbortError'
             ? 'Permintaan memakan waktu terlalu lama. Periksa koneksi lalu coba lagi.'
             : 'Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.', 'error')
@@ -591,6 +603,10 @@ async function submitBatch(type) {
         console.error('Multi attendance submit failed:', error)
         state.busy = false
         $('multi-dialog')?.close()
+        if (error?.kioskDeviceError) {
+            setStatus(error.message, 'error')
+            return
+        }
         setStatus('Gagal menyimpan absensi. Periksa koneksi lalu coba lagi.', 'error')
         rearmScan()
     }

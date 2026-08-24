@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { showToast, showConfirm } from './utils.js';
+import { deviceHeaders, kioskDeviceErrorMessage } from './device.js';
 
 export async function checkAuth() {
     try {
@@ -88,7 +89,7 @@ export function startSessionHeartbeat() {
     heartbeatInterval = setInterval(async () => {
         if (!state.currentUser) return;
         try {
-            const res = await fetch('/api/sessions/heartbeat', { method: 'POST' });
+            const res = await fetch('/api/sessions/heartbeat', { method: 'POST', headers: deviceHeaders() });
             if (res.status === 401) {
                 // Session was revoked (force-logout) or expired → log out now.
                 console.warn('Heartbeat rejected (401) — session ended by server.');
@@ -96,6 +97,16 @@ export function startSessionHeartbeat() {
                 state.currentUser = null;
                 window.showLogin();
                 showToast('Your session has been ended by an administrator', 'warning');
+            } else if (res.status === 403) {
+                // Kiosk device gate rejected the heartbeat (revoked / pending /
+                // unbound). Read the code and log the kiosk out with a clear message.
+                const body = await res.json().catch(() => ({}));
+                const msg = kioskDeviceErrorMessage(body.code) || 'Akses perangkat kiosk ditolak';
+                console.warn('Heartbeat rejected (403 kiosk device):', body.code || body.message);
+                stopSessionHeartbeat();
+                state.currentUser = null;
+                window.showLogin();
+                showToast(msg, 'error');
             }
         } catch (err) {
             // Network error — ignore; silentTokenCheck handles persistent failures.
@@ -132,7 +143,7 @@ export async function handleLogin(e) {
     try {
         const response = await fetch('/auth/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...deviceHeaders() },
             body: JSON.stringify({ username, password })
         });
 
@@ -143,7 +154,9 @@ export async function handleLogin(e) {
             startSessionHeartbeat();
             showToast('Welcome back, ' + state.currentUser.username);
         } else {
-            error.innerText = data.message || 'Login failed';
+            // Kiosk device gate errors get a friendly, specific message.
+            const friendly = kioskDeviceErrorMessage(data.code);
+            error.innerText = friendly || data.message || 'Login failed';
             error.style.display = 'block';
         }
     } catch (err) {
