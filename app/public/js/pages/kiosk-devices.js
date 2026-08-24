@@ -55,8 +55,12 @@ export async function refreshKioskDevices() {
         if (!res.ok) throw new Error(data.message || 'Failed to load kiosk devices');
 
         const list = data.data?.list || [];
-        document.getElementById('kiosk-devices-total').innerText = data.data?.total ?? list.length;
-        document.getElementById('kiosk-devices-info').innerText = `Showing ${list.length} of ${data.data?.total ?? list.length} devices`;
+        // Guarded writes: the page include may not be in the DOM yet when a hash
+        // navigation triggers this (race), so never set innerText on a null node.
+        const totalEl = document.getElementById('kiosk-devices-total');
+        const infoEl = document.getElementById('kiosk-devices-info');
+        if (totalEl) totalEl.innerText = data.data?.total ?? list.length;
+        if (infoEl) infoEl.innerText = `Showing ${list.length} of ${data.data?.total ?? list.length} devices`;
 
         if (list.length === 0) {
             body.innerHTML = '<tr><td colspan="8" style="text-align:center;">No kiosk devices found. Devices register automatically on first login attempt and appear here as <strong>Pending</strong>.</td></tr>';
@@ -209,14 +213,17 @@ export function unbindKioskDevice(id) {
 export function renameKioskDevice(id) {
     // Use the app modal (same pattern as Devices' add/edit modal) instead of
     // a browser prompt so the UI stays consistent across the dashboard.
-    document.getElementById('modal-title').innerText = 'Rename Kiosk Device';
-    document.getElementById('modal-content').innerHTML = `
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const saveBtn = document.getElementById('modal-save-btn');
+    if (!modalTitle || !modalContent || !saveBtn) return;
+    modalTitle.innerText = 'Rename Kiosk Device';
+    modalContent.innerHTML = `
         <div class="form-group">
             <label>Device Name</label>
             <input type="text" id="kiosk-rename-name" placeholder="e.g. Kiosk Lobby">
         </div>
     `;
-    const saveBtn = document.getElementById('modal-save-btn');
     saveBtn.innerText = 'Rename';
     saveBtn.style.display = 'block';
     saveBtn.onclick = async () => {
