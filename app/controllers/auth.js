@@ -89,9 +89,23 @@ export const login = async (req, res) => {
             if (!deviceId) {
                 return sendKioskError(res, 'DEVICE_REQUIRED', 'Kiosk device is not identified (missing device id header)', 400)
             }
-            const device = await getKioskDevice(deviceId)
+            let device = await getKioskDevice(deviceId)
             if (!device) {
-                return sendKioskError(res, 'DEVICE_UNREGISTERED', 'Kiosk device is not registered yet')
+                // Auto-register an unknown device as 'pending' on the first login
+                // attempt, so a Super Admin only has to approve it in the
+                // dashboard (Kiosk Devices page) — no manual registration needed.
+                try {
+                    await pool.query(
+                        `INSERT INTO kiosk_devices (device_id, name, status, last_seen)
+                         VALUES ($1, '', 'pending', now())
+                         ON CONFLICT (device_id) DO UPDATE SET last_seen = now()`,
+                        [deviceId]
+                    )
+                    device = await getKioskDevice(deviceId)
+                } catch (err) {
+                    console.error('❌ auto-register kiosk device error:', err.message)
+                }
+                return sendKioskError(res, 'DEVICE_PENDING', 'Kiosk device is pending approval by an administrator')
             }
             if (device.status === 'pending') {
                 return sendKioskError(res, 'DEVICE_PENDING', 'Kiosk device is pending approval by an administrator')
