@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { showToast, showConfirm } from '../utils.js';
+import { showToast, showConfirm, toggleModal } from '../utils.js';
 import { showSkeleton } from '../skeleton.js';
 
 const BUSINESS_TIME_ZONE = 'Asia/Makassar';
@@ -75,18 +75,16 @@ function buildRowHtml(dev) {
     const id = Number(dev.id);
     const bound = dev.bound_username ? escapeHtml(dev.bound_username) : '<span style="color: var(--text-muted);">—</span>';
 
-    let actions = '';
-    if (dev.status === 'pending') {
-        actions += `<button class="btn-primary" style="height:34px; padding:0 0.9rem; font-size:0.8rem; margin-right:0.4rem;" onclick="approveKioskDevice(${id})"><i class="fas fa-check"></i> Approve</button>`;
+    // Action dropdown — same pattern as the Employees page.
+    let items = '';
+    if (dev.status === 'pending' || dev.status === 'revoked') {
+        items += `<button class="action-item" onclick="approveKioskDevice(${id})"><i class="fas fa-check-circle"></i> Approve</button>`;
     }
     if (dev.status === 'approved') {
-        actions += `<button class="btn-primary" style="height:34px; padding:0 0.9rem; font-size:0.8rem; background:var(--error); margin-right:0.4rem;" onclick="revokeKioskDevice(${id})"><i class="fas fa-ban"></i> Revoke</button>`;
-        actions += `<button class="btn-secondary" style="height:34px; padding:0 0.9rem; font-size:0.8rem; margin-right:0.4rem;" onclick="unbindKioskDevice(${id})"><i class="fas fa-unlink"></i> Unbind</button>`;
+        items += `<button class="action-item" onclick="revokeKioskDevice(${id})"><i class="fas fa-ban"></i> Revoke</button>`;
+        items += `<button class="action-item" onclick="unbindKioskDevice(${id})"><i class="fas fa-unlink"></i> Unbind</button>`;
     }
-    if (dev.status === 'revoked') {
-        actions += `<button class="btn-primary" style="height:34px; padding:0 0.9rem; font-size:0.8rem; margin-right:0.4rem;" onclick="approveKioskDevice(${id})"><i class="fas fa-check"></i> Approve</button>`;
-    }
-    actions += `<button class="btn-secondary" style="height:34px; padding:0 0.9rem; font-size:0.8rem;" onclick="renameKioskDevice(${id})"><i class="fas fa-pen"></i> Rename</button>`;
+    items += `<button class="action-item" onclick="renameKioskDevice(${id})"><i class="fas fa-pen"></i> Rename</button>`;
 
     return `
         <tr>
@@ -97,7 +95,16 @@ function buildRowHtml(dev) {
             <td style="font-size: 0.85rem;">${formatDateTime(dev.first_seen_at)}</td>
             <td style="font-size: 0.85rem;">${formatDateTime(dev.last_seen)}</td>
             <td style="font-size: 0.85rem;">${escapeHtml(dev.approved_by || '-')}</td>
-            <td>${actions}</td>
+            <td>
+                <div class="action-dropdown">
+                    <button class="icon-btn" onclick="toggleActions(event, this)" title="Actions">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="action-menu">
+                        ${items}
+                    </div>
+                </div>
+            </td>
         </tr>`;
 }
 
@@ -200,22 +207,35 @@ export function unbindKioskDevice(id) {
 }
 
 export function renameKioskDevice(id) {
-    const name = prompt('New device name (label):');
-    if (name === null) return;
-    if (!name.trim()) return showToast('Name cannot be empty', 'warning');
-    (async () => {
+    // Use the app modal (same pattern as Devices' add/edit modal) instead of
+    // a browser prompt so the UI stays consistent across the dashboard.
+    document.getElementById('modal-title').innerText = 'Rename Kiosk Device';
+    document.getElementById('modal-content').innerHTML = `
+        <div class="form-group">
+            <label>Device Name</label>
+            <input type="text" id="kiosk-rename-name" placeholder="e.g. Kiosk Lobby">
+        </div>
+    `;
+    const saveBtn = document.getElementById('modal-save-btn');
+    saveBtn.innerText = 'Rename';
+    saveBtn.style.display = 'block';
+    saveBtn.onclick = async () => {
+        const name = (document.getElementById('kiosk-rename-name')?.value || '').trim();
+        if (!name) return showToast('Name cannot be empty', 'warning');
         try {
             const res = await fetch(`/api/kiosk-devices/${id}/rename`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name.trim() })
+                body: JSON.stringify({ name })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Failed to rename');
+            toggleModal(false);
             showToast(data.message || 'Kiosk device renamed', 'success');
             refreshKioskDevices();
         } catch (err) {
             showToast(err.message, 'error');
         }
-    })();
+    };
+    toggleModal(true);
 }
