@@ -574,17 +574,79 @@ function toggleSidebarCollapse() {
     localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
 }
 
+/**
+ * Close every action menu and clear any inline fixed-positioning styles
+ * that were applied while the menu was open.
+ */
+function closeActionMenus() {
+    document.querySelectorAll('.action-menu').forEach(m => {
+        m.classList.remove('active');
+        m.style.position = '';
+        m.style.top = '';
+        m.style.left = '';
+        m.style.right = '';
+        m.style.animation = '';
+    });
+}
+
+/**
+ * Position the open action menu with `position: fixed` relative to the
+ * viewport so it escapes clipping scroll containers (e.g. .table-container
+ * with overflow-x: auto) and their local stacking contexts. Auto-flips the
+ * menu upward when it would overflow the bottom edge and clamps it to the
+ * viewport horizontally.
+ */
+function positionActionMenu(btn, menu) {
+    // Measure the final layout size without the entrance animation's
+    // scale(0.95) transform skewing the coordinates.
+    menu.style.animation = 'none';
+    void menu.offsetWidth; // force reflow so the style above applies
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+    menu.style.animation = '';
+
+    const btnRect = btn.getBoundingClientRect();
+    const GAP = 6;
+    const MARGIN = 12; // safe distance from viewport edges
+
+    menu.style.position = 'fixed';
+    menu.style.right = 'auto';
+
+    // Default: right-align the menu with the button (matches the previous
+    // `right: 0` behaviour), then clamp inside the viewport.
+    let left = btnRect.right - mw;
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - mw - MARGIN));
+
+    // Default: open below the button; flip upward if it would overflow.
+    let top = btnRect.bottom + GAP;
+    if (top + mh > window.innerHeight - MARGIN) {
+        top = btnRect.top - mh - GAP;
+        if (top < MARGIN) top = Math.max(MARGIN, btnRect.bottom - mh);
+    }
+
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+}
+
 function toggleActions(e, btn) {
     if (e) e.stopPropagation();
     const menu = btn.nextElementSibling;
-    const isActive = menu.classList.contains('active');
-    document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
-    if (!isActive) menu.classList.add('active');
+    const wasActive = menu.classList.contains('active');
+    closeActionMenus();
+    if (!wasActive) {
+        menu.classList.add('active');
+        positionActionMenu(btn, menu);
+    }
 }
 
-window.addEventListener('click', () => {
-    document.querySelectorAll('.action-menu').forEach(m => m.classList.remove('active'));
-});
+window.addEventListener('click', closeActionMenus);
+
+// A fixed-position menu can drift away from its trigger when the page
+// scrolls or the viewport resizes, so close any open menu on those events.
+// Capture-phase on document catches scrolls from inner scroll containers
+// (scroll events don't bubble) in addition to window/body scrolling.
+document.addEventListener('scroll', closeActionMenus, { capture: true, passive: true });
+window.addEventListener('resize', closeActionMenus, { passive: true });
 
 function updatePageSize(type, val) {
     if (!state.pagination[type]) return;

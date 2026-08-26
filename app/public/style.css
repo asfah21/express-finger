@@ -1253,8 +1253,9 @@ select option {
     border-radius: 0.75rem;
     min-width: 170px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-    z-index: 9999;
-    /* Max z-index */
+    z-index: 100000;
+    /* Above every overlay; positioned fixed via JS when open so it escapes
+       the .table-container overflow/stacking context */
     display: none;
     overflow: hidden;
 }
