@@ -1,50 +1,79 @@
-// Security headers middleware
+/**
+ * Security Headers Middleware (poin 10 hardening)
+ *
+ * Menggunakan `helmet` sebagai dasar (COOP, CORP, nosniff, frame-ancestors,
+ * hidePoweredBy, dll), dengan kustomisasi:
+ * - Permissions-Policy: kamera diizinkan (dibutuhkan kiosk absensi wajah),
+ *   mikrofon & geolokasi dimatikan. (helmet v8 TIDAK lagi menyetel
+ *   Permissions-Policy, jadi diset manual.)
+ * - CSP diperkuat (frame-ancestors 'none', base-uri, form-action,
+ *   object-src 'none', frame-src 'none').
+ *
+ * CATATAN PENTING tentang 'unsafe-inline':
+ * Frontend memakai ~121 inline event handler (onclick/onchange/...) dan banyak
+ * atribut style inline, sehingga 'unsafe-inline' pada script-src & style-src
+ * HARUS dipertahankan agar dashboard tidak rusak. Penghapusan penuh menuntut
+ * refactor semua handler inline ke addEventListener — fase terpisah (lihat
+ * plan poin 10 / Fase 2 lanjutan).
+ */
+
+import helmet from 'helmet'
+
+const securityHeaders = helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'self'"],
+      // 'unsafe-inline' dipertahankan karena inline handlers (lihat catatan di atas).
+      'script-src': ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
+      'style-src': ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://fonts.googleapis.com'],
+      'font-src': ["'self'", 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com', 'data:'],
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'", 'ws:', 'wss:', 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
+      // Hardening tambahan (aman walau 'unsafe-inline' masih ada):
+      'frame-ancestors': ["'none'"],   // anti-clickjacking (pengganti X-Frame-Options)
+      'base-uri': ["'self'"],
+      'form-action': ["'self'"],
+      'object-src': ["'none'"],
+      'frame-src': ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // jangan blokir pemuatan CDN (jsdelivr/cdnjs)
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  originAgentCluster: true,
+  referrerPolicy: { policy: 'no-referrer' },
+  // HSTS diset manual di bawah (per-request, hanya saat HTTPS) — backward
+  // compatible dengan perilaku asli, tidak bergantung NODE_ENV.
+  strictTransportSecurity: false,
+  xFrameOptions: { action: 'deny' },
+  xXssProtection: false, // deprecated — diganti dependensi pada CSP
+  hidePoweredBy: true,
+  noSniff: true,
+})
+
 export const securityMiddleware = (req, res, next) => {
-  // Prevent MIME type sniffing
-  res.setHeader('X-Content-Type-Options', 'nosniff')
+  securityHeaders(req, res, () => {
+    // Permissions-Policy — kamera untuk kiosk absensi wajah; lainnya dimatikan.
+    res.setHeader(
+      'Permissions-Policy',
+      'camera=(self), microphone=(), geolocation=(), interest-cohort=()'
+    )
 
-  // Prevent clickjacking
-  res.setHeader('X-Frame-Options', 'DENY')
+    // HSTS — hanya saat request HTTPS (perilaku asli): diterapkan baik lewat
+    // reverse proxy (X-Forwarded-Proto: https) maupun HTTPS langsung. Aman
+    // untuk akses LAN HTTP karena browser mengabaikan HSTS di plain HTTP.
+    if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    }
 
-  // Control referrer information
-  res.setHeader('Referrer-Policy', 'no-referrer')
+    // Jangan biarkan halaman HTML ter-cache setelah logout.
+    if (req.path.endsWith('.html') || req.path === '/' || req.accepts('text/html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+      res.setHeader('Pragma', 'no-cache')
+      res.setHeader('Expires', '0')
+    }
 
-  // Enable XSS filter in older browsers
-  res.setHeader('X-XSS-Protection', '1; mode=block')
-
-  // Content Security Policy - restricts what resources can be loaded
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
-    "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; " +
-    "img-src 'self' data:; " +
-    "connect-src 'self' ws: wss: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;"
-  )
-
-  // HTTP Strict Transport Security (only if HTTPS)
-  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
-  }
-
-  // Permissions Policy - restrict browser features
-  // Camera is required by the standalone public attendance kiosk. Keep
-  // microphone and geolocation disabled, but allow camera for this origin.
-  res.setHeader(
-    'Permissions-Policy',
-    'camera=(self), microphone=(), geolocation=(), interest-cohort=()'
-  )
-
-  // Prevent serving cached pages after logout (for HTML pages only)
-  // API responses can be cached by the server-side cache module
-  if (req.path.endsWith('.html') || req.path === '/' || req.accepts('text/html')) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
-    res.setHeader('Pragma', 'no-cache')
-    res.setHeader('Expires', '0')
-  }
-  // For API responses, allow server-side caching (Cache-Control is set per-endpoint)
-
-
-  next()
+    next()
+  })
 }

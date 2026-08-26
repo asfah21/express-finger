@@ -123,7 +123,7 @@ export const login = async (req, res) => {
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role, jti },
             SECRET,
-            { expiresIn: Math.ceil(sessionTtlMs / 1000) }
+            { algorithm: 'HS256', expiresIn: Math.ceil(sessionTtlMs / 1000) }
         )
 
         // Track this login as an active session so Super Admin can see it
@@ -162,13 +162,19 @@ export const login = async (req, res) => {
             console.error('❌ Failed to create session for login:', err.message)
         }
 
-        // Set cookie - sameSite 'lax' agar cookie tetap ada saat refresh
+        // Set cookie sesi — BACKWARD COMPATIBLE untuk akses ganda:
+        //   https://fingerprint.gsicorp.co.id (HTTPS via reverse proxy) dan
+        //   http://10.10.11.5:8080 (LAN HTTP).
+        // `secure` mengikuti PROTOKOL request aktual (bukan NODE_ENV) agar
+        // cookie tetap dikirim di HTTP LAN. `sameSite` none saat HTTPS / lax
+        // saat HTTP (perilaku asli). Risiko CSRF dari 'none' sudah ditangani
+        // token CSRF (csrf-csrf) yang dipasang global.
         const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
 
         res.cookie('token', token, {
             httpOnly: true,
-            secure: isSecure, // true jika HTTPS
-            sameSite: isSecure ? 'none' : 'lax', // none jika HTTPS/cross, lax jika HTTP
+            secure: isSecure,
+            sameSite: isSecure ? 'none' : 'lax',
             path: '/',
             maxAge: sessionTtlMs
         })
@@ -194,7 +200,7 @@ export const logout = async (req, res) => {
     let username = 'unknown'
     try {
         if (token) {
-            const decoded = jwt.verify(token, SECRET)
+            const decoded = jwt.verify(token, SECRET, { algorithms: ['HS256'] })
             username = decoded.username
         }
     } catch (_) { }
@@ -287,7 +293,7 @@ export const updateAccount = async (req, res) => {
         const token = jwt.sign(
             { id: userId, username: user.username, role: user.role, jti: newJti },
             SECRET,
-            { expiresIn: '3d' }
+            { algorithm: 'HS256', expiresIn: '3d' }
         )
 
         // Issue a new tracked session for the fresh token. Only end the old
@@ -321,6 +327,7 @@ export const updateAccount = async (req, res) => {
             console.error('❌ Failed to re-create session on account update:', err.message)
         }
 
+        // Backward compatible: secure mengikuti protokol aktual (lihat login).
         const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
         res.cookie('token', token, {
             httpOnly: true,

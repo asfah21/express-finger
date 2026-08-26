@@ -45,7 +45,7 @@ export const requireApiKey = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, SECRET)
+    const decoded = jwt.verify(token, SECRET, { algorithms: ['HS256'] })
     if (!(await isTokenSessionActive(decoded))) {
       return sendError(res, 'Session has been ended', 401)
     }
@@ -80,7 +80,7 @@ export const requireAuth = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, SECRET)
+    const decoded = jwt.verify(token, SECRET, { algorithms: ['HS256'] })
     if (!(await isTokenSessionActive(decoded))) {
       return sendError(res, 'Session has been ended', 401)
     }
@@ -102,7 +102,7 @@ export const requirePageAuth = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, SECRET)
+    const decoded = jwt.verify(token, SECRET, { algorithms: ['HS256'] })
     if (!(await isTokenSessionActive(decoded))) {
       return res.redirect('/')
     }
@@ -145,7 +145,7 @@ export const optionalAuth = async (req, res, next) => {
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, SECRET)
+      const decoded = jwt.verify(token, SECRET, { algorithms: ['HS256'] })
       if (await isTokenSessionActive(decoded)) {
         req.user = decoded
       }

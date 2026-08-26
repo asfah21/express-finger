@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { showToast, toggleModal, showConfirm, getWitaDateString } from '../utils.js';
 import { showSkeleton } from '../skeleton.js';
+import { escapeHtml } from '../utils/sanitize.js';
 
 export async function refreshEmployees() {
     const s = state.pagination.employees;
@@ -18,18 +19,20 @@ export async function refreshEmployees() {
     s.total = data.data?.total || 0;
     const body = document.getElementById('employees-body');
     const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'superadmin');
+    // Semua field teks user di-escape (anti-XSS, poin 2). emp.id adalah id
+    // numerik dari DB sehingga aman dipakai langsung di atribut/onclick.
     body.innerHTML = (data.data?.list || []).map(emp => `
         <tr>
             <td style="text-align: center;">
                 ${isAdmin ? `<input type="checkbox" class="employee-check" value="${emp.id}" onchange="updateEmployeeSelection()" style="cursor: pointer;">` : ''}
             </td>
-            <td>${emp.user_id}</td>
-            <td>${emp.nik || '-'}</td>
-            <td>${emp.nama || 'Unnamed'}</td>
-            <td>${emp.jabatan || '-'}</td>
-            <td>${emp.department || '-'}</td>
-            <td><span class="badge" style="background: rgba(255,255,255,0.1);">${emp.divisi || '-'}</span></td>
-            <td><span class="badge" style="background: var(--primary); color: #ffffff !important;">${emp.type || '-'}</span></td>
+            <td>${escapeHtml(emp.user_id)}</td>
+            <td>${escapeHtml(emp.nik || '-')}</td>
+            <td>${escapeHtml(emp.nama || 'Unnamed')}</td>
+            <td>${escapeHtml(emp.jabatan || '-')}</td>
+            <td>${escapeHtml(emp.department || '-')}</td>
+            <td><span class="badge" style="background: rgba(255,255,255,0.1);">${escapeHtml(emp.divisi || '-')}</span></td>
+            <td><span class="badge" style="background: var(--primary); color: #ffffff !important;">${escapeHtml(emp.type || '-')}</span></td>
             <td>
                 ${isAdmin ? `
                 <div class="action-dropdown">

@@ -2,6 +2,21 @@ import express from 'express'
 import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
 import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController, sessionController, kioskDeviceController } from '../controllers/index.js'
 import { getCacheMetrics, clearCache } from '../utils/cache.js'
+import {
+  validate,
+  employeeRules,
+  employeeUpdateRules,
+  employeeBulkRules,
+  employeeIdParamRules,
+  deviceRules,
+  deviceUpdateRules,
+  deviceIdParamRules,
+  kioskRegisterRules,
+  kioskRenameRules,
+  kioskIdParamRules,
+  sessionSearchRules,
+  pagePermissionRules,
+} from '../middleware/validate.js'
 
 const router = express.Router()
 
@@ -24,10 +39,10 @@ router.put('/settings', requireSuperAdminPrivileges, settingsController.updateSe
 
 // Page Permissions routes (Super Admin only for management)
 router.get('/page-permissions', requireSuperAdminPrivileges, pagePermissionsController.getAll)
-router.put('/page-permissions/:id', requireSuperAdminPrivileges, pagePermissionsController.update)
+router.put('/page-permissions/:id', requireSuperAdminPrivileges, validate(pagePermissionRules), pagePermissionsController.update)
 
 // Active Sessions routes (Super Admin only)
-router.get('/sessions', requireSuperAdminPrivileges, sessionController.list)
+router.get('/sessions', requireSuperAdminPrivileges, validate(sessionSearchRules), sessionController.list)
 router.post('/sessions/kill-others', requireSuperAdminPrivileges, sessionController.killOthers)
 router.post('/sessions/:jti/kill', requireSuperAdminPrivileges, sessionController.kill)
 router.post('/sessions/user/:userId/kill', requireSuperAdminPrivileges, sessionController.killAll)
@@ -37,11 +52,11 @@ router.post('/sessions/heartbeat', sessionController.heartbeat)
 
 // Kiosk device whitelist / approval (Super Admin management + kiosk registration)
 router.get('/kiosk-devices', requireSuperAdminPrivileges, kioskDeviceController.list)
-router.post('/kiosk-devices/register', kioskDeviceController.register)
-router.put('/kiosk-devices/:id/approve', requireSuperAdminPrivileges, kioskDeviceController.approve)
-router.put('/kiosk-devices/:id/revoke', requireSuperAdminPrivileges, kioskDeviceController.revoke)
-router.put('/kiosk-devices/:id/rename', requireSuperAdminPrivileges, kioskDeviceController.rename)
-router.put('/kiosk-devices/:id/unbind', requireSuperAdminPrivileges, kioskDeviceController.unbind)
+router.post('/kiosk-devices/register', validate(kioskRegisterRules), kioskDeviceController.register)
+router.put('/kiosk-devices/:id/approve', requireSuperAdminPrivileges, validate(kioskIdParamRules), kioskDeviceController.approve)
+router.put('/kiosk-devices/:id/revoke', requireSuperAdminPrivileges, validate(kioskIdParamRules), kioskDeviceController.revoke)
+router.put('/kiosk-devices/:id/rename', requireSuperAdminPrivileges, validate(kioskRenameRules), kioskDeviceController.rename)
+router.put('/kiosk-devices/:id/unbind', requireSuperAdminPrivileges, validate(kioskIdParamRules), kioskDeviceController.unbind)
 
 // Get current user's accessible pages (any authenticated user)
 router.get('/my-permissions', requireApiKey, pagePermissionsController.getMyPermissions)
@@ -62,9 +77,9 @@ router.post('/sync/all', syncController.syncAll)
 
 // Device Management Routes
 router.get('/devices', deviceManagerController.listDevices)
-router.post('/devices', requireAdminPrivileges, deviceManagerController.addDevice)
-router.put('/devices/:id', requireAdminPrivileges, deviceManagerController.updateDevice)
-router.delete('/devices/:id', requireAdminPrivileges, deviceManagerController.deleteDevice)
+router.post('/devices', requireAdminPrivileges, validate(deviceRules), deviceManagerController.addDevice)
+router.put('/devices/:id', requireAdminPrivileges, validate(deviceUpdateRules), deviceManagerController.updateDevice)
+router.delete('/devices/:id', requireAdminPrivileges, validate(deviceIdParamRules), deviceManagerController.deleteDevice)
 
 // Employee Management Routes
 router.get('/employees', employeeController.listEmployees)
@@ -72,11 +87,11 @@ router.get('/employees', employeeController.listEmployees)
 // captured as the :id parameter.
 router.get('/employees/departments', employeeController.listDepartments)
 router.get('/employees/:id', employeeController.getEmployee)
-router.post('/employees', requireAdminPrivileges, employeeController.addEmployee)
-router.post('/employees/bulk', requireAdminPrivileges, employeeController.bulkAddEmployees)
+router.post('/employees', requireAdminPrivileges, validate(employeeRules), employeeController.addEmployee)
+router.post('/employees/bulk', requireAdminPrivileges, validate(employeeBulkRules), employeeController.bulkAddEmployees)
 router.post('/employees/bulk-delete', requireAdminPrivileges, employeeController.bulkDeleteEmployees)
-router.put('/employees/:id', requireAdminPrivileges, employeeController.updateEmployee)
-router.delete('/employees/:id', requireAdminPrivileges, employeeController.deleteEmployee)
+router.put('/employees/:id', requireAdminPrivileges, validate(employeeUpdateRules), employeeController.updateEmployee)
+router.delete('/employees/:id', requireAdminPrivileges, validate(employeeIdParamRules), employeeController.deleteEmployee)
 router.post('/employees/:id/sync-to-device', requireAdminPrivileges, employeeController.syncEmployeeToDevice)
 
 export default router

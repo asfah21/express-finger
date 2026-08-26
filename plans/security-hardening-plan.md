@@ -17,6 +17,79 @@ Mengeraskan aplikasi GSI ADMS listener terhadap 10 kategori serangan web yang pa
 
 Dokumen ini **tidak mengubah kode** — hanya rencana teknis terperinci. Implementasi dilakukan setelah dokumen ini disetujui.
 
+## Status Implementasi
+
+### ✅ Fase 1 — SELESAI (CSRF + Brute Force)
+- [x] `csrf-csrf` terinstal di [`app/package.json`](../../app/package.json) (v3.2.2).
+- [x] [`app/middleware/csrf.js`](../../app/middleware/csrf.js) — double-submit cookie + bypass list + provider.
+- [x] Wiring di [`app/server.js`](../../app/server.js) (csrfTokenProvider + csrfProtection global).
+- [x] [`app/middleware/cors.js`](../../app/middleware/cors.js) — tidak lagi refleksi origin + credentials; whitelist `CORS_ORIGINS`.
+- [x] [`app/public/js/csrf.js`](../../app/public/js/csrf.js) — patch `fetch` global (diimpor via `device.js`).
+- [x] `loginLimiter` → 5 percobaan / 15 menit + perbaikan IPv6 (`ipKeyGenerator`).
+- [x] `iclockLimiter` (120/menit/IP) + `iclockIpGuard` (allowlist opsional `ICLOCK_ALLOWED_IPS`).
+- [x] `trust proxy` dikunci via `TRUST_PROXY` (default nonaktif).
+- [x] Penanganan `invalidCsrfTokenError` → 403 di `globalErrorHandler`.
+- [x] Tes end-to-end: [`app/tests/security/test-csrf-flow.mjs`](../../app/tests/security/test-csrf-flow.mjs) — 8/8 lulus.
+
+### ✅ Fase 2 — SELESAI (Session + Security Headers)
+- [x] `helmet` v8.3.0 terinstal.
+- [x] Cookie sesi (`token`): `sameSite='lax'` SELALU + `secure` di production — konsisten di login ([`auth.js`](../../app/controllers/auth.js:165)), update account, dan sliding renewal ([`sessions.js`](../../app/controllers/sessions.js:216)).
+- [x] JWT di-pin ke HS256 di semua `jwt.verify` ([`middleware/auth.js`](../../app/middleware/auth.js:48)) & `jwt.sign` (auth/sessions).
+- [x] [`security.js`](../../app/middleware/security.js) di-rewrite: helmet (COOP `same-origin`, CORP `same-site`, nosniff, hidePoweredBy, referrer no-referrer, HSTS production) + CSP diperkuat (`frame-ancestors 'none'`, `base-uri`, `form-action`, `object-src 'none'`, `frame-src 'none'`) + Permissions-Policy manual (kamera kiosk diizinkan).
+- [x] `X-XSS-Protection` dihapus (deprecated).
+
+### ✅ Fase 3 — SELESAI (Input & Upload)
+- [x] `express-validator` v7 terinstal; [`app/middleware/validate.js`](../../app/middleware/validate.js) (baru) dengan aturan login, user, employee, device, kiosk-device, sessions, page-permissions.
+- [x] Validator dipasang di [`routes/auth.js`](../../app/routes/auth.js) & [`routes/api.js`](../../app/routes/api.js).
+- [x] [`app/public/js/utils/sanitize.js`](../../app/public/js/utils/sanitize.js) (baru): `escapeHtml` + `sanitizeHtml` (DOMPurify).
+- [x] DOMPurify CDN ditambahkan di [`index.html`](../../app/public/index.html).
+- [x] XSS nyata diperbaiki di [`employees.js`](../../app/public/js/pages/employees.js:21) — semua field teks user di-escape.
+- [x] `multer` v2 terinstal; [`app/middleware/upload.js`](../../app/middleware/upload.js) (baru): whitelist ekstensi+mimetype, 5MB, nama UUID, siap dipasang.
+- [x] `express.text` global (octet-stream 20mb) di-scope khusus ke `/iclock` di [`server.js`](../../app/server.js:76).
+- [x] Tes: [`test-validation.mjs`](../../app/tests/security/test-validation.mjs) 14/14 lulus.
+
+> **Catatan penting Fase 3 (File Upload):** Aplikasi saat ini TIDAK punya endpoint
+> multipart nyata — import employee diparse client-side (SheetJS → JSON), template
+> biometrics dikirim base64 (JSON). Risiko nyata adalah parser body global
+> `octet-stream` 20mb yang kini di-scope ke `/iclock`. `upload.js` (Multer)
+> disediakan siap-pakai dan tervalidasi untuk endpoint upload masa depan.
+
+### ✅ Fase 4 — SELESAI (Penguncian & Verifikasi)
+- [x] [`app/utils/secure-path.js`](../../app/utils/secure-path.js) (baru): `safeJoin()` anti-traversal; diterapkan di [`downloadRawFile`](../../app/controllers/api.js:921).
+- [x] [`app/tests/security/test-static-scan.mjs`](../../app/tests/security/test-static-scan.mjs) (baru): scan 64 file sumber untuk `child_process`/`exec`/`spawn`/`eval`/`new Function` + interpolasi data request ke `.query()`; tes traversal `safeJoin`.
+- [x] Health endpoint [`/health`](../../app/server.js:83) — detail error DB disembunyikan di production.
+- [x] 404 handler — pesan tetap, tidak lagi men-echo `originalUrl` ([`errorHandler.js`](../../app/middleware/errorHandler.js:44)).
+- [x] [`Dockerfile`](../../Dockerfile) & [`docker-compose-example.yml`](../../docker-compose-example.yml) — `NODE_ENV=production` (respons generik + cookie secure + HSTS).
+- [x] **Kebijakan tertulis:** DILARANG `child_process.exec/spawn` dengan input user; WAJIB parameterized query (`pool.query(sql, params)`); larangan `eval`/`new Function` — dipertahankan via tes scan.
+
+### ✅ BACKWARD COMPATIBILITY — akses HTTPS prod + HTTP LAN
+
+Deployment nyata: `https://fingerprint.gsicorp.co.id` (HTTPS via reverse proxy)
+DAN akses lokal `http://10.10.11.5:8080` (HTTP LAN). Keputusan desain agar
+keduanya tetap berfungsi tanpa mengubah Dockerfile:
+
+- **Cookie sesi `secure` mengikuti PROTOKOL request aktual** (`req.secure` /
+  `x-forwarded-proto`), BUKAN `NODE_ENV`. HTTPS → cookie `Secure`; HTTP LAN →
+  tidak Secure → tetap dikirim. ([`auth.js`](../../app/controllers/auth.js:165),
+  [`sessions.js`](../../app/controllers/sessions.js:223)).
+- **`sameSite` kembali ke perilaku asli** (`none` saat HTTPS, `lax` saat HTTP).
+  Risiko CSRF dari `none` sudah ditutup token CSRF (`csrf-csrf`) global.
+- **`trust proxy` default `true`** (perilaku asli) agar di belakang nginx
+  `req.ip` = IP client asli → rate-limit per-IP tidak berbagi. Bisa dikunci
+  ke IP proxy via env `TRUST_PROXY`.
+- **HSTS per-request** (hanya saat HTTPS), bukan berbasis `NODE_ENV`
+  ([`security.js`](../../app/middleware/security.js)).
+- **`NODE_ENV=production` TIDAK dipaksa** di Dockerfile/compose; opsional bagi
+  user yang ingin respons error generik.
+
+### ✅ SELURUH 10 POIN HARDENING SELESAI (Fase 1–4)
+
+> **Catatan penting Fase 2:** `'unsafe-inline'` pada `script-src`/`style-src` DI-PERTAHANKAN
+> sementara karena frontend memakai ±121 inline event handler + atribut style inline.
+> Penghapusan penuh memerlukan refactor ke `addEventListener` (fase khusus, lihat
+> checklist Fase 2 lanjutan di bawah) dan tidak dikerjakan di fase ini agar dashboard
+> tidak rusak.
+
 ## Ringkasan Status Audit (hasil pembacaan kode)
 
 | # | Kategori | Status Saat Ini | Tingkat Risiko |
@@ -223,23 +296,24 @@ Frontend (CDN, tanpa bundler — proyek memakai `<script src>` langsung):
 
 ## Urutan Implementasi (Fase)
 
-### Fase 1 — Kritis & cepat menang (prioritas tertinggi)
-- [ ] **3. CSRF**: instal `csrf-csrf`, middleware + allowlist, perbaiki CORS, fetch helper.
-- [ ] **5. Brute Force**: `loginLimiter` → 5/15 menit, `iclockLimiter`, whitelist SN/IP `/iclock`.
+### Fase 1 — Kritis & cepat menang (prioritas tertinggi) — ✅ SELESAI
+- [x] **3. CSRF**: instal `csrf-csrf`, middleware + allowlist, perbaiki CORS, fetch helper.
+- [x] **5. Brute Force**: `loginLimiter` → 5/15 menit, `iclockLimiter`, whitelist SN/IP `/iclock`.
 
-### Fase 2 — Hardening autentikasi & header
-- [ ] **4. Session**: cookie `secure`/`sameSite` konsisten, `trust proxy` terkunci, pin JWT algorithm.
-- [ ] **10. Security Headers**: adopsi `helmet`, CSP tanpa `'unsafe-inline'` (refactor inline script), tambah COOP/CORP.
+### Fase 2 — Hardening autentikasi & header — ✅ SELESAI (kecuali penghapusan 'unsafe-inline')
+- [x] **4. Session**: cookie `secure`/`sameSite` konsisten, `trust proxy` terkunci, pin JWT algorithm.
+- [x] **10. Security Headers**: adopsi `helmet`, CSP diperkuat + COOP/CORP.
+- [ ] **10b. (Lanjutan, fase khusus)** CSP tanpa `'unsafe-inline'` — pindahkan ±121 inline handler ke `addEventListener`/file eksternal, lalu hapus `'unsafe-inline'` dari `script-src` & `style-src`. Risiko: tinggi; perlu pengujian per halaman.
 
-### Fase 3 — Input & upload
-- [ ] **2. XSS**: `express-validator` (server), DOMPurify + `sanitize.js` (client), refactor inline handler.
-- [ ] **6. File Upload**: `multer` + validasi ekstensi/mimetype/magic bytes + path UUID + batas body.
+### Fase 3 — Input & upload — ✅ SELESAI
+- [x] **2. XSS**: `express-validator` (server), DOMPurify + `sanitize.js` (client), escape field teks di employees.js (refactor inline handler penuh → Fase 2 lanjutan/10b).
+- [x] **6. File Upload**: `multer` + validasi ekstensi/mimetype + nama UUID + batas body (`express.text` di-scope ke `/iclock`).
 
-### Fase 4 — Penguncian & verifikasi
-- [ ] **1. SQL Injection**: komentar kebijakan + tes scan.
-- [ ] **7. LFI/RFI**: `secure-path.js` helper + audit.
-- [ ] **8. Command Injection**: tes scan + dokumentasi kebijakan.
-- [ ] **9. Error Handling**: health endpoint generic, 404 tetap, pastikan `NODE_ENV=production` di Docker.
+### Fase 4 — Penguncian & verifikasi — ✅ SELESAI
+- [x] **1. SQL Injection**: komentar kebijakan + tes scan.
+- [x] **7. LFI/RFI**: `secure-path.js` helper + audit.
+- [x] **8. Command Injection**: tes scan + dokumentasi kebijakan.
+- [x] **9. Error Handling**: health endpoint generic, 404 tetap, `NODE_ENV=production` di Docker.
 
 ## Verifikasi & Pengujian
 

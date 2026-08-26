@@ -1,6 +1,7 @@
 import { readdir, stat } from 'fs/promises'
 import { createReadStream } from 'fs'
 import path from 'path'
+import { safeJoin } from '../utils/secure-path.js'
 import { config } from '../config/index.js'
 import { pool } from '../utils/database.js'
 import { getSettingsData } from './settings.js'
@@ -919,10 +920,17 @@ export const apiController = {
   },
 
   async downloadRawFile(req, res) {
-    const name = path.basename(req.params.name)
-    const fpath = path.join(config.RAW_DIR, name)
+    // Dua lapis anti-traversal: basename dulu, lalu safeJoin memastikan hasil
+    // tetap di dalam RAW_DIR (poin 7 LFI).
+    let fpath
+    try {
+      const name = path.basename(req.params.name)
+      fpath = safeJoin(config.RAW_DIR, name)
+    } catch (_) {
+      return sendError(res, 'Not found', 404)
+    }
     res.setHeader('Content-Type', 'text/plain')
-    res.setHeader('Content-Disposition', `attachment; filename="${name}"`)
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(fpath)}"`)
     if (typeof res.flushHeaders === 'function') res.flushHeaders()
     createReadStream(fpath, { highWaterMark: 1 << 16 })
       .on('error', () => sendError(res, 'Not found', 404))

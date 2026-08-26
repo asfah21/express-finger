@@ -218,8 +218,10 @@ export const sessionController = {
         const token = jwt.sign(
           { id: user.id, username: user.username, role: user.role, jti },
           SECRET,
-          { expiresIn: Math.ceil(ttlMs / 1000) }
+          { algorithm: 'HS256', expiresIn: Math.ceil(ttlMs / 1000) }
         )
+        // Konsisten dengan cookie login (controllers/auth.js): secure mengikuti
+        // protokol aktual agar tetap bekerja di HTTP LAN dan HTTPS prod.
         const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https'
         res.cookie('token', token, {
           httpOnly: true,

@@ -114,6 +114,47 @@ Untuk akses programatik (non-browser), sertakan header:
 
 ---
 
+## Security & Rate Limiting (Hardening)
+
+Aplikasi memakai `express-rate-limit` v8 dengan strategi berlapis (defense in
+depth). Saat ambang batas terlampaui, server membalas **HTTP 429** lengkap
+dengan header standar `RateLimit-*` dan `Retry-After` (JSON untuk API, teks
+polos untuk protokol `/iclock`).
+
+### Lapisan Proteksi
+- **Global catch-all** — setiap request (termasuk `/`, `/health`, file statis,
+  dan rute tak dikenal) dibatasi per-IP untuk menahan banjir/DoS.
+- **Login** — dua lapisan: per-akun (username) 5×/15 menit **dan** per-IP
+  20×/15 menit (menangkal brute force satu akun sekaligus password spraying
+  lintas-akun dari satu origin/NAT).
+- **Verify** (autentikasi ulang settings) — per-IP 10×/15 menit + per-akun
+  5×/15 menit.
+- **User management** (buat/hapus/reset user, ubah role) — per-IP 20×/15 menit
+  + per-akun 10×/15 menit, agar sesi superadmin yang disusupi tidak bisa
+  memodifikasi user secara massal.
+- **General API** — 100×/menit per-IP + cap burst 30×/10 detik.
+- **Sync/pull/template/biometrics** (operasi berat) — per-IP 10×/menit +
+  per-perangkat target (SN/IP) 5×/menit.
+- **/iclock** (protokol perangkat ZK tanpa autentikasi) — per-IP 90×/menit +
+  per-SN 120×/menit, ditambah IP allowlist opsional (`ICLOCK_ALLOWED_IPS`).
+- **Kiosk live** (absensi wajah) — per-perangkat (`x-device-id`) 30×/menit +
+  per-IP 60×/menit.
+
+### Konfigurasi
+Semua ambang batas dapat disetel tanpa mengubah kode melalui env `RATE_LIMIT_*`
+(lihat [`app/.env.example`](app/.env.example)).
+
+### `TRUST_PROXY` (PENTING)
+- **Default aman = kosong (false)** → `req.ip` = IP socket; klien **tidak**
+  bisa memalsukan `X-Forwarded-For` untuk mem-bypass rate-limit per-IP.
+- Di belakang nginx/Caddy, set `TRUST_PROXY=1` (satu hop) atau IP proxy agar
+  `req.ip` tetap IP klien asli.
+- **JANGAN** set `TRUST_PROXY=true` — mempercayai semua proxy memungkinkan
+  spoofing header, dan express-rate-limit v8 menolaknya secara eksplisit
+  (`ERR_ERL_PERMISSIVE_TRUST_PROXY`).
+
+---
+
 ## Struktur Folder
 ```
 express-finger/

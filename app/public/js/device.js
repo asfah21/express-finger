@@ -4,8 +4,12 @@
 // sends it via the x-device-id header so the server can enforce the device
 // whitelist / approval policy for the 'public' role.
 //
-// NOTE: this module is intentionally dependency-free so it can be imported by
-// both the dashboard auth flow and the standalone kiosk pages.
+// NOTE: this module is intentionally dependency-free (no external packages) so
+// it can be imported by both the dashboard auth flow and the standalone kiosk
+// pages. It pulls in ./csrf.js purely for its side effect: that module patches
+// window.fetch to attach the CSRF token header, which every page needs.
+
+import './csrf.js'
 
 const DEVICE_KEY = 'kiosk_device_id'
 const HEADER_NAME = 'x-device-id'

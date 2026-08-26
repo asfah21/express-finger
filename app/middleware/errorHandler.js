@@ -3,6 +3,7 @@
  * Catches unhandled errors and returns consistent JSON responses
  */
 import { sendError } from '../utils/response.js'
+import { invalidCsrfTokenError } from './csrf.js'
 
 /**
  * Global error handler
@@ -23,6 +24,11 @@ export const globalErrorHandler = (err, req, res, next) => {
     return sendError(res, 'Request body too large', 413)
   }
 
+  // CSRF validation failure (dari middleware csrf.js)
+  if (err === invalidCsrfTokenError || err?.code === 'EBADCSRFTOKEN') {
+    return sendError(res, 'Invalid CSRF token', 403)
+  }
+
   if (err.code === 'ECONNREFUSED') {
     return sendError(res, 'Database connection refused', 503)
   }
@@ -41,6 +47,8 @@ export const globalErrorHandler = (err, req, res, next) => {
  * 404 Not Found handler
  * Catches requests to undefined routes
  */
-export const notFoundHandler = (req, res) => {
-  sendError(res, `Route ${req.method} ${req.originalUrl} not found`, 404)
+export const notFoundHandler = (_req, res) => {
+  // Pesan tetap (tidak men-echo URL request) — menghindari refleksi input
+  // ke response (poin 9).
+  sendError(res, 'Not Found', 404)
 }

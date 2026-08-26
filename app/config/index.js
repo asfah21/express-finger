@@ -1,6 +1,31 @@
 // Konfigurasi aplikasi
 import 'dotenv/config'
 import path from 'path'
+
+/**
+ * Parse TRUST_PROXY dengan aman:
+ *  - kosong / 'false' → false (tidak mempercayai proxy; req.ip = IP socket)
+ *  - 'true'           → true  (mempercayai SEMUA proxy — TIDAK AMAN dan
+ *    ditolak express-rate-limit; hanya diperbolehkan bila dipaksa)
+ *  - angka (mis. '1') → jumlah hop proxy yang dipercaya (recommended di
+ *    belakang satu nginx/Caddy)
+ *  - daftar IP (koma) → hanya proxy dengan IP tersebut yang dipercaya
+ *
+ * PENTING: JANGAN default ke `true`. Dengan `true`, klien bisa memalsukan
+ * header X-Forwarded-For untuk mem-bypass rate-limit per-IP (dan library
+ * express-rate-limit menolaknya eksplisit dengan ERR_ERL_PERMISSIVE_TRUST_PROXY).
+ */
+function parseTrustProxy(value) {
+  const raw = (value || '').trim().toLowerCase()
+  if (!raw || raw === 'false') return false
+  if (raw === 'true') {
+    console.warn('⚠️ [CONFIG] TRUST_PROXY=true (mempercayai semua proxy) TIDAK aman dan ditolak express-rate-limit. Gunakan hop count (mis. TRUST_PROXY=1) atau IP proxy nyata.')
+    return true
+  }
+  if (/^\d+$/.test(raw)) return Number(raw)
+  return raw.split(',').map(s => s.trim()).filter(Boolean)
+}
+
 export const config = {
   PORT: process.env.PORT,
   PGUSER: process.env.PGUSER,
@@ -12,6 +37,38 @@ export const config = {
   RAW_DIR: process.env.RAW_DIR || path.join(path.resolve(), '../data/raw'),
   PULL_DIR: process.env.PULL_DIR || path.join(path.resolve(), '../data/pull'),
   MAX_LIMIT: Number(process.env.MAX_LIMIT || 50000),
+  // Origin yang diizinkan untuk request cross-origin ber-credential.
+  // Kosong (default) = same-origin LAN saja (paling aman). Isi dengan daftar
+  // origin yang dipercaya, mis. 'http://192.168.1.5:8080,http://kiosk.lan'.
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+  // IP perangkat ZK yang boleh push data ke /iclock. Kosong (default) = semua
+  // IP di LAN diizinkan (backward compatible). Isi untuk pembatasan ketat.
+  ICLOCK_ALLOWED_IPS: (process.env.ICLOCK_ALLOWED_IPS || '').split(',').map(s => s.trim()).filter(Boolean),
+  // Nilai app.set('trust proxy'). Kosong (default) = nonaktif (amankah? ya —
+  // req.ip = IP socket). Set TRUST_PROXY=1 (atau IP proxy) bila di belakang
+  // nginx/Caddy agar req.ip = IP klien asli (lihat parseTrustProxy di atas).
+  TRUST_PROXY: parseTrustProxy(process.env.TRUST_PROXY),
+  // --- Rate limiting (hardening) -----------------------------------------
+  // Semua ambang batas dapat disetel per-environment via env tanpa mengubah
+  // kode (lihat app/.env.example). Nilai berikut = default aman.
+  RATE_LIMIT_GLOBAL_MAX: Number(process.env.RATE_LIMIT_GLOBAL_MAX || 600), // req/menit per IP (semua request)
+  RATE_LIMIT_AUTH_MAX: Number(process.env.RATE_LIMIT_AUTH_MAX || 60), // req/menit per IP (/auth non-login)
+  RATE_LIMIT_LOGIN_ACCOUNT_MAX: Number(process.env.RATE_LIMIT_LOGIN_ACCOUNT_MAX || 5), // percobaan/15 mnt per akun
+  RATE_LIMIT_LOGIN_IP_MAX: Number(process.env.RATE_LIMIT_LOGIN_IP_MAX || 20), // percobaan/15 mnt per IP
+  RATE_LIMIT_VERIFY_IP_MAX: Number(process.env.RATE_LIMIT_VERIFY_IP_MAX || 10), // percobaan/15 mnt per IP
+  RATE_LIMIT_VERIFY_ACCOUNT_MAX: Number(process.env.RATE_LIMIT_VERIFY_ACCOUNT_MAX || 5), // percobaan/15 mnt per akun
+  RATE_LIMIT_USER_MGMT_IP_MAX: Number(process.env.RATE_LIMIT_USER_MGMT_IP_MAX || 20), // operasi/15 mnt per IP
+  RATE_LIMIT_USER_MGMT_ACCOUNT_MAX: Number(process.env.RATE_LIMIT_USER_MGMT_ACCOUNT_MAX || 10), // operasi/15 mnt per akun
+  RATE_LIMIT_API_MAX: Number(process.env.RATE_LIMIT_API_MAX || 100), // req/menit per IP
+  RATE_LIMIT_API_BURST_MAX: Number(process.env.RATE_LIMIT_API_BURST_MAX || 30), // req per jendela burst per IP
+  RATE_LIMIT_API_BURST_WINDOW_MS: Number(process.env.RATE_LIMIT_API_BURST_WINDOW_MS || 10_000), // jendela burst (ms)
+  RATE_LIMIT_SYNC_MAX: Number(process.env.RATE_LIMIT_SYNC_MAX || 10), // req/menit per IP (operasi berat)
+  RATE_LIMIT_SYNC_DEVICE_MAX: Number(process.env.RATE_LIMIT_SYNC_DEVICE_MAX || 5), // req/menit per perangkat target
+  RATE_LIMIT_ACTIVITY_LOG_MAX: Number(process.env.RATE_LIMIT_ACTIVITY_LOG_MAX || 30), // req/menit per IP
+  RATE_LIMIT_ICLOCK_IP_MAX: Number(process.env.RATE_LIMIT_ICLOCK_IP_MAX || 90), // req/menit per IP (/iclock)
+  RATE_LIMIT_ICLOCK_DEVICE_MAX: Number(process.env.RATE_LIMIT_ICLOCK_DEVICE_MAX || 120), // req/menit per SN
+  RATE_LIMIT_KIOSK_LIVE_DEVICE_MAX: Number(process.env.RATE_LIMIT_KIOSK_LIVE_DEVICE_MAX || 30), // req/menit per perangkat kiosk
+  RATE_LIMIT_KIOSK_LIVE_IP_MAX: Number(process.env.RATE_LIMIT_KIOSK_LIVE_IP_MAX || 60), // req/menit per IP (/api/live)
   CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000,
   CLEANUP_AGE_DAYS: 7,
   WORKER_ENABLED: process.env.WORKER_ENABLED !== 'false', // Default true

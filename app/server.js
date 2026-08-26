@@ -7,10 +7,20 @@ import {
   corsMiddleware,
   securityMiddleware,
   loggerMiddleware,
+  globalLimiter,
+  authLimiter,
   apiLimiter,
+  apiBurstLimiter,
   syncLimiter,
+  syncDeviceLimiter,
   activityLogLimiter,
-  verifyLimiter
+  csrfTokenProvider,
+  csrfProtection,
+  iclockLimiter,
+  iclockDeviceLimiter,
+  iclockIpGuard,
+  kioskLiveLimiter,
+  kioskLiveIpLimiter
 } from './middleware/index.js'
 import { deviceRoutes, apiRoutes, authRoutes, activityLogRoutes, pullRoutes, pullEmployeeRoutes, syncRoutes, templateSyncRoutes, templateManualRoutes, liveRoutes } from './routes/index.js'
 import { globalErrorHandler, notFoundHandler } from './middleware/index.js'
@@ -25,7 +35,17 @@ import { fileURLToPath } from 'node:url'
 
 
 const app = express()
-app.set('trust proxy', true)
+// Trust proxy: dikendalikan sepenuhnya oleh config.TRUST_PROXY (lihat
+// config/index.js). Default aman = false (req.ip = IP socket) sehingga klien
+// tidak bisa memalsukan X-Forwarded-For untuk bypass rate-limit per-IP.
+// Di belakang nginx/Caddy, set TRUST_PROXY=1 (atau IP proxy) agar req.ip =
+// IP klien asli. CATATAN: express-rate-limit v8 menolak `trust proxy = true`.
+app.set('trust proxy', config.TRUST_PROXY)
+
+// Global catch-all rate limiter — dijalankan PALING AWAL (sebelum kompresi,
+// parsing body, CSRF) sehingga banjir request ditolak dengan kerja minimal
+// (mitigasi DoS) dan endpoint tanpa limiter khusus tetap terlindungi.
+app.use(globalLimiter)
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'public')
 
@@ -33,9 +53,15 @@ const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'pu
 app.use(compression())
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: false, limit: '20mb' }))
-app.use(express.text({ type: ['text/plain', 'text/*', 'application/octet-stream'], limit: '20mb' }))
+// NOTE: express.text TIDAK dipasang global. Parser teks/octet-stream (20mb)
+// hanya dibutuhkan protokol push perangkat ZK di /iclock, sehingga di-scope
+// khusus ke rute itu (lihat bawah) — mencegah endpoint API lain menerima
+// body octet-stream 20mb (mitigasi abuse/DoS, poin 6 hardening).
 app.use(cookieParser())
 app.use(corsMiddleware)
+// CSRF: set cookie token dulu, lalu validasi request state-changing.
+app.use(csrfTokenProvider)
+app.use(csrfProtection)
 app.use(securityMiddleware)
 app.use(loggerMiddleware)
 
@@ -61,26 +87,44 @@ app.get('/multi_live.html', requirePageAuth, (_req, res) => {
 })
 
 // Routes
-app.use('/auth', authRoutes)
-app.use('/iclock', deviceRoutes)
-app.use('/api', apiLimiter) // General API rate limit
+// /auth: limiter umum + limiter khusus login/verify/user-management yang
+// dipasang per-route di routes/auth.js.
+app.use('/auth', authLimiter, authRoutes)
+// /iclock: rate limit (per-IP + per-SN) + IP allowlist opsional + parser teks
+// khusus protokol ZK, sebelum masuk ke controller perangkat (endpoint tanpa
+// autentikasi).
+app.use(
+  '/iclock',
+  iclockLimiter,
+  iclockDeviceLimiter,
+  iclockIpGuard,
+  express.text({ type: ['text/plain', 'text/*', 'application/octet-stream'], limit: '20mb' }),
+  deviceRoutes
+)
+app.use('/api', apiLimiter, apiBurstLimiter) // General API rate limit + cap burst
 app.use('/api', apiRoutes)
 app.use('/api/activity-logs', activityLogLimiter) // Activity log polling limiter
 app.use('/api/activity-logs', activityLogRoutes)
-app.use('/api/pull', syncLimiter) // Pull data (operasi berat)
+app.use('/api/pull', syncLimiter, syncDeviceLimiter) // Pull data (operasi berat)
 app.use('/api/pull', pullRoutes)
-app.use('/api/pull-employee', syncLimiter) // Pull employee (operasi berat)
+app.use('/api/pull-employee', syncLimiter, syncDeviceLimiter) // Pull employee (operasi berat)
 app.use('/api/pull-employee', pullEmployeeRoutes)
-app.use('/api/sync', syncLimiter) // Sync (operasi berat)
+app.use('/api/sync', syncLimiter, syncDeviceLimiter) // Sync (operasi berat)
 app.use('/api/sync', syncRoutes)
-app.use('/api/template-sync', syncLimiter)
+app.use('/api/template-sync', syncLimiter, syncDeviceLimiter)
 app.use('/api/template-sync', templateSyncRoutes)
-app.use('/api/biometrics', syncLimiter)
+app.use('/api/biometrics', syncLimiter, syncDeviceLimiter)
 app.use('/api/biometrics', templateManualRoutes)
+// Kiosk live (absensi wajah, mahal) — per-perangkat + per-IP, sebelum rute.
+app.use('/api/live', kioskLiveIpLimiter, kioskLiveLimiter)
 app.use('/api/live', liveRoutes)
 
 // Health check endpoint komprehensif
 app.get('/health', async (_req, res) => {
+  // Jangan bocorkan pesan error internal (detail DB) ke client di production
+  // (poin 9 hardening). Detail lengkap tetap tercatat di log server.
+  const errDetail = process.env.NODE_ENV === 'production' ? 'unavailable' : (e) => e.message
+
   const checks = {
     status: 'ok',
     service: 'GSI ADMS listener',
@@ -99,7 +143,7 @@ app.get('/health', async (_req, res) => {
       latency_ms: Date.now() - dbStart
     }
   } catch (err) {
-    checks.checks.database = { status: 'error', message: err.message }
+    checks.checks.database = { status: 'error', message: errDetail(err) }
     checks.status = 'degraded'
   }
 
@@ -108,7 +152,7 @@ app.get('/health', async (_req, res) => {
     await ensureRawDir()
     checks.checks.raw_dir = { status: 'ok' }
   } catch (err) {
-    checks.checks.raw_dir = { status: 'error', message: err.message }
+    checks.checks.raw_dir = { status: 'error', message: errDetail(err) }
     checks.status = 'degraded'
   }
 
