@@ -574,43 +574,39 @@ function toggleSidebarCollapse() {
     localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
 }
 
+// Tracks each action menu's original DOM parent so it can be returned to its
+// row when closed (prevents orphaned menus accumulating across re-renders).
+const actionMenuOrigins = new WeakMap();
+
+let lastActionMenuOpenAt = 0;
+
 /**
- * Close every action menu and clear any inline fixed-positioning styles
- * that were applied while the menu was open.
+ * Find the action menu belonging to a trigger button. While a menu is open it
+ * is moved to <body>, so fall back to the id recorded on the button.
  */
-function closeActionMenus() {
-    document.querySelectorAll('.action-menu').forEach(m => {
-        m.classList.remove('active');
-        m.style.position = '';
-        m.style.top = '';
-        m.style.left = '';
-        m.style.right = '';
-        m.style.animation = '';
-    });
+function getActionMenu(btn) {
+    const next = btn.nextElementSibling;
+    if (next && next.classList.contains('action-menu')) return next;
+    const id = btn.dataset.actionMenuId;
+    return id ? document.getElementById(id) : null;
 }
 
 /**
  * Position the open action menu with `position: fixed` relative to the
  * viewport so it escapes clipping scroll containers (e.g. .table-container
- * with overflow-x: auto) and their local stacking contexts. Auto-flips the
+ * with overflow-x: auto) and any ancestor stacking context. Auto-flips the
  * menu upward when it would overflow the bottom edge and clamps it to the
  * viewport horizontally.
  */
 function positionActionMenu(btn, menu) {
-    // Measure the final layout size without the entrance animation's
-    // scale(0.95) transform skewing the coordinates.
-    menu.style.animation = 'none';
-    void menu.offsetWidth; // force reflow so the style above applies
-    const mw = menu.offsetWidth;
-    const mh = menu.offsetHeight;
-    menu.style.animation = '';
-
-    const btnRect = btn.getBoundingClientRect();
-    const GAP = 6;
-    const MARGIN = 12; // safe distance from viewport edges
-
     menu.style.position = 'fixed';
     menu.style.right = 'auto';
+
+    const btnRect = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+    const GAP = 6;
+    const MARGIN = 12; // safe distance from viewport edges
 
     // Default: right-align the menu with the button (matches the previous
     // `right: 0` behaviour), then clamp inside the viewport.
@@ -628,24 +624,62 @@ function positionActionMenu(btn, menu) {
     menu.style.top = `${Math.round(top)}px`;
 }
 
+function openActionMenu(btn, menu) {
+    // Register the menu's original parent and a stable id the first time it's
+    // opened, so it can be found again after being moved and later restored.
+    if (!actionMenuOrigins.has(menu)) {
+        actionMenuOrigins.set(menu, menu.parentElement);
+        menu.id = menu.id || `action-menu-${(Math.random() * 1e9).toString(36)}`;
+        btn.dataset.actionMenuId = menu.id;
+    }
+
+    // Move the (still hidden) menu under <body> BEFORE it becomes visible so
+    // the table's scrollable height never changes (no scroll-jump, no instant
+    // scroll-close). Once under <body>, `position: fixed` is always relative
+    // to the viewport — no ancestor with transform/filter/backdrop-filter can
+    // hijack the containing block and misplace or clip the menu.
+    if (menu.parentElement !== document.body) {
+        document.body.appendChild(menu);
+    }
+
+    menu.classList.add('active');
+    positionActionMenu(btn, menu);
+    lastActionMenuOpenAt = Date.now();
+}
+
+function closeActionMenus() {
+    document.querySelectorAll('.action-menu').forEach(m => {
+        m.classList.remove('active');
+        m.style.position = '';
+        m.style.top = '';
+        m.style.left = '';
+        m.style.right = '';
+        // Return the menu to its row so table re-renders don't leak menus.
+        // It is display:none here, so this never triggers layout/scroll.
+        const origin = actionMenuOrigins.get(m);
+        if (origin && m.parentElement !== origin) origin.appendChild(m);
+    });
+}
+
 function toggleActions(e, btn) {
     if (e) e.stopPropagation();
-    const menu = btn.nextElementSibling;
-    const wasActive = menu.classList.contains('active');
+    const menu = getActionMenu(btn);
+    const wasActive = menu ? menu.classList.contains('active') : false;
     closeActionMenus();
-    if (!wasActive) {
-        menu.classList.add('active');
-        positionActionMenu(btn, menu);
-    }
+    if (!wasActive && menu) openActionMenu(btn, menu);
 }
 
 window.addEventListener('click', closeActionMenus);
 
-// A fixed-position menu can drift away from its trigger when the page
-// scrolls or the viewport resizes, so close any open menu on those events.
+// A fixed-position menu can drift away from its trigger when the page scrolls
+// or the viewport resizes, so close any open menu on those events.
 // Capture-phase on document catches scrolls from inner scroll containers
-// (scroll events don't bubble) in addition to window/body scrolling.
-document.addEventListener('scroll', closeActionMenus, { capture: true, passive: true });
+// (scroll events don't bubble). The open-timestamp guard ignores any scroll
+// event emitted synchronously while a menu is being opened.
+document.addEventListener('scroll', () => {
+    if (Date.now() - lastActionMenuOpenAt < 150) return;
+    closeActionMenus();
+}, { capture: true, passive: true });
 window.addEventListener('resize', closeActionMenus, { passive: true });
 
 function updatePageSize(type, val) {
