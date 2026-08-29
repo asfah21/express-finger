@@ -11,6 +11,7 @@ const MAX_ENTRIES = 500
 // Time-to-live for different data types (in seconds)
 export const TTL = {
   SHORT: 15,       // 15 detik — untuk attendance logs, real-time data
+  LOGS_LIST: 15,   // 15 detik — daftar log absensi (real-time), agar selalu fresh
   MEDIUM: 60,      // 1 menit — untuk list data yang cukup sering berubah
   LONG: 120,       // 2 menit — untuk data yang jarang berubah
   VERY_LONG: 300,  // 5 menit — untuk settings, konfigurasi statis
@@ -136,11 +137,16 @@ export function delCache(key) {
 /**
  * Delete all cache keys matching a pattern (string with wildcard *)
  * Supports patterns like: 'emp:list*', 'logs:*', etc.
+ * A pattern WITHOUT '*' is treated as a prefix, so 'logs:list' also
+ * invalidates composite keys like 'logs:list:2026-08-29:25'.
  * @param {string} pattern - Pattern to match (e.g., 'emp:list*')
  * @returns {number} Number of deleted entries
  */
 export function delCacheByPattern(pattern) {
-  const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/:/g, ':') + '$')
+  const source = pattern.includes('*')
+    ? pattern.replace(/\*/g, '.*')
+    : pattern + '.*'
+  const regex = new RegExp('^' + source + '$')
   let deleted = 0
 
   for (const key of cache.keys()) {

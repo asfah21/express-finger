@@ -3,6 +3,7 @@ import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
 import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH, liveNotFoundMessage } from '../utils/live-attendance.js'
+import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 // Rows are stored as UTC values that represent the app's WITA wall-clock time
@@ -141,6 +142,8 @@ export const liveController = {
                 ip: req.ip,
                 status: 'success'
             })
+            // Invalidate cache attendance karena ada log baru dari kiosk/kamera
+            delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
             return sendSuccess(res, { ...inserted.rows[0], nama: name, fid, score: recognized.score, jabatan: position }, 'Absensi berhasil')
         } catch (err) {
             console.error('Live attendance error:', err)
@@ -307,6 +310,8 @@ export const liveController = {
                 } finally {
                     client.release()
                 }
+                // Invalidate cache attendance karena ada log baru dari kiosk/kamera
+                delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
             }
 
             return sendSuccess(res, { type, results }, 'Absensi massal diproses')
