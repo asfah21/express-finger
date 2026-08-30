@@ -24,34 +24,98 @@
             <div class="live-header-actions">
                 <button class="live-menu-btn" type="button" id="live-menu-btn" popovertarget="live-menu"
                     aria-haspopup="menu" aria-controls="live-menu" aria-expanded="false" aria-label="Menu"><i
-                        data-icon="menu" aria-hidden="true"></i></button>
+                        aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em"
+                            aria-hidden="true">
+                            <line x1="4" x2="20" y1="6" y2="6" />
+                            <line x1="4" x2="20" y1="12" y2="12" />
+                            <line x1="4" x2="20" y1="18" y2="18" />
+                        </svg></i></button>
             </div>
         </header>
         <div class="live-menu" id="live-menu" popover="auto" role="menu" aria-labelledby="live-menu-btn">
-            <button class="live-menu-item" type="button" role="menuitem" data-live-info><i data-icon="info"
-                    aria-hidden="true"></i><span>Info
+            <button class="live-menu-item" type="button" role="menuitem" data-live-info><i
+                    aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em"
+                        aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 16v-4" />
+                        <path d="M12 8h.01" />
+                    </svg></i><span>Info
                     Aplikasi</span></button>
             <button class="live-menu-item live-menu-item-danger" type="button" role="menuitem" id="live-logout-btn"
-                aria-haspopup="dialog" aria-controls="live-logout-dialog"><i data-icon="log-out"
-                    aria-hidden="true"></i><span>Logout</span></button>
+                aria-haspopup="dialog" aria-controls="live-logout-dialog"><i
+                    aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em"
+                        aria-hidden="true">
+                        <path d="m16 17 5-5-5-5" />
+                        <path d="M21 12H9" />
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    </svg></i><span>Logout</span></button>
         </div>
         <section class="live-panel live-choice-panel" data-live-root>
             <div class="live-kiosk-heading">
                 <div class="live-kicker live-kicker-anim">PT GUNUNG SAMUDERA INTERNASIONAL</div>
                 <div class="live-main-clock" aria-hidden="true"><span id="live-time"><span
-                            id="live-time-hm">00:00</span><span class="live-time-sec"
-                            id="live-time-sec">:00</span></span></div>
-                <p id="live-date">Hari dan tanggal</p>
+                            id="live-time-hm">--:--</span><span class="live-time-sec"
+                            id="live-time-sec">:--</span></span></div>
+                <p id="live-date">Memuat…</p>
                 <!-- <p>Pilih type absensi untuk memulai</p> -->
             </div>
+            <!-- Jam diisi inline saat parsing (sebelum first paint) agar tidak
+                 pernah terlihat "00:00" saat kembali ke halaman kiosk. -->
+            <script>
+                (function () {
+                    const hm = document.getElementById('live-time-hm');
+                    const sec = document.getElementById('live-time-sec');
+                    const dateEl = document.getElementById('live-date');
+                    if (!hm || !sec || !dateEl) return;
+                    const timeFmt = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const dateFmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const tick = () => {
+                        const now = new Date();
+                        hm.textContent = timeFmt.format(now);
+                        sec.textContent = ':' + String(now.getSeconds()).padStart(2, '0');
+                        dateEl.textContent = dateFmt.format(now);
+                    };
+                    tick();
+                    setInterval(tick, 1000);
+                })();
+            </script>
             <div class="live-action-buttons live-choice-buttons"><button class="live-action live-action-in"
-                    type="button" data-live-type="0"><i data-icon="log-in"
-                        aria-hidden="true"></i><span><strong>MASUK</strong><small>Mulai
+                    type="button" data-live-type="0"><i
+                        aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em"
+                            aria-hidden="true">
+                            <path d="m10 17 5-5-5-5" />
+                            <path d="M15 12H3" />
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                        </svg></i><span><strong>MASUK</strong><small>Mulai
                             bekerja</small></span></button><button class="live-action live-action-out" type="button"
-                    data-live-type="1"><i data-icon="log-out"
-                        aria-hidden="true"></i><span><strong>PULANG</strong><small>Selesai
+                    data-live-type="1"><i
+                        aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em"
+                            aria-hidden="true">
+                            <path d="m16 17 5-5-5-5" />
+                            <path d="M21 12H9" />
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        </svg></i><span><strong>PULANG</strong><small>Selesai
                             bekerja</small></span></button><button class="live-action live-action-multi" type="button"
-                    data-live-multi><i data-icon="users" aria-hidden="true"></i><span><strong>ABSENSI
+                    data-live-multi><i
+                        aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.125em"
+                            aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg></i><span><strong>ABSENSI
                             MASSAL</strong><small>Hingga 5 karyawan sekaligus</small></span></button></div>
         </section>
         <footer class="live-kiosk-footer">Copyright © 2026 - GSI Corp</footer>
@@ -104,22 +168,9 @@
     <script src="js/icon.js"></script>
     <script type="module">
         import { initLivePage } from './js/live.js';
+        // Jam diinisialisasi & di-update oleh inline script di atas (saat parsing),
+        // sehingga tidak ada flash "00:00" — module ini hanya mengikat event halaman.
         initLivePage();
-        const liveTimeHM = document.getElementById('live-time-hm');
-        const liveTimeSec = document.getElementById('live-time-sec');
-        const liveDate = document.getElementById('live-date');
-        const timeFmt = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
-        const dateFmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-        const updateClock = () => {
-            const now = new Date();
-            liveTimeHM.textContent = timeFmt.format(now);
-            // Explicit zero-pad so seconds always read 00, 01, 02 … (Intl
-            // without hour/minute context may not pad reliably).
-            liveTimeSec.textContent = ':' + String(now.getSeconds()).padStart(2, '0');
-            liveDate.textContent = dateFmt.format(now);
-        };
-        updateClock();
-        setInterval(updateClock, 1000);
 
         // ─── Menu hamburger (header kanan) & dialog Info ────────────────────────
         const menuBtn = document.getElementById('live-menu-btn');

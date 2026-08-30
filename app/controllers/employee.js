@@ -226,7 +226,14 @@ export const employeeController = {
                 countParams.push(searchPattern)
             }
 
-            query += ' ORDER BY id ASC LIMIT $1 OFFSET $2'
+            // Urutkan berdasarkan fid (user_id) secara numerik naik (1 → terakhir),
+            // bukan berdasarkan id primary key DB. Nilai non-numerik ditempatkan di
+            // akhir agar cast tidak error.
+            query += ` ORDER BY CASE
+                WHEN user_id ~ '^[0-9]+$' THEN user_id::bigint
+                ELSE 2147483647
+              END ASC, id ASC
+              LIMIT $1 OFFSET $2`
 
             const { rows } = await pool.query(query, params)
             const { rows: countRes } = await pool.query(countQuery, countParams)

@@ -231,12 +231,12 @@ export const apiController = {
   async getLogs(req, res) {
 
     try {
-      const { from, to, limit = 100, offset = 0, user_id, type, device_sn, search } = req.query
+      const { from, to, limit = 100, offset = 0, user_id, type, device_sn, source, search } = req.query
 
       // Cek cache untuk GET logs - gunakan key yang lebih ringkas
       // Hanya cache request tanpa filter spesifik (halaman 1, tanpa filter) untuk menghemat memori
       let cacheKey = null
-      const shouldCache = !user_id && !type && !device_sn && !search && Number(offset) === 0
+      const shouldCache = !user_id && !type && !device_sn && !source && !search && Number(offset) === 0
 
       if (shouldCache) {
         cacheKey = buildCacheKey(CACHE_KEYS.LOGS_LIST, from || 'all', limit)
@@ -256,6 +256,14 @@ export const apiController = {
       if (user_id) { where.push(`al.user_id = $${i++}`); params.push(String(user_id)) }
       if (type !== undefined && type !== '') { where.push(`al.type = $${i++}`); params.push(Number(type)) }
       if (device_sn) { where.push(`al.device_sn = $${i++}`); params.push(String(device_sn)) }
+
+      // Sumber log: mesin fingerprint vs kiosk kamera (LIVE-CAM / LIVE-CAM-MULTI).
+      if (source === 'fingerprint') {
+        where.push(`al.device_sn NOT LIKE 'LIVE-CAM%'`)
+      } else if (source === 'kiosk') {
+        where.push(`al.device_sn LIKE 'LIVE-CAM%'`)
+      }
+      // source === 'all' atau kosong → tanpa filter tambahan
 
       if (search) {
         where.push(`e.nama ILIKE $${i}`);

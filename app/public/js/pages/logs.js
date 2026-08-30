@@ -18,6 +18,7 @@ export async function refreshLogs() {
     const fromDate = document.getElementById('log-date-from').value;
     const toDate = document.getElementById('log-date-to').value;
     const search = document.getElementById('log-search').value;
+    const source = document.getElementById('log-source')?.value || 'all';
 
     // Show skeleton loading
     showSkeleton('logs-body', s.size);
@@ -26,6 +27,7 @@ export async function refreshLogs() {
     if (fromDate) url += `&from=${encodeURIComponent(`${fromDate}T00:00:00+08:00`)}`;
     if (toDate) url += `&to=${encodeURIComponent(`${toDate}T23:59:59.999+08:00`)}`;
     if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (source && source !== 'all') url += `&source=${encodeURIComponent(source)}`;
 
     const res = await fetch(url);
     const data = await res.json();
@@ -494,6 +496,7 @@ async function performExport(range) {
         let fromDate = '';
         let toDate = '';
         let search = document.getElementById('log-search').value;
+        let source = document.getElementById('log-source')?.value || 'all';
         const today = getWitaDateString();
 
         if (range === 'today') {
@@ -510,6 +513,7 @@ async function performExport(range) {
             fromDate = '';
             toDate = '';
             search = '';
+            source = 'all'; // Ekspor penuh mengabaikan semua filter termasuk sumber
         } else {
             fromDate = document.getElementById('log-date-from').value;
             toDate = document.getElementById('log-date-to').value;
@@ -526,6 +530,7 @@ async function performExport(range) {
             if (toDate) url += `&to=${toDate}T23:59:59%2B08:00`;
         }
         if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (source && source !== 'all') url += `&source=${encodeURIComponent(source)}`;
 
         const res = await fetch(url);
         const data = await res.json();
