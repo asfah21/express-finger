@@ -4,6 +4,7 @@ import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
 import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH, liveNotFoundMessage } from '../utils/live-attendance.js'
 import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
+import { attendanceBus } from '../utils/events.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
 // Rows are stored as UTC values that represent the app's WITA wall-clock time
@@ -142,8 +143,19 @@ export const liveController = {
                 ip: req.ip,
                 status: 'success'
             })
-            // Invalidate cache attendance karena ada log baru dari kiosk/kamera
-            delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+            // Invalidate feed attendance karena ada log baru dari kiosk/kamera.
+            // Report berat (overview/daily/pair) TIDAK dijatuhkan per event —
+            // mereka refresh lewat TTL + job precompute scheduler.
+            delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
+            // Broadcast realtime (SSE) agar dashboard feed terasa live (detik-an)
+            attendanceBus.emit('attendance:new', {
+                id: inserted.rows[0].id,
+                user_id: fid,
+                nama: name,
+                type,
+                timestamp: inserted.rows[0].timestamp,
+                device_sn: 'LIVE-CAM'
+            })
             return sendSuccess(res, { ...inserted.rows[0], nama: name, fid, score: recognized.score, jabatan: position }, 'Absensi berhasil')
         } catch (err) {
             console.error('Live attendance error:', err)
@@ -310,8 +322,10 @@ export const liveController = {
                 } finally {
                     client.release()
                 }
-                // Invalidate cache attendance karena ada log baru dari kiosk/kamera
-                delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+                // Invalidate feed attendance karena ada log baru dari kiosk/kamera
+                delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
+                // Broadcast realtime (SSE) untuk batch yang tersimpan
+                attendanceBus.emit('attendance:bulk', { count: accepted.length, source: 'live-cam-multi' })
             }
 
             return sendSuccess(res, { type, results }, 'Absensi massal diproses')

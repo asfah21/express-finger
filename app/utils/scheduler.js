@@ -6,6 +6,8 @@ import { getSettingsData } from '../controllers/settings.js';
 import { pullDeviceUsersSync } from './zklib-employee.js';
 import { recordActivity } from '../controllers/activity-log.js';
 import { dryRunDeviceSync, reconcileTemplatesToDevice } from './template-sync.js';
+import { precomputeOverviewReports } from '../controllers/api.js';
+import { attendanceBus } from './events.js';
 
 
 let isRunning = false;
@@ -20,6 +22,7 @@ export async function startPullScheduler() {
     // Jalankan pertama kali saat start
     await runPingTask();
     await runSyncTask();
+    await runReportPrecomputeTask();
 
     // Set interval Sync (Log Pulling)
     setInterval(async () => {
@@ -38,6 +41,12 @@ export async function startPullScheduler() {
 
     setInterval(async () => {
         await runTemplateSyncTask();
+    }, 60000);
+
+    // Precompute report berat (overview dashboard default) tiap 60 detik agar
+    // data selalu hangat tanpa recompute per request/event absensi.
+    setInterval(async () => {
+        await runReportPrecomputeTask();
     }, 60000);
 }
 
@@ -89,6 +98,8 @@ async function runSyncTask() {
                 );
                 if (result.count > 0) {
                     hasNewData = true;
+                    // Broadcast realtime (SSE) agar feed dashboard segar setelah auto-pull
+                    attendanceBus.emit('attendance:bulk', { count: result.count, source: 'pull' });
                 }
             } catch (err) {
                 console.error(`❌ Failed to pull from ${device.ip}:`, err.message);
@@ -102,9 +113,10 @@ async function runSyncTask() {
             }
         }
 
-        // Invalidate cache attendance jika ada data baru
+        // Invalidate feed attendance jika ada data baru dari auto-pull.
+        // Report berat tidak dijatuhkan per siklus (refresh via TTL + precompute).
         if (hasNewData) {
-            const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+            const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
             if (deleted > 0) {
                 console.log(`🧹 Scheduler: Invalidated ${deleted} attendance cache keys`)
             }
@@ -115,6 +127,27 @@ async function runSyncTask() {
         isRunning = false;
     }
 
+}
+
+let isReportPrecomputeRunning = false;
+
+/**
+ * Precompute report berat (Overview dashboard default) secara terjadwal.
+ * Tujuannya: data agregasi selalu hangat tanpa recompute per request/event,
+ * sehingga banyak klien dashboard tidak membebani server. Report ini TIDAK
+ * di-invalidate oleh event absensi biasa (lihat CACHE_PATTERNS.ATTENDANCE_EVENT).
+ */
+async function runReportPrecomputeTask() {
+    if (isReportPrecomputeRunning) return;
+    isReportPrecomputeRunning = true;
+
+    try {
+        await precomputeOverviewReports();
+    } catch (err) {
+        console.error('❌ Report precompute error:', err.message);
+    } finally {
+        isReportPrecomputeRunning = false;
+    }
 }
 
 /**

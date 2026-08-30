@@ -1,6 +1,7 @@
 import express from 'express'
 import { requireApiKey, requireAdminPrivileges, requireSuperAdminPrivileges, optionalAuth } from '../middleware/index.js'
 import { apiController, syncController, deviceManagerController, employeeController, settingsController, pagePermissionsController, sessionController, kioskDeviceController } from '../controllers/index.js'
+import { eventsController } from '../controllers/events.js'
 import { getCacheMetrics, clearCache } from '../utils/cache.js'
 import {
   validate,
@@ -60,6 +61,10 @@ router.put('/kiosk-devices/:id/unbind', requireSuperAdminPrivileges, validate(ki
 
 // Get current user's accessible pages (any authenticated user)
 router.get('/my-permissions', requireApiKey, pagePermissionsController.getMyPermissions)
+
+// SSE stream feed absensi realtime. requireApiKey (cookie JWT) berlaku global
+// di router ini; EventSource same-origin otomatis mengirim cookie.
+router.get('/events/stream', eventsController.stream)
 
 router.get('/logs/late', apiController.getLateLogs)
 router.get('/logs', apiController.getLogs)

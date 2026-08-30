@@ -17,6 +17,7 @@ import { refreshLate, handleLateSearch, showLateExportMenu } from './js/pages/la
 import { refreshSessions, handleSessionSearch, killSession, killAllUserSessions, killOtherSessions, startSessionAutoRefresh } from './js/pages/sessions.js';
 import { refreshKioskDevices, approveKioskDevice, revokeKioskDevice, unbindKioskDevice, renameKioskDevice } from './js/pages/kiosk-devices.js';
 import { initLivePage, initCamLivePage } from './js/live.js';
+import { startRealtimeFeed } from './js/realtime.js';
 
 
 
@@ -895,6 +896,9 @@ window.addEventListener('hashchange', () => {
 // Run initial auth check and setup silent token check
 checkAuth();
 setInterval(silentTokenCheck, 60000); // Check token every minute
+
+// Subscribe ke feed SSE absensi realtime (cookie JWT dikirim otomatis same-origin)
+startRealtimeFeed();
 
 // Auto-refresh the Active Sessions table while the page is open (real-time online status)
 startSessionAutoRefresh();

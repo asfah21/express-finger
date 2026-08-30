@@ -6,9 +6,109 @@ import { config } from '../config/index.js'
 import { pool } from '../utils/database.js'
 import { getSettingsData } from './settings.js'
 import { sendSuccess, sendError, sendPaginated } from '../utils/response.js'
-import { getCache, setCache, delCacheByPattern, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
+import { getCache, setCache, delCacheByPattern, singleFlight, CACHE_KEYS, TTL, buildCacheKey } from '../utils/cache.js'
 import { processAttendance } from '../utils/attendance-engine.js'
+import { sessionState } from '../utils/session-state.js'
 import { BUSINESS_TIME_ZONE, getBusinessDateBounds, getBusinessDateString } from '../utils/timezone.js'
+
+/**
+ * Compute the Overview payload (chart aggregation + recent logs + total).
+ * Di-extract dari getOverviewData agar endpoint dashboard dan job precompute
+ * (scheduler) berbagi satu implementasi — tidak ada duplikasi logika.
+ *
+ * @param {{ days: number, limit: number, offset: number }} opts
+ * @returns {Promise<{ today: string, chart: Array, recent: Array, recentTotal: number }>}
+ */
+async function computeOverviewData({ days, limit, offset }) {
+  const today = getBusinessDateString()
+  const todayBounds = getBusinessDateBounds(today)
+  const fromDate = new Date(todayBounds.from)
+  fromDate.setUTCDate(fromDate.getUTCDate() - (days - 1))
+  const fromDateString = getBusinessDateString(fromDate)
+  const from = getBusinessDateBounds(fromDateString).from
+  const to = todayBounds.to
+
+  // One lightweight request replaces the N sequential /logs requests used by
+  // the Overview chart. Keep the chart aggregation in PostgreSQL so the
+  // browser never downloads thousands of rows just to count them.
+  const [chartResult, recentResult, totalResult] = await Promise.all([
+    pool.query({
+      text: `
+        SELECT TO_CHAR(DATE("timestamp" AT TIME ZONE $3), 'YYYY-MM-DD') AS date,
+          COUNT(*) FILTER (WHERE type = 0)::int AS check_in,
+          COUNT(*) FILTER (WHERE type = 1)::int AS check_out
+        FROM attendance_logs
+        WHERE "timestamp" BETWEEN $1 AND $2
+        GROUP BY DATE("timestamp" AT TIME ZONE $3)
+        ORDER BY date ASC
+      `,
+      values: [from, to, BUSINESS_TIME_ZONE]
+    }),
+    pool.query({
+      text: `
+        SELECT al.id, al.user_id, al.type, al.device_sn, al."timestamp",
+          e.nama, d.name AS device_name
+        FROM attendance_logs al
+        LEFT JOIN employee e ON al.user_id::text = e.user_id::text
+        LEFT JOIN devices d ON al.device_sn = d.sn
+        WHERE al."timestamp" BETWEEN $1 AND $2
+        ORDER BY al."timestamp" DESC, al.id DESC
+        LIMIT $3 OFFSET $4
+      `,
+      values: [todayBounds.from, todayBounds.to, limit, offset]
+    }),
+    pool.query({
+      text: `SELECT COUNT(*)::int AS total
+        FROM attendance_logs
+        WHERE "timestamp" BETWEEN $1 AND $2`,
+      values: [todayBounds.from, todayBounds.to]
+    })
+  ])
+
+  const chartByDate = new Map(chartResult.rows.map(row => [
+    String(row.date).slice(0, 10),
+    { checkIn: Number(row.check_in) || 0, checkOut: Number(row.check_out) || 0 }
+  ]))
+  const chart = []
+  for (let i = 0; i < days; i++) {
+    const date = new Date(from)
+    date.setUTCDate(date.getUTCDate() + i)
+    const dateString = getBusinessDateString(date)
+    chart.push({
+      date: dateString,
+      checkIn: chartByDate.get(dateString)?.checkIn || 0,
+      checkOut: chartByDate.get(dateString)?.checkOut || 0
+    })
+  }
+
+  const recent = recentResult.rows.map(row => ({
+    ...row,
+    absensi: Number(row.type) === 0 ? 'Masuk' : Number(row.type) === 1 ? 'Pulang' : `Type ${row.type}`
+  }))
+
+  return {
+    today,
+    chart,
+    recent,
+    recentTotal: Number(totalResult.rows[0]?.total) || 0
+  }
+}
+
+/**
+ * Precompute the default Overview report (dashboard default: 7 hari, limit 25,
+ * offset 0). Dipanggil terjadwal oleh scheduler supaya data selalu hangat dan
+ * tidak di-recompute per request. Report ini sengaja TIDAK di-invalidate oleh
+ * event absensi biasa (lihat CACHE_PATTERNS.ATTENDANCE_EVENT).
+ */
+export async function precomputeOverviewReports() {
+  const key = buildCacheKey(CACHE_KEYS.OVERVIEW_STATS, 7, 25, 0)
+  try {
+    const data = await computeOverviewData({ days: 7, limit: 25, offset: 0 })
+    setCache(key, data, TTL.LONG)
+  } catch (e) {
+    console.warn(`⚠️ Precompute overview failed: ${e.message}`)
+  }
+}
 
 // API controller
 export const apiController = {
@@ -107,8 +207,14 @@ export const apiController = {
         5: 'Lembur Keluar'
       }
 
-      // Process attendance to get remarks (including late detection)
-      const processedRows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut);
+      // Process attendance to get remarks (including late detection).
+      // Seed incremental dari session-state store (read-only, updateStore=false)
+      // karena getLateLogs hanya memproses tipe Masuk (batch parsial) — tidak
+      // boleh menulis-balik store agar state sesi tidak tercemar.
+      const processedRows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut, {
+        stateStore: sessionState,
+        updateStore: false,
+      });
 
       // Filter only late records (ket contains "Terlambat")
       const lateRows = processedRows.filter(row => row.ket && row.ket.includes('Terlambat'));
@@ -237,7 +343,13 @@ export const apiController = {
       // All business logic (state machine, shift matching, anomaly detection,
       // remark generation, response formatting) is handled by processAttendance().
       // The controller only fetches data and returns the response.
-      const rows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut);
+      // Incremental state machine (Tahap 3): seed dari session-state store, dan
+      // hanya menulis-balik store untuk feed default (halaman 1 tanpa filter
+      // user/type/device/search) agar store tidak tercemar batch parsial.
+      const rows = processAttendance(dataRes.rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut, {
+        stateStore: sessionState,
+        updateStore: shouldCache,
+      });
 
       const total = Number(countRes.rows[0]?.total || 0)
 
@@ -297,82 +409,25 @@ export const apiController = {
 
   async getOverviewData(req, res) {
     try {
-      const today = getBusinessDateString()
       const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 31)
       const limit = Math.min(Math.max(Number(req.query.limit) || 25, 1), config.MAX_LIMIT)
       const offset = Math.max(Number(req.query.offset) || 0, 0)
-      const todayBounds = getBusinessDateBounds(today)
-      const fromDate = new Date(todayBounds.from)
-      fromDate.setUTCDate(fromDate.getUTCDate() - (days - 1))
-      const fromDateString = getBusinessDateString(fromDate)
-      const from = getBusinessDateBounds(fromDateString).from
-      const to = todayBounds.to
+      const cacheKey = buildCacheKey(CACHE_KEYS.OVERVIEW_STATS, days, limit, offset)
 
-      // One lightweight request replaces the N sequential /logs requests used by
-      // the Overview chart. Keep the chart aggregation in PostgreSQL so the
-      // browser never downloads thousands of rows just to count them.
-      const [chartResult, recentResult, totalResult] = await Promise.all([
-        pool.query({
-          text: `
-            SELECT TO_CHAR(DATE("timestamp" AT TIME ZONE $3), 'YYYY-MM-DD') AS date,
-              COUNT(*) FILTER (WHERE type = 0)::int AS check_in,
-              COUNT(*) FILTER (WHERE type = 1)::int AS check_out
-            FROM attendance_logs
-            WHERE "timestamp" BETWEEN $1 AND $2
-            GROUP BY DATE("timestamp" AT TIME ZONE $3)
-            ORDER BY date ASC
-          `,
-          values: [from, to, BUSINESS_TIME_ZONE]
-        }),
-        pool.query({
-          text: `
-            SELECT al.id, al.user_id, al.type, al.device_sn, al."timestamp",
-              e.nama, d.name AS device_name
-            FROM attendance_logs al
-            LEFT JOIN employee e ON al.user_id::text = e.user_id::text
-            LEFT JOIN devices d ON al.device_sn = d.sn
-            WHERE al."timestamp" BETWEEN $1 AND $2
-            ORDER BY al."timestamp" DESC, al.id DESC
-            LIMIT $3 OFFSET $4
-          `,
-          values: [todayBounds.from, todayBounds.to, limit, offset]
-        }),
-        pool.query({
-          text: `SELECT COUNT(*)::int AS total
-            FROM attendance_logs
-            WHERE "timestamp" BETWEEN $1 AND $2`,
-          values: [todayBounds.from, todayBounds.to]
-        })
-      ])
-
-      const chartByDate = new Map(chartResult.rows.map(row => [
-        String(row.date).slice(0, 10),
-        { checkIn: Number(row.check_in) || 0, checkOut: Number(row.check_out) || 0 }
-      ]))
-      const chart = []
-      for (let i = 0; i < days; i++) {
-        const date = new Date(from)
-        date.setUTCDate(date.getUTCDate() + i)
-        const dateString = getBusinessDateString(date)
-        chart.push({
-          date: dateString,
-          checkIn: chartByDate.get(dateString)?.checkIn || 0,
-          checkOut: chartByDate.get(dateString)?.checkOut || 0
-        })
+      // Response cache — report berat (chart agregat multi-hari + recent + total)
+      // tidak perlu dihitung ulang per poll. Cache expire sendiri (TTL.MEDIUM)
+      // dan di-refresh oleh job precompute scheduler, bukan oleh event absensi.
+      const cached = getCache(cacheKey)
+      if (cached) {
+        res.setHeader('Cache-Control', 'private, max-age=15')
+        return sendSuccess(res, cached)
       }
 
-      const recent = recentResult.rows.map(row => ({
-        ...row,
-        absensi: Number(row.type) === 0 ? 'Masuk' : Number(row.type) === 1 ? 'Pulang' : `Type ${row.type}`
-      }))
+      const data = await singleFlight(cacheKey, () => computeOverviewData({ days, limit, offset }))
+      setCache(cacheKey, data, TTL.MEDIUM)
 
       res.setHeader('Cache-Control', 'private, max-age=15')
-      return sendSuccess(res, {
-        today,
-        chart,
-        recent,
-        recentTotal: Number(totalResult.rows[0]?.total) || 0
-      })
+      return sendSuccess(res, data)
     } catch (err) {
       console.error('Error getOverviewData:', err)
       return sendError(res, 'Gagal mengambil data overview', 500)
@@ -535,9 +590,9 @@ export const apiController = {
       // The pair query is expensive (a long CTE with window functions, an
       // employee×date grid, and per-row shift matching), and it is re-run on
       // every filter/page change. Cache the computed response per filter
-      // combination with a short TTL: new attendance data invalidates it via
-      // CACHE_PATTERNS.ATTENDANCE, and the short TTL bounds any staleness of
-      // the time-sensitive "Sedang Bekerja" status.
+      // combination with a short TTL. The report is NOT dropped on every
+      // attendance event (see CACHE_PATTERNS.ATTENDANCE_EVENT) — the short TTL
+      // bounds any staleness of the time-sensitive "Sedang Bekerja" status.
       const cacheKey = buildCacheKey(
         CACHE_KEYS.PAIR_SUMMARY,
         from_date,

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'fs/promises'
 import { config } from '../config/index.js'
 import { smartParseMany, saveManyLogs, ensureRawDir, upsertDevice } from '../utils/index.js'
 import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
+import { attendanceBus } from '../utils/events.js'
 
 // Simple memory cache to reduce DB load
 const lastDeviceIPs = new Map()
@@ -42,11 +43,15 @@ export const deviceController = {
         await saveManyLogs(rows, deviceSN);
         console.log(`📩 [${deviceSN}] Saved ${rows.length} logs from ${deviceIP}`);
         
-        // 5. Invalidate cache attendance karena ada data baru
-        const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE)
+        // 5. Invalidate feed attendance karena ada data baru dari push /iclock.
+        // Report berat tidak dijatuhkan per event (refresh via TTL + precompute).
+        const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
         if (deleted > 0) {
           console.log(`🧹 Invalidated ${deleted} attendance cache keys after push from ${deviceSN}`)
         }
+
+        // Broadcast realtime (SSE) agar dashboard feed segar setelah push device
+        attendanceBus.emit('attendance:bulk', { count: rows.length, source: 'iclock' })
       }
 
       return res.status(200).send('OK');

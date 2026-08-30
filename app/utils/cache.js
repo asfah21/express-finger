@@ -38,6 +38,13 @@ export const CACHE_KEYS = {
 
 // Cache patterns untuk invalidasi massal
 export const CACHE_PATTERNS = {
+  // Dipicu setiap ada event absensi baru (kiosk / push /iclock / auto-pull).
+  // Hanya feed log terbaru yang dijatuhkan — report berat (overview, daily,
+  // pair summary) TIDAK di-invalidate agar tidak recompute per event; mereka
+  // refresh lewat TTL sendiri + job precompute terjadwal (scheduler).
+  ATTENDANCE_EVENT: ['logs:list'],
+  // Nuke penuh — dipakai operasi manual (sync all, force pull, ubah settings)
+  // yang memang mengharapkan refresh total seketika.
   ATTENDANCE: ['logs:list', 'logs:daily', 'overview:stats', 'overview:chart', 'pair:summary'],
   EMPLOYEE: ['emp:list', 'emps:list', 'emp:detail', 'emp:departments'],
   DEVICE: ['dev:list', 'overview:devices'],
@@ -81,6 +88,9 @@ const cache = new LRUCache({
   updateAgeOnHas: false,
   noDisposeOnSet: false,
 })
+
+// In-flight computations for singleFlight() (per cache key)
+const inflight = new Map()
 
 // ============================================================
 // Public API
@@ -193,6 +203,26 @@ export function getCacheMetrics() {
 export function clearCache() {
   cache.clear()
   cacheMetrics.reset()
+}
+
+/**
+ * Single-flight: pastikan hanya satu komputasi berjalan per cache key.
+ * Saat banyak klien meminta data yang sama dan cache miss, semua request
+ * menunggu promise yang sama alih-alih menghitung berulang-ulang
+ * (mencegah thundering herd pada saat cache dingin).
+ *
+ * @template T
+ * @param {string} key - Cache key yang sedang dihitung
+ * @param {() => Promise<T>} fn - Fungsi untuk menghitung nilai
+ * @returns {Promise<T>}
+ */
+export function singleFlight(key, fn) {
+  if (inflight.has(key)) return inflight.get(key)
+  const promise = Promise.resolve()
+    .then(fn)
+    .finally(() => inflight.delete(key))
+  inflight.set(key, promise)
+  return promise
 }
 
 /**

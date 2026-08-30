@@ -50,7 +50,14 @@ app.use(globalLimiter)
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'public')
 
 // Middleware global
-app.use(compression())
+// SSE stream TIDAK boleh dikompresi (compression mem-buffer response dan
+// merusak streaming), jadi endpoint events/stream di-exclude via filter.
+app.use(compression({
+  filter: (req, res) => {
+    if (req.path === '/api/events/stream') return false
+    return compression.filter(req, res)
+  }
+}))
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: false, limit: '20mb' }))
 // NOTE: express.text TIDAK dipasang global. Parser teks/octet-stream (20mb)

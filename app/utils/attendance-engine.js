@@ -192,6 +192,94 @@ export function findMatchingShift(shiftCfg, totalMinutes, type, ruleInOut) {
   return null;
 }
 
+// ─── Per-Row Session Transition ──────────────────────────────────────────────
+
+/**
+ * Apply a single attendance row to a session state and compute the transition.
+ * Di-extract dari loop `buildStateMachine` agar perilaku per-baris bisa dipakai
+ * ulang oleh incremental session-state store (session-state.js) dan oleh
+ * buildStateMachine itu sendiri — satu sumber kebenaran untuk transisi state.
+ *
+ * @param {object|null} state - State sesi saat ini (atau null jika tidak ada)
+ * @param {object} row - Baris absensi ({ timestamp, type, ... })
+ * @param {object|null} shiftCfg - Konfigurasi shift untuk emp_type karyawan
+ * @param {object} [ruleInOut] - Konfigurasi rule_in_out opsional
+ * @returns {{ state: object|null, isAnomaly: boolean, anomalyType: string|null, matchedShift: object|null }}
+ */
+export function applySessionRow(state, row, shiftCfg, ruleInOut) {
+  const rTime = new Date(row.timestamp).getTime();
+
+  // Session timeout: jika aktivitas terakhir >15 jam lalu, reset state
+  if (state) {
+    const hoursSinceLastActivity = (rTime - state.lastTimestamp) / (1000 * 60 * 60);
+    if (hoursSinceLastActivity > SESSION_TIMEOUT_HOURS) {
+      state = null;
+    }
+  }
+
+  let isAnomaly = false;
+  let anomalyType = null;
+
+  if (!state) {
+    if (row.type === 0) {
+      isAnomaly = false;
+    } else {
+      isAnomaly = true;
+      anomalyType = 'masuk';
+    }
+  } else if (state.state === 'waiting_checkout') {
+    if (row.type === 1) {
+      isAnomaly = false;
+    } else {
+      isAnomaly = true;
+      anomalyType = 'pulang';
+    }
+  } else if (state.state === 'waiting_checkin') {
+    if (row.type === 0) {
+      isAnomaly = false;
+    } else {
+      isAnomaly = true;
+      anomalyType = 'masuk';
+    }
+  }
+
+  let matchedShift = null;
+
+  // Shift matching — check-in menemukan shift, check-out memakai ulang shift
+  // dari sesi check-in agar Masuk-Pulang dievaluasi terhadap shift yang sama.
+  if (shiftCfg) {
+    const dt = new Date(row.timestamp);
+    const totalMinutes = dt.getHours() * 60 + dt.getMinutes();
+
+    if (row.type === 0) {
+      matchedShift = findMatchingShift(shiftCfg, totalMinutes, 0, ruleInOut);
+      if (state) state = { ...state, matchedShift };
+    } else if (row.type === 1 && state && state.matchedShift) {
+      matchedShift = state.matchedShift;
+    } else if (row.type === 1) {
+      matchedShift = findMatchingShift(shiftCfg, totalMinutes, 1, ruleInOut);
+    }
+  }
+
+  // Transisi state — hanya record normal yang menggerakkan sesi. Record anomaly
+  // diperlakukan sebagai "noise": tidak mengubah expected next state, hanya
+  // memperbarui lastTimestamp (mencegah cascade anomaly).
+  let nextState;
+  if (!isAnomaly) {
+    if (row.type === 0) {
+      nextState = { state: 'waiting_checkout', lastTimestamp: rTime, matchedShift };
+    } else if (row.type === 1) {
+      nextState = { state: 'waiting_checkin', lastTimestamp: rTime, matchedShift: null };
+    } else {
+      nextState = state;
+    }
+  } else {
+    nextState = { ...state, lastTimestamp: rTime };
+  }
+
+  return { state: nextState, isAnomaly, anomalyType, matchedShift };
+}
+
 // ─── State Machine ───────────────────────────────────────────────────────────
 
 /**
@@ -212,18 +300,30 @@ export function findMatchingShift(shiftCfg, totalMinutes, type, ruleInOut) {
  * @param {Array<object>} sortedRows - Attendance rows sorted chronologically (ascending)
  * @param {object} shiftTypes - Shift configuration from settings (shift_types)
  * @param {object} [ruleInOut] - Optional rule_in_out config for shift matching
- * @returns {{ rowAnomalyMap: Map, rowShiftMap: Map }}
+ * @param {Map<string, object>} [seedStateMap] - Optional prior session states per
+ *   user (dari incremental session-state store). Seed hanya dipakai bila state
+ *   tersimpan tidak lebih baru dari row pertama user di batch ini.
+ * @returns {{ rowAnomalyMap: Map, rowShiftMap: Map, userStateMap: Map, seedUsage: Map }}
  *   rowAnomalyMap: row.id → { isAnomaly: boolean, anomalyType: 'masuk'|'pulang'|null }
  *   rowShiftMap:   row.id → { start: number, end: number } | null (matched shift)
+ *   userStateMap:  user_id → state sesi final setelah batch diproses
+ *   seedUsage:     user_id → 'fresh' | 'consumed' | 'ignored' (untuk write-back)
  */
-export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
+export function buildStateMachine(sortedRows, shiftTypes, ruleInOut, seedStateMap) {
   const rowAnomalyMap = new Map(); // row.id → { isAnomaly, anomalyType }
   const rowShiftMap = new Map();   // row.id → { start, end } (matched shift, for session consistency)
-  const userStateMap = new Map();  // user_id → { state, lastTimestamp, matchedShift }
+  // userStateMap: user_id → { state, lastTimestamp, matchedShift }
+  // Di-seed dari incremental session-state store (bila valid) sehingga anomaly
+  // detection tidak perlu menscan ulang seluruh history — cukup melanjutkan
+  // dari state terakhir yang sudah diproses sebelumnya.
+  const userStateMap = new Map(seedStateMap || []);
+  // seedUsage: user_id → 'fresh' | 'consumed' | 'ignored'
+  // Dipakai pemanggil untuk memutuskan user mana yang boleh di-tulis-balik ke
+  // store (hindari memundurkan store dengan data dari halaman lama).
+  const seedUsage = new Map();
 
   for (const r of sortedRows) {
     const uid = r.user_id;
-    const rTime = new Date(r.timestamp).getTime();
     const empType = r.emp_type;
     const shiftCfg = shiftTypes[empType];
 
@@ -238,117 +338,33 @@ export function buildStateMachine(sortedRows, shiftTypes, ruleInOut) {
 
     let state = userStateMap.get(uid);
 
-    // Session timeout: if last activity was >15h ago, reset state
-    if (state) {
-      const hoursSinceLastActivity = (rTime - state.lastTimestamp) / (1000 * 60 * 60);
-      if (hoursSinceLastActivity > SESSION_TIMEOUT_HOURS) {
-        state = null; // Session expired, start fresh
-      }
-    }
-
-    // Determine expected type based on state
-    let isAnomaly = false;
-    let anomalyType = null; // 'pulang' for Masuk-when-should-Pulang, 'masuk' for Pulang-when-should-Masuk
-
-    if (!state) {
-      // No active session → expecting Masuk (type=0)
-      if (r.type === 0) {
-        // Normal: Masuk starts a new session
-        isAnomaly = false;
-      } else {
-        // Anomaly: Pulang without Masuk first
-        isAnomaly = true;
-        anomalyType = 'masuk';
-      }
-    } else if (state.state === 'waiting_checkout') {
-      // Waiting for Pulang (type=1)
-      if (r.type === 1) {
-        // Normal: Pulang completes the session
-        isAnomaly = false;
-      } else {
-        // Anomaly: Masuk again when should be Pulang
-        isAnomaly = true;
-        anomalyType = 'pulang';
-      }
-    } else if (state.state === 'waiting_checkin') {
-      // Waiting for Masuk (type=0)
-      if (r.type === 0) {
-        // Normal: Masuk starts a new session
-        isAnomaly = false;
-      } else {
-        // Anomaly: Pulang again when should be Masuk
-        isAnomaly = true;
-        anomalyType = 'masuk';
-      }
-    }
-
-    rowAnomalyMap.set(r.id, { isAnomaly, anomalyType });
-
-    // ─── Pre-compute matched shift for this row ───────────────────────────
-    // For check-in: find the matching shift and store it in the session state.
-    // For check-out: reuse the shift that was matched during check-in, so that
-    // a single Masuk-Pulang session evaluates against the SAME shift consistently.
-    // This prevents issues like: night shift check-in at 18:30 matches day shift,
-    // but check-out at 06:00 would match night shift if computed independently.
-    if (shiftCfg) {
-      const dt = new Date(r.timestamp);
-      const hours = dt.getHours();
-      const minutes = dt.getMinutes();
-      const totalMinutes = hours * 60 + minutes;
-
-      if (r.type === 0) {
-        // Check-in: find matching shift via rule_in_out → range-check → fallback
-        const matched = findMatchingShift(shiftCfg, totalMinutes, 0, ruleInOut);
-        rowShiftMap.set(r.id, matched);
-        // Store in session state so check-out can reuse it.
-        // Use immutable update: create new state object rather than mutating.
-        if (state) {
-          state = { ...state, matchedShift: matched };
+    // ─── Seed validation (hanya untuk row pertama per user dalam batch) ─────
+    if (!seedUsage.has(uid)) {
+      if (state) {
+        // Seed hanya valid bila state tersimpan TIDAK lebih baru dari row ini.
+        // Jika lebih baru (halaman menampilkan data lama), abaikan seed dan
+        // mulai fresh — serta tandai 'ignored' agar store tidak di-tulis-balik.
+        if (state.lastTimestamp > new Date(r.timestamp).getTime()) {
+          seedUsage.set(uid, 'ignored');
+          state = null;
+        } else {
+          seedUsage.set(uid, 'consumed');
         }
-      } else if (r.type === 1 && state && state.matchedShift) {
-        // Check-out: reuse the shift from the corresponding check-in session
-        // This ensures Masuk-Pulang are evaluated against the same shift.
-        rowShiftMap.set(r.id, state.matchedShift);
-      } else if (r.type === 1) {
-        // Check-out without a prior check-in session (orphan checkout):
-        // fall back to independent shift matching
-        const matched = findMatchingShift(shiftCfg, totalMinutes, 1, ruleInOut);
-        rowShiftMap.set(r.id, matched);
+      } else {
+        seedUsage.set(uid, 'fresh');
       }
     }
 
-    // Update state machine based on actual record type.
-    // IMPORTANT: Only normal (non-anomaly) records transition the session state.
-    // Anomaly records are treated as "noise" — they do NOT change the expected
-    // next state. This prevents cascade anomalies where one anomaly flips the
-    // state and causes subsequent legitimate records to also be flagged.
-    //
-    // Rationale:
-    //   - If the system expects Pulang (waiting_checkout) and a Masuk arrives,
-    //     that Masuk is flagged as anomaly 'pulang'. The system should STILL
-    //     expect Pulang next — the anomaly didn't fulfill the expected Pulang.
-    //   - If the system expects Masuk (waiting_checkin) and a Pulang arrives,
-    //     that Pulang is flagged as anomaly 'masuk'. The system should STILL
-    //     expect Masuk next.
-    //   - This ensures the pairing Masuk→Pulang is the single source of truth
-    //     for session state, not individual events.
-    if (!isAnomaly) {
-      // Normal transition based on actual record type
-      if (r.type === 0) {
-        userStateMap.set(uid, { state: 'waiting_checkout', lastTimestamp: rTime, matchedShift: rowShiftMap.get(r.id) });
-      } else if (r.type === 1) {
-        userStateMap.set(uid, { state: 'waiting_checkin', lastTimestamp: rTime, matchedShift: null });
-      }
-    }
-    // Anomaly records: do NOT transition state.
-    // Only update lastTimestamp to prevent session timeout from resetting
-    // due to stale timestamps.
-    if (isAnomaly) {
-      userStateMap.set(uid, { ...state, lastTimestamp: rTime });
-    }
+    // Transisi per-baris — logika tunggal (applySessionRow) untuk state machine
+    // dan untuk incremental store.
+    const applied = applySessionRow(state, r, shiftCfg, ruleInOut);
+
+    rowAnomalyMap.set(r.id, { isAnomaly: applied.isAnomaly, anomalyType: applied.anomalyType });
+    rowShiftMap.set(r.id, applied.matchedShift);
+    userStateMap.set(uid, applied.state);
   }
 
-  return { rowAnomalyMap, rowShiftMap };
+  return { rowAnomalyMap, rowShiftMap, userStateMap, seedUsage };
 }
 
 // ─── Shift Diff Calculation ──────────────────────────────────────────────────
@@ -547,14 +563,51 @@ export function buildLogResponse(row, ket, typeMap) {
  * @param {number} tolerance - Late tolerance in minutes
  * @param {object} typeMap - Type mapping (type number → label string)
  * @param {object} [ruleInOut] - Optional rule_in_out config for shift matching
+ * @param {object} [opts] - Opsi incremental processing
+ * @param {object} [opts.stateStore] - SessionStateStore untuk seed & write-back
+ *   state sesi per user (lihat session-state.js). Tanpa ini, perilaku sama
+ *   seperti sebelumnya (state machine fresh per batch).
+ * @param {boolean} [opts.updateStore=false] - Bila true dan stateStore ada,
+ *   state final di-tulis-balik ke store untuk user dengan seed valid/fresh.
+ *   Hati-hati: hanya set true untuk feed yang tidak terfilter (halaman 1 tanpa
+ *   filter user/type/device/date), agar store tidak tercemar batch parsial.
  * @returns {Array<object>} - Processed rows with remarks and formatted response
  */
-export function processAttendance(rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut) {
+export function processAttendance(rows, shiftTypes, remarks, tolerance, typeMap, ruleInOut, opts = {}) {
+  const { stateStore, updateStore = false } = opts;
+
   // Sort rows chronologically for state machine processing
   const sortedRows = [...rows].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-  // Build state machine: anomaly detection + shift matching
-  const { rowAnomalyMap, rowShiftMap } = buildStateMachine(sortedRows, shiftTypes, ruleInOut);
+  // Seed state sesi per user dari incremental store (read-only). Seed dibuat
+  // hanya untuk user yang ada di batch — history lama tidak perlu di-rescan.
+  let seedStateMap;
+  if (stateStore) {
+    seedStateMap = new Map();
+    for (const r of rows) {
+      const key = String(r.user_id);
+      if (!seedStateMap.has(key)) {
+        const prior = stateStore.get(r.user_id);
+        if (prior) seedStateMap.set(key, prior);
+      }
+    }
+  }
+
+  // Build state machine: anomaly detection + shift matching (+ seed incremental)
+  const { rowAnomalyMap, rowShiftMap, userStateMap, seedUsage } =
+    buildStateMachine(sortedRows, shiftTypes, ruleInOut, seedStateMap);
+
+  // Tulis-balik state incremental hanya untuk user yang seed-nya valid
+  // ('consumed') atau baru ('fresh'). User 'ignored' (store lebih baru dari
+  // batch) tidak disentuh agar store tidak mundur ke state yang lebih lama.
+  if (stateStore && updateStore) {
+    for (const [uid, usage] of seedUsage) {
+      if (usage !== 'ignored') {
+        const finalState = userStateMap.get(uid);
+        if (finalState) stateStore.set(uid, finalState);
+      }
+    }
+  }
 
   // Generate remarks and format response for each row
   return rows.map(row => {
