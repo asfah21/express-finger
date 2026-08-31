@@ -13,6 +13,9 @@ const OVERVIEW_CACHE_TTL = 120000; // 2 menit
 export async function refreshOverview(force = false, { silent = false } = {}) {
     const now = Date.now();
 
+    // Refresh Employee Status chart (cache-nya sendiri, dedupe per 60 detik)
+    refreshStatusChart();
+
     // Jika tidak dipaksa refresh dan cache masih valid, skip fetch API
     if (!force && overviewCache.data && (now - overviewCache.timestamp < OVERVIEW_CACHE_TTL)) {
         // Tampilkan data dari cache
@@ -263,6 +266,235 @@ function renderChartData(chartRows) {
 
 // Expose refreshChart to window for the range selector onChange
 window.refreshChart = refreshChart;
+
+// ---------------------------------------------------------------------------
+// Employee Status Chart — rincian status karyawan per hari (Finger, Terlambat,
+// Sedang Bekerja, Tidak Absen Masuk, Tidak Absen Pulang, Tidak Hadir).
+// Mengikuti gaya chart Attendance Overview dengan filter Today / 7 / 30 days.
+// Sumber data: /api/pair (baris summary per karyawan per hari) + /api/logs/late.
+// ---------------------------------------------------------------------------
+
+let statusChart = null;
+let statusChartRequestId = 0; // guard agar respons lama tidak menimpa yang baru
+
+// Cache sederhana agar chart status tidak mem-fetch ulang terlalu sering
+// (mis. dipicu bersamaan oleh showPage, auto-refresh, dan visibilitychange).
+// Data historis (7/30 hari) jarang berubah → TTL lebih panjang agar auto-refresh
+// tidak membebani DB; range "Today" tetap segar (60 detik).
+let statusChartCache = { timestamp: 0, range: 0, labels: null, data: null };
+
+function showStatusChartLoading(isLoading) {
+    const skeleton = document.getElementById('status-chart-skeleton');
+    const canvas = document.getElementById('status-chart');
+    if (skeleton) skeleton.style.display = isLoading ? 'flex' : 'none';
+    if (canvas) canvas.style.display = isLoading ? 'none' : 'block';
+}
+
+// Generate `days` tanggal WITA berurutan (tertua → terbaru) berakhir hari ini.
+function buildDateRange(days, today) {
+    const dates = [];
+    const base = new Date(`${today}T00:00:00Z`);
+    for (let i = days - 1; i >= 0; i--) {
+        const dt = new Date(base);
+        dt.setUTCDate(dt.getUTCDate() - i);
+        dates.push(dt.toISOString().slice(0, 10));
+    }
+    return dates;
+}
+
+async function refreshStatusChart(force = false) {
+    const rangeSelect = document.getElementById('status-chart-range');
+    const days = rangeSelect ? parseInt(rangeSelect.value) || 1 : 1;
+
+    // TTL cache sesuai rentang: Today 60s, 7 hari 120s, 30 hari 300s.
+    const ttl = days <= 1 ? 60000 : days <= 7 ? 120000 : 300000;
+
+    // Cache hit → render tanpa network (range sama & belum kedaluwarsa).
+    if (!force && statusChartCache.data && statusChartCache.range === days
+        && (Date.now() - statusChartCache.timestamp < ttl)) {
+        renderStatusChartData(statusChartCache.labels, statusChartCache.data);
+        return;
+    }
+
+    showStatusChartLoading(true);
+
+    const requestId = ++statusChartRequestId;
+
+    try {
+        const today = getWitaDateString();
+        const dates = buildDateRange(days, today);
+        const start = dates[0];
+        const end = dates[dates.length - 1];
+
+        // 1) Status per karyawan per hari (referensi API page pair).
+        const pairRes = await fetch(`/api/pair?from_date=${start}&to_date=${end}&limit=50000`);
+        if (!pairRes.ok) throw new Error(`Pair request failed (${pairRes.status})`);
+        const pairData = await pairRes.json();
+        const summary = pairData.data?.summary || [];
+        if (pairData.data?.has_more) {
+            console.warn('Employee status chart: pair summary truncated by limit, counts may be incomplete.');
+        }
+
+        // 2) Jumlah terlambat per hari dari /api/logs/late.
+        const lateRes = await fetch(
+            `/api/logs/late?from=${encodeURIComponent(`${start}T00:00:00+08:00`)}&to=${encodeURIComponent(`${end}T23:59:59+08:00`)}&limit=50000`
+        );
+        if (!lateRes.ok) throw new Error(`Late request failed (${lateRes.status})`);
+        const lateData = await lateRes.json();
+        const lateList = lateData.data?.list || lateData.data?.logs || [];
+
+        // Bucket status per hari.
+        const byDay = {};
+        for (const d of dates) {
+            byDay[d] = { hadirPenuh: 0, bekerja: 0, tdkPulang: 0, tdkMasuk: 0, tidakHadir: 0, late: 0 };
+        }
+
+        for (const row of summary) {
+            const day = byDay[row.date];
+            if (!day) continue;
+            switch (row.status) {
+                case 'Hadir Penuh': day.hadirPenuh++; break;
+                case 'Sedang Bekerja': day.bekerja++; break;
+                case 'Tidak Absen Pulang': day.tdkPulang++; break;
+                case 'Tidak Absen Masuk': day.tdkMasuk++; break;
+                default: day.tidakHadir++; break;
+            }
+        }
+
+        for (const log of lateList) {
+            const p = getUtcTimestampParts(log.timestamp);
+            const d = `${p.year}-${p.month}-${p.day}`;
+            if (byDay[d]) byDay[d].late++;
+        }
+
+        // Finger = karyawan yang tercatat finger (punya log masuk/pulang) hari itu.
+        const chartData = {};
+        for (const d of dates) {
+            const day = byDay[d];
+            chartData[d] = {
+                finger: day.hadirPenuh + day.bekerja + day.tdkPulang + day.tdkMasuk,
+                late: day.late,
+                bekerja: day.bekerja,
+                tdkMasuk: day.tdkMasuk,
+                tdkPulang: day.tdkPulang,
+                tidakHadir: day.tidakHadir
+            };
+        }
+
+        // Respons basi (pengguna sudah ganti range) → jangan timpa render terbaru.
+        if (requestId !== statusChartRequestId) return;
+
+        statusChartCache = { timestamp: Date.now(), range: days, labels: dates, data: chartData };
+        renderStatusChartData(dates, chartData);
+    } catch (err) {
+        console.error('Failed to refresh status chart:', err);
+        showStatusChartLoading(false);
+    }
+}
+
+function renderStatusChartData(dates, chartData) {
+    const canvas = document.getElementById('status-chart');
+    if (!canvas) return;
+
+    const isMobile = window.innerWidth < 640;
+    const useWeekly = isMobile && dates.length > 14;
+
+    const labels = [];
+    const finger = [], late = [], bekerja = [], tdkMasuk = [], tdkPulang = [], tidakHadir = [];
+    const pushWeek = (week, arr, key) => arr.push(week.reduce((sum, d) => sum + (chartData[d]?.[key] || 0), 0));
+
+    if (useWeekly) {
+        for (let i = 0; i < dates.length; i += 7) {
+            const week = dates.slice(i, i + 7);
+            labels.push(`W${Math.floor(i / 7) + 1}`);
+            pushWeek(week, finger, 'finger');
+            pushWeek(week, late, 'late');
+            pushWeek(week, bekerja, 'bekerja');
+            pushWeek(week, tdkMasuk, 'tdkMasuk');
+            pushWeek(week, tdkPulang, 'tdkPulang');
+            pushWeek(week, tidakHadir, 'tidakHadir');
+        }
+    } else {
+        for (const d of dates) {
+            if (dates.length === 1) {
+                labels.push('Today');
+            } else {
+                labels.push(isMobile
+                    ? d.slice(8, 10) + '/' + d.slice(5, 7)
+                    : new Date(`${d}T12:00:00+08:00`).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
+            }
+            const c = chartData[d] || {};
+            finger.push(c.finger || 0);
+            late.push(c.late || 0);
+            bekerja.push(c.bekerja || 0);
+            tdkMasuk.push(c.tdkMasuk || 0);
+            tdkPulang.push(c.tdkPulang || 0);
+            tidakHadir.push(c.tidakHadir || 0);
+        }
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (statusChart) statusChart.destroy();
+
+    const isLight = document.documentElement.classList.contains('theme-light');
+    const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+    const textColor = isLight ? '#64748b' : '#94a3b8';
+
+    // Sembunyikan skeleton sebelum render chart
+    showStatusChartLoading(false);
+
+    statusChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Finger', data: finger, backgroundColor: 'rgba(16, 185, 129, 0.7)', borderColor: '#10b981', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                { label: 'Terlambat', data: late, backgroundColor: 'rgba(245, 158, 11, 0.7)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                { label: 'Sedang Bekerja', data: bekerja, backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                { label: 'Tidak Absen Masuk', data: tdkMasuk, backgroundColor: 'rgba(168, 85, 247, 0.7)', borderColor: '#a855f7', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                { label: 'Tidak Absen Pulang', data: tdkPulang, backgroundColor: 'rgba(14, 165, 233, 0.7)', borderColor: '#0ea5e9', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                { label: 'Tidak Hadir', data: tidakHadir, backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: textColor,
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        font: { size: isMobile ? 9 : 11 }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        maxRotation: isMobile ? 45 : 0,
+                        font: { size: isMobile ? 9 : 11 }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        stepSize: 1,
+                        font: { size: isMobile ? 9 : 11 }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Expose refreshStatusChart to window for the range selector onChange
+window.refreshStatusChart = refreshStatusChart;
 
 function renderRecentLogRowHtml(log) {
     // Align with the Attendance Log page: the stored timestamp already

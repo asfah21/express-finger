@@ -133,40 +133,41 @@
                         </div>
                     </div>
 
-                    <!-- <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
-                        <h3 style="display: flex; align-items: center; gap: 0.75rem;">
-                            <i class="fas fa-clock" style="color: var(--error);"></i>
-                            Late Today
-                            <span id="late-today-count"
-                                style="font-size: 0.8rem; font-weight: 600; background: rgba(248,113,113,0.15); color: var(--error); padding: 0.15rem 0.6rem; border-radius: 9999px;">0</span>
-                            <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-muted);">Staff
-                                Only</span>
-                        </h3>
+                    <!-- Employee Status Chart -->
+                    <div class="stats-grid" style="margin-top: 1.5rem;">
+                        <div class="stat-card chart-card" style="grid-column: 1 / -1; padding: 1.5rem;">
+                            <div class="flex justify-between items-center mb-4 chart-header">
+                                <h3 style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <i class="fas fa-user-check" style="color: var(--secondary);"></i>
+                                    Status Overview
+                                </h3>
+                                <select id="status-chart-range" class="chart-range-select" onchange="window.refreshStatusChart()">
+                                    <option value="1" selected>Today</option>
+                                    <option value="7">Last 7 days</option>
+                                    <option value="30">Last 30 days</option>
+                                </select>
+                            </div>
+                            <div class="chart-wrapper">
+                                <div style="position: relative; height: 250px; min-width: 300px;">
+                                    <!-- Chart Loading Skeleton -->
+                                    <div id="status-chart-skeleton" class="chart-skeleton">
+                                        <div class="chart-skeleton-bars">
+                                            <div class="chart-skeleton-bar" style="height: 60%; animation-delay: 0s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 80%; animation-delay: 0.1s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 45%; animation-delay: 0.2s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 90%; animation-delay: 0.3s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 55%; animation-delay: 0.4s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 75%; animation-delay: 0.5s;"></div>
+                                            <div class="chart-skeleton-bar" style="height: 40%; animation-delay: 0.6s;"></div>
+                                        </div>
+                                        <div class="chart-skeleton-label">Loading chart data...</div>
+                                    </div>
+                                    <canvas id="status-chart" style="display: none;"></canvas>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="table-container" style="margin-bottom: 2rem; border-left: 3px solid var(--error);">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>NAME</th>
-                                    <th>DEPT</th>
-                                    <th>POSITION</th>
-                                    <th>TIME</th>
-                                    <th>REMARK</th>
-                                </tr>
-                            </thead>
-                            <tbody id="late-today-body">
-                                <tr>
-                                    <td colspan="6" style="text-align: center; color: var(--text-muted);">Loading...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div> -->
 
-                    <!-- <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
-                        <h3>Recent Activity</h3>
-                    </div> -->
                     <div class="header" style="margin-top: 2rem; margin-bottom: 0.75rem;">
                         <h3 style="display: flex; align-items: center; gap: 0.75rem;">
                             <i class="fas fa-clock" style="color: var(--warning);"></i>

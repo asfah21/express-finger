@@ -39,7 +39,7 @@ function logRowHtml(log) {
                 <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
             </td>
             <td>
-                <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
+                <div style="font-size: 0.8125rem; font-weight: 500;">${log.device_name || log.device_sn || '-'}</div>
             </td>
         </tr>
     `;
