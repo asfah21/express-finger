@@ -765,26 +765,13 @@ body {
     z-index: 10;
 }
 
-/* Stabilkan lebar kolom tabel yang di-update realtime (table-layout: fixed).
-   Dengan fixed, lebar kolom HANYA ditentukan oleh baris header — mengganti isi
-   <tbody> saat refresh SSE tidak lagi mengubah lebar tabel. Ini mencegah layout
-   shift (header/body misalign + horizontal scrollbar sesaat) yang muncul karena
-   table-layout: auto menghitung ulang lebar dari isi baris setiap kali baris
-   baru (dengan konten lebih panjang) disisipkan/diganti. */
-.table-container #logs-table,
+/* Stabilkan lebar kolom tabel Recent Activity overview yang di-update realtime
+   (table-layout: fixed). Tabel /logs sengaja TIDAK memakai aturan ini agar
+   layout-nya mengikuti halaman /late (auto layout). */
 .table-container #recent-logs-table {
     table-layout: fixed;
     width: 100%;
 }
-
-/* Proporsi kolom log absensi (7 kolom: NIK, Name, Dept-Position, Type, Date, Time, Ket) */
-.table-container #logs-table thead th:nth-child(1) { width: 10%; }
-.table-container #logs-table thead th:nth-child(2) { width: 22%; }
-.table-container #logs-table thead th:nth-child(3) { width: 20%; }
-.table-container #logs-table thead th:nth-child(4) { width: 10%; }
-.table-container #logs-table thead th:nth-child(5) { width: 10%; }
-.table-container #logs-table thead th:nth-child(6) { width: 10%; }
-.table-container #logs-table thead th:nth-child(7) { width: 18%; }
 
 /* Proporsi kolom Recent Activity overview (4 kolom: Time, User ID, Type, Device SN) */
 .table-container #recent-logs-table thead th:nth-child(1) { width: 22%; }
@@ -794,7 +781,6 @@ body {
 
 /* Konten panjang (NIK, nama, device SN, ket) di-wrap agar tidak meluber dari
    kolom fixed dan tidak menimbulkan overflow horizontal per-sel. */
-.table-container #logs-table td,
 .table-container #recent-logs-table td {
     overflow-wrap: break-word;
     word-break: break-word;

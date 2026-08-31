@@ -1,6 +1,5 @@
 import { state } from './state.js';
 import { refreshOverviewRealtime, applyLiveAttendanceNewOverview } from './pages/overview.js';
-import { refreshLogs, applyLiveAttendanceNew, shouldSkipLogsRefresh } from './pages/logs.js';
 
 let source = null;
 let debounceTimer = null;
@@ -18,12 +17,14 @@ const RETRY_DELAY_MS = 60000;         // Coba sambung lagi setelah jeda
  *
  * Event minimal (attendance:new / attendance:bulk):
  *   - attendance:new → baris lengkap, dirender langsung (tanpa network).
- *   - attendance:bulk → silent diff refresh + throttle jaringan (maks 1 per
+ *   - attendance:bulk → partial refresh + throttle jaringan (maks 1 per
  *     MIN_REFRESH_INTERVAL_MS, trailing edge) agar burst event saat jam sibuk
  *     tidak memicu reload/recompute beruntun.
- * Di halaman overview, event hanya menyentuh data yang bergerak cepat:
+ * Hanya halaman overview yang menerima update realtime:
  *   - attendance:new → update recent logs + total hari ini secara lokal.
  *   - attendance:bulk → partial refresh ringan (tanpa devices/employees/chart).
+ * Halaman /logs TIDAK lagi di-refresh via SSE — datanya dimuat penuh dengan
+ * skeleton saat navigasi/ganti filter, sehingga tidak ada micro refresh.
  * Report berat (overview chart/daily/pair) TIDAK di-refetch per event — ia
  * di-refresh oleh TTL + job precompute di server.
  */
@@ -88,22 +89,10 @@ function onAttendanceEvent(event) {
             return;
         }
 
-        if (state.currentPath !== 'logs') return;
-
-        const payload = parseEventPayload(event);
-
-        // Tanpa bulk di window → attendance:new bisa dirender lokal.
-        if (!hasBulk && event.type === 'attendance:new' && payload) {
-            // Full row payload → render locally (no network, no throttle needed).
-            applyLiveAttendanceNew(payload);
-            return;
-        }
-
-        // attendance:bulk (and others): skip when the event can't affect the
-        // visible logs (source/date filter mismatch), else silent diff refresh
-        // throttled so bursts don't cause reload storms (#1/#2/#3).
-        if (shouldSkipLogsRefresh(payload?.source)) return;
-        scheduleThrottledRefresh('logs', () => refreshLogs({ silent: true }));
+        // Halaman /logs sengaja TIDAK menerima update realtime (SSE) lagi.
+        // Data log hanya dimuat penuh dengan skeleton saat navigasi/filter,
+        // sehingga tidak ada lagi micro refresh/silent refresh pada tabel.
+        return;
     }, DEBOUNCE_MS);
 }
 
