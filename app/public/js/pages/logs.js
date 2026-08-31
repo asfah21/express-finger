@@ -22,24 +22,26 @@ function logRowHtml(log) {
     const secondsStr = displayParts.second;
 
     return `
-        <td>${log.nik || '-'}</td>
-        <td>
-            <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
-        </td>
-        <td style="font-size: 0.8125rem;">
-            <div>${log.department || '-'}</div>
-            <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
-        </td>
-        <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-        <td>${dateStr}</td>
-        <td>
-            <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
-            <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
-        </td>
-        <td>
-            <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
-        </td>
+        <tr>
+            <td>${log.nik || '-'}</td>
+            <td>
+                <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
+            </td>
+            <td style="font-size: 0.8125rem;">
+                <div>${log.department || '-'}</div>
+                <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
+            </td>
+            <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+            <td>${dateStr}</td>
+            <td>
+                <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
+                <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
+            </td>
+            <td>
+                <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
+            </td>
+        </tr>
     `;
 }
 
