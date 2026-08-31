@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises'
 import { config } from '../config/index.js'
 import { smartParseMany, saveManyLogs, ensureRawDir, upsertDevice } from '../utils/index.js'
-import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
+import { invalidateAttendanceFeed } from '../utils/cache.js'
 import { attendanceBus } from '../utils/events.js'
 import { pullDeviceLogs } from '../utils/zklib.js'
 
@@ -31,7 +31,7 @@ async function pullOnContact(sn, ip, port = 4370) {
     const result = await pullDeviceLogs(ip, port, sn)
     if (result.count > 0) {
       console.log(`⚡ [pull-on-contact] ${sn} (${ip}): ${result.count} logs`)
-      delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
+      invalidateAttendanceFeed()
       attendanceBus.emit('attendance:bulk', { count: result.count, source: 'pull-on-contact' })
     }
   } catch (err) {
@@ -78,11 +78,9 @@ export const deviceController = {
         await saveManyLogs(rows, deviceSN);
         console.log(`📩 [${deviceSN}] Saved ${rows.length} logs from ${deviceIP}`);
         
-        // 5. Invalidate feed attendance karena ada data baru dari push /iclock.
-        const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
-        if (deleted > 0) {
-          console.log(`🧹 Invalidated ${deleted} attendance cache keys after push from ${deviceSN}`)
-        }
+        // 5. Invalidate feed attendance karena ada data baru dari push /iclock
+        //    (coalesced — burst push tidak meng-invalidate per-event).
+        invalidateAttendanceFeed()
 
         // Broadcast realtime (SSE) agar dashboard feed segar setelah push device
         attendanceBus.emit('attendance:bulk', { count: rows.length, source: 'iclock' })

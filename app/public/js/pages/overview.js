@@ -10,7 +10,7 @@ let overviewCache = {
 };
 const OVERVIEW_CACHE_TTL = 120000; // 2 menit
 
-export async function refreshOverview(force = false) {
+export async function refreshOverview(force = false, { silent = false } = {}) {
     const now = Date.now();
 
     // Jika tidak dipaksa refresh dan cache masih valid, skip fetch API
@@ -63,9 +63,11 @@ export async function refreshOverview(force = false) {
         const s = state.pagination.overview;
         const today = getWitaDateString();
 
-        // Show loading states
-        showChartLoading(true);
-        document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
+        // Show loading states (skipped on silent realtime refresh to avoid blink)
+        if (!silent) {
+            showChartLoading(true);
+            document.querySelectorAll('.stat-value').forEach(el => el.classList.add('loading'));
+        }
 
         // Fetch all data in parallel - total counts come from limit=1 requests
         const [devicesRes, empRes, overviewRes] = await Promise.all([

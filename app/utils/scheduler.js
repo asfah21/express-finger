@@ -1,7 +1,7 @@
 import { SYNC_CONFIG } from '../config/sync.js';
 import { pullDeviceLogs, checkDeviceStatus } from './zklib.js';
 import { getDevices, pool } from './database.js';
-import { delCacheByPatterns, CACHE_PATTERNS } from './cache.js';
+import { invalidateAttendanceFeed } from './cache.js';
 import { getSettingsData } from '../controllers/settings.js';
 import { pullDeviceUsersSync } from './zklib-employee.js';
 import { recordActivity } from '../controllers/activity-log.js';
@@ -113,13 +113,11 @@ async function runSyncTask() {
             }
         }
 
-        // Invalidate feed attendance jika ada data baru dari auto-pull.
+        // Invalidate feed attendance jika ada data baru dari auto-pull
+        // (coalesced agar tidak meng-invalidate berulang dalam burst).
         // Report berat tidak dijatuhkan per siklus (refresh via TTL + precompute).
         if (hasNewData) {
-            const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
-            if (deleted > 0) {
-                console.log(`🧹 Scheduler: Invalidated ${deleted} attendance cache keys`)
-            }
+            invalidateAttendanceFeed()
         }
     } catch (err) {
         console.error('❌ Scheduler critical error:', err.message);

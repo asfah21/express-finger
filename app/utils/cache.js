@@ -183,6 +183,35 @@ export function delCacheByPatterns(patterns) {
   return totalDeleted
 }
 
+// ============================================================
+// Coalesced attendance-feed invalidation
+// ============================================================
+// Burst event (banyak scan fingerprint dalam hitungan detik) hanya
+// meng-invalidate cache feed SEKALI per window (leading edge), sehingga:
+//   - event pertama → invalidasi seketika (feed langsung fresh)
+//   - event berikutnya dalam window → dilewati (feed tetap hangat / cache hit)
+// Staleness maksimal terbatas pada window (~2 detik), sementara recompute
+// berat (attendance-engine + getSettingsData) tidak lagi terjadi per-event.
+let lastFeedInvalidatedAt = 0
+const FEED_INVALIDATE_MIN_INTERVAL_MS = 2000
+
+/**
+ * Invalidasi cache feed absensi (CACHE_PATTERNS.ATTENDANCE_EVENT) dengan
+ * coalescing leading-edge. Event pertama setelah jeda meng-invalidate seketika;
+ * event berikutnya dalam jendela singkat tidak memicu invalidasi berulang.
+ * Pengganti `delCacheByPatterns(ATTENDANCE_EVENT)` di jalur hot realtime
+ * (pull-on-contact / iclock push / kiosk / auto-pull).
+ */
+export function invalidateAttendanceFeed() {
+  const now = Date.now()
+  if (now - lastFeedInvalidatedAt < FEED_INVALIDATE_MIN_INTERVAL_MS) return
+  lastFeedInvalidatedAt = now
+  const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
+  if (deleted > 0) {
+    console.log(`🧹 Coalesced attendance feed invalidated (${deleted} cache keys)`)
+  }
+}
+
 /**
  * Get cache metrics for monitoring
  * @returns {object}

@@ -3,7 +3,7 @@ import { config } from '../config/index.js'
 import { sendSuccess, sendError } from '../utils/response.js'
 import { recordActivity } from './activity-log.js'
 import { evaluateAttendance, evaluateAttendanceBatch, isDuplicate, SESSION_WINDOW_HOURS, MAX_MULTI_BATCH, liveNotFoundMessage } from '../utils/live-attendance.js'
-import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
+import { invalidateAttendanceFeed } from '../utils/cache.js'
 import { attendanceBus } from '../utils/events.js'
 
 const MAX_IMAGE_LENGTH = 7_000_000
@@ -127,7 +127,7 @@ export const liveController = {
             if (!decision.ok) return sendLiveError(res, 409, decision.code, decision.message)
 
             // 3. Save.
-            const employee = await pool.query('SELECT user_id, nama, jabatan FROM employee WHERE user_id = $1 LIMIT 1', [fid])
+            const employee = await pool.query('SELECT user_id, nama, nik, department, jabatan FROM employee WHERE user_id = $1 LIMIT 1', [fid])
             const name = employee.rows[0]?.nama || `FID ${fid}`
             const position = employee.rows[0]?.jabatan || null
             const inserted = await pool.query(
@@ -143,18 +143,25 @@ export const liveController = {
                 ip: req.ip,
                 status: 'success'
             })
-            // Invalidate feed attendance karena ada log baru dari kiosk/kamera.
-            // Report berat (overview/daily/pair) TIDAK dijatuhkan per event —
-            // mereka refresh lewat TTL + job precompute scheduler.
-            delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
-            // Broadcast realtime (SSE) agar dashboard feed terasa live (detik-an)
+            // Invalidate feed attendance karena ada log baru dari kiosk/kamera
+            // (coalesced). Report berat (overview/daily/pair) TIDAK dijatuhkan
+            // per event — mereka refresh lewat TTL + job precompute scheduler.
+            invalidateAttendanceFeed()
+            // Broadcast realtime (SSE) agar dashboard feed terasa live (detik-an).
+            // Payload sengaja membawa row lengkap (nik/department/jabatan/absensi)
+            // agar klien /logs bisa render baris baru langsung tanpa refetch penuh.
             attendanceBus.emit('attendance:new', {
                 id: inserted.rows[0].id,
                 user_id: fid,
                 nama: name,
+                nik: employee.rows[0]?.nik ?? null,
+                department: employee.rows[0]?.department ?? null,
+                jabatan: position,
                 type,
+                absensi: type === 0 ? 'Masuk' : 'Pulang',
                 timestamp: inserted.rows[0].timestamp,
-                device_sn: 'LIVE-CAM'
+                device_sn: 'LIVE-CAM',
+                device_name: 'LIVE-CAM'
             })
             return sendSuccess(res, { ...inserted.rows[0], nama: name, fid, score: recognized.score, jabatan: position }, 'Absensi berhasil')
         } catch (err) {
@@ -323,7 +330,7 @@ export const liveController = {
                     client.release()
                 }
                 // Invalidate feed attendance karena ada log baru dari kiosk/kamera
-                delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
+                invalidateAttendanceFeed()
                 // Broadcast realtime (SSE) untuk batch yang tersimpan
                 attendanceBus.emit('attendance:bulk', { count: accepted.length, source: 'live-cam-multi' })
             }

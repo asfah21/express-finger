@@ -12,7 +12,90 @@ function setDefaultLogDates() {
     if (toEl && !toEl.value) toEl.value = today;
 }
 
-export async function refreshLogs() {
+function logRowHtml(log) {
+    // Keep the UI aligned with the Excel export: the API timestamp is already
+    // normalized to the business timezone, so read its UTC calendar fields
+    // instead of converting it through the browser's local timezone again.
+    const displayParts = getExportTimestampParts(log.timestamp);
+    const dateStr = `${displayParts.day}/${displayParts.month}/${displayParts.year}`;
+    const timeStr = `${displayParts.hour}:${displayParts.minute}`;
+    const secondsStr = displayParts.second;
+
+    return `
+        <td>${log.nik || '-'}</td>
+        <td>
+            <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
+        </td>
+        <td style="font-size: 0.8125rem;">
+            <div>${log.department || '-'}</div>
+            <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
+        </td>
+        <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+        <td>${dateStr}</td>
+        <td>
+            <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
+            <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
+        </td>
+        <td>
+            <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
+        </td>
+    `;
+}
+
+function buildLogRowElement(log) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = String(log.id ?? '');
+    tr.innerHTML = logRowHtml(log);
+    return tr;
+}
+
+function emptyLogsRow() {
+    return `<tr><td colspan="7" class="empty-state">
+        <i class="fas fa-clipboard-list"></i>
+        <div class="empty-title">No Attendance Logs Found</div>
+        <div class="empty-subtitle">Try adjusting your search filters or date range, or pull data from devices first.</div>
+    </td></tr>`;
+}
+
+/**
+ * Diff-merge new rows into the logs table without a full re-render.
+ * Existing <tr> nodes (keyed by data-id) are reused and only repositioned, so
+ * unchanged rows keep their DOM identity and the table never blinks/flashes.
+ */
+function applySilentLogs(logs) {
+    const body = document.getElementById('logs-body');
+    if (!body) return;
+
+    if (logs.length === 0) {
+        body.innerHTML = emptyLogsRow();
+        return;
+    }
+
+    const existing = new Map();
+    for (const tr of body.querySelectorAll('tr[data-id]')) {
+        existing.set(tr.dataset.id, tr);
+    }
+
+    let changed = existing.size !== logs.length;
+    const frag = document.createDocumentFragment();
+    for (const log of logs) {
+        const id = String(log.id);
+        const tr = existing.get(id);
+        if (tr) {
+            existing.delete(id);
+            frag.appendChild(tr);
+        } else {
+            changed = true;
+            frag.appendChild(buildLogRowElement(log));
+        }
+    }
+    if (existing.size > 0) changed = true;
+
+    if (changed) body.replaceChildren(frag);
+}
+
+export async function refreshLogs({ silent = false } = {}) {
     setDefaultLogDates();
     const s = state.pagination.logs;
     const fromDate = document.getElementById('log-date-from').value;
@@ -20,8 +103,8 @@ export async function refreshLogs() {
     const search = document.getElementById('log-search').value;
     const source = document.getElementById('log-source')?.value || 'all';
 
-    // Show skeleton loading
-    showSkeleton('logs-body', s.size);
+    // Silent (realtime) refreshes skip the skeleton so the table does not blink.
+    if (!silent) showSkeleton('logs-body', s.size);
 
     let url = `/api/logs?limit=${s.size}&offset=${s.page * s.size}`;
     if (fromDate) url += `&from=${encodeURIComponent(`${fromDate}T00:00:00+08:00`)}`;
@@ -34,52 +117,147 @@ export async function refreshLogs() {
 
     s.total = data.data?.total || 0;
     const body = document.getElementById('logs-body');
-
     const logs = data.data?.list || data.data?.logs || [];
 
-    if (logs.length === 0) {
-        body.innerHTML = `<tr><td colspan="7" class="empty-state">
-            <i class="fas fa-clipboard-list"></i>
-            <div class="empty-title">No Attendance Logs Found</div>
-            <div class="empty-subtitle">Try adjusting your search filters or date range, or pull data from devices first.</div>
-        </td></tr>`;
+    if (silent) {
+        applySilentLogs(logs);
+    } else if (logs.length === 0) {
+        body.innerHTML = emptyLogsRow();
     } else {
-        body.innerHTML = logs.map(log => {
-            // Keep the UI aligned with the Excel export: the API timestamp is
-            // already normalized to the business timezone, so read its UTC
-            // calendar fields instead of converting it through the browser's
-            // local timezone a second time.
-            const displayParts = getExportTimestampParts(log.timestamp);
-            const dateStr = `${displayParts.day}/${displayParts.month}/${displayParts.year}`;
-            const timeStr = `${displayParts.hour}:${displayParts.minute}`;
-            const secondsStr = displayParts.second;
-
-            return `
-                <tr>
-                    <td>${log.nik || '-'}</td>
-                    <td>
-                        <div style="font-weight: 600;">${log.nama || 'Unknown'}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">ID: ${log.user_id}</div>
-                    </td>
-                    <td style="font-size: 0.8125rem;">
-                        <div>${log.department || '-'}</div>
-                        <div style="opacity: 0.7;">${log.jabatan || '-'}</div>
-                    </td>
-                    <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-                    <td>${dateStr}</td>
-                    <td>
-                        <strong style="color: var(--primary); font-size: 1.1rem;">${timeStr}</strong>
-                        <small style="opacity: 0.5; font-size: 0.75rem;">:${secondsStr}</small>
-                    </td>
-                    <td>
-                        <div style="font-size: 0.8125rem; font-weight: 500; color: ${log.ket?.includes('Terlambat') ? 'var(--error)' : 'inherit'}">${log.ket || '-'}</div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+        body.innerHTML = logs.map(logRowHtml).join('');
     }
 
     window.updatePaginationUI('logs');
+}
+
+// ---------------------------------------------------------------------------
+// Realtime (SSE) support — payload-aware, blink-free updates (#1 & #2).
+// ---------------------------------------------------------------------------
+
+// Map an SSE event's `source` tag to the /logs SOURCE filter buckets.
+const FINGERPRINT_SOURCES = new Set(['iclock', 'pull', 'pull-on-contact']);
+const KIOSK_SOURCES = new Set(['live-cam', 'live-cam-multi', 'LIVE-CAM', 'LIVE-CAM-MULTI']);
+
+function eventSourceIsFingerprint(source) {
+    return FINGERPRINT_SOURCES.has(source);
+}
+
+function eventSourceIsKiosk(source) {
+    return KIOSK_SOURCES.has(source);
+}
+
+function currentLogSourceFilter() {
+    return document.getElementById('log-source')?.value || 'all';
+}
+
+// Does the current SOURCE filter permit an event originating from `eventSource`?
+function logsSourceAllows(eventSource) {
+    const filter = currentLogSourceFilter();
+    if (filter === 'all') return true;
+    if (filter === 'fingerprint') return eventSourceIsFingerprint(eventSource);
+    if (filter === 'kiosk') return eventSourceIsKiosk(eventSource);
+    return true;
+}
+
+function currentLogRange() {
+    return {
+        from: document.getElementById('log-date-from')?.value || '',
+        to: document.getElementById('log-date-to')?.value || ''
+    };
+}
+
+// Does the new record's timestamp fall inside the current FROM/TO range?
+function logsRangeIncludesTimestamp(ts) {
+    if (!ts) return true;
+    const { from, to } = currentLogRange();
+    if (!from && !to) return true;
+    const t = new Date(ts).getTime();
+    if (Number.isNaN(t)) return true;
+    if (from && t < new Date(`${from}T00:00:00+08:00`).getTime()) return false;
+    if (to && t > new Date(`${to}T23:59:59.999+08:00`).getTime()) return false;
+    return true;
+}
+
+// Does the current FROM/TO range include today (WITA)? Used for `bulk` events,
+// which carry no timestamp — new logs are always written at "now".
+function logsRangeIncludesToday() {
+    const today = getWitaDateString(); // YYYY-MM-DD in Asia/Makassar
+    const { from, to } = currentLogRange();
+    if (!from && !to) return true;
+    if (from && today < from) return false;
+    if (to && today > to) return false;
+    return true;
+}
+
+/**
+ * Should the /logs table skip refreshing for this realtime event?
+ * Returns true when the event cannot affect the currently visible rows:
+ *   - the SOURCE filter excludes the event's device family, or
+ *   - the selected date range doesn't include today (bulk events carry no ts).
+ *
+ * @param {string|null} eventSource - SSE payload `source`; null → kiosk camera.
+ */
+export function shouldSkipLogsRefresh(eventSource) {
+    const src = eventSource || 'live-cam';
+    if (!logsSourceAllows(src)) return true;
+    if (!logsRangeIncludesToday()) return true;
+    return false;
+}
+
+/**
+ * Apply a single `attendance:new` event (full row payload) directly, without
+ * refetching the whole page. Falls back to a silent refresh when the payload
+ * can't be safely validated (active search box).
+ *
+ * @returns {boolean|Promise} true if rendered directly, false if skipped, or a
+ *                            Promise when it fell back to a silent refresh.
+ */
+export function applyLiveAttendanceNew(payload) {
+    if (!payload || payload.id == null) return refreshLogs({ silent: true });
+
+    // Skip when the SOURCE filter excludes kiosk/camera events.
+    if (!logsSourceAllows('live-cam')) return false;
+    // Skip when the row's timestamp falls outside the selected date range.
+    if (!logsRangeIncludesTimestamp(payload.timestamp)) return false;
+
+    const body = document.getElementById('logs-body');
+    if (!body) return false;
+
+    // Already showing this row — nothing to do.
+    for (const tr of body.querySelectorAll('tr[data-id]')) {
+        if (tr.dataset.id === String(payload.id)) return false;
+    }
+
+    // With an active search box we can't reliably know whether this row matches;
+    // a silent refresh keeps the filtered list correct without the skeleton.
+    const search = (document.getElementById('log-search')?.value || '').trim().toLowerCase();
+    if (search) {
+        const name = (payload.nama || '').toLowerCase();
+        const nik = (payload.nik || '').toLowerCase();
+        const uid = String(payload.user_id ?? '');
+        if (!name.includes(search) && !nik.includes(search) && !uid.includes(search)) {
+            return false; // row wouldn't appear under this search filter
+        }
+        return refreshLogs({ silent: true });
+    }
+
+    // Prepend at the top (API sorts by timestamp DESC).
+    const first = body.querySelector('tr[data-id]');
+    const row = buildLogRowElement(payload);
+    if (first) body.insertBefore(row, first);
+    else body.appendChild(row);
+
+    // Keep page size consistent: drop the oldest row when we exceed it.
+    const s = state.pagination.logs;
+    const rows = body.querySelectorAll('tr[data-id]');
+    if (rows.length > s.size) rows[rows.length - 1].remove();
+
+    // Keep the total consistent while viewing the first page.
+    if (s.page === 0) {
+        s.total += 1;
+        window.updatePaginationUI('logs');
+    }
+    return true;
 }
 
 let logSearchTimer;
