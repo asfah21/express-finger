@@ -107,28 +107,8 @@ export async function refreshOverview(force = false, { silent = false } = {}) {
             lastUpdateEl.innerText = 'Last Updated: ' + new Date().toLocaleTimeString('id-ID');
         }
 
-        // Simpan data ke cache untuk下次 pindah page
-        const recentLogsBody = document.getElementById('recent-logs-body');
-        const lateTodayBody = document.getElementById('late-today-body');
-        const lateTodayCount = document.getElementById('late-today-count');
-        overviewCache = {
-            timestamp: Date.now(),
-            data: {
-                statDevices: statDevices?.innerText || '0',
-                statEmployees: statEmployees?.innerText || '0',
-                statLogs: statLogs?.innerText || '0',
-                recentLogsHtml: recentLogsBody?.innerHTML || '',
-                lateCount: lateTodayCount?.innerText || '0',
-                lateHtml: lateTodayBody?.innerHTML || '',
-                paginationTotal: s.total,
-                lastUpdate: lastUpdateEl?.innerText || '',
-                chartData: attendanceChart ? {
-                    labels: attendanceChart.data.labels,
-                    checkinData: attendanceChart.data.datasets[0].data,
-                    checkoutData: attendanceChart.data.datasets[1].data
-                } : null
-            }
-        };
+        // Simpan snapshot DOM ke cache agar tetap koheren saat update parsial/lokal
+        snapshotOverviewCache();
     } catch (err) {
         console.error('Failed to refresh overview', err);
         // Remove loading states even on error
@@ -284,40 +264,205 @@ function renderChartData(chartRows) {
 // Expose refreshChart to window for the range selector onChange
 window.refreshChart = refreshChart;
 
-function renderRecentLogs(logs) {
-    const body = document.getElementById('recent-logs-body');
-    body.innerHTML = logs.map(log => {
-        // Align with the Attendance Log page: the stored timestamp already
-        // carries the WITA wall-clock as a UTC value, so read UTC parts
-        // instead of applying a second Asia/Makassar (+8h) conversion.
-        const witaParts = getUtcTimestampParts(log.timestamp);
-        const timeStr = `${witaParts.hour}:${witaParts.minute}`;
-        const secondsStr = witaParts.second;
+function renderRecentLogRowHtml(log) {
+    // Align with the Attendance Log page: the stored timestamp already
+    // carries the WITA wall-clock as a UTC value, so read UTC parts
+    // instead of applying a second Asia/Makassar (+8h) conversion.
+    const witaParts = getUtcTimestampParts(log.timestamp);
+    const timeStr = `${witaParts.hour}:${witaParts.minute}`;
+    const secondsStr = witaParts.second;
 
-        return `
-            <tr>
-                <td>
-                    <i class="fas fa-history text-warning mr-2" style="font-size: 0.8rem;"></i>
-                    <strong class="text-warning text-lg">${timeStr}</strong>
-                    <small class="opacity-50 text-xs">:${secondsStr}</small>
-                </td>
-                <td>
-                    <div class="emp-info">${log.nama || log.user_id}</div>
-                    <div class="emp-sub">ID: ${log.user_id}</div>
-                </td>
-                <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
-                <td>
-                    <div class="device-info">
-                        <i class="fas fa-wifi"></i>
-                        ${log.device_name || log.device_sn || '-'}
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('') || '<tr><td colspan="4" class="empty-state"><i class="fas fa-info-circle"></i><div class="empty-title">No Activity Today</div><div class="empty-subtitle">No attendance records found for today. Pull data from devices to see logs.</div></td></tr>';
+    return `
+        <tr>
+            <td>
+                <i class="fas fa-history text-warning mr-2" style="font-size: 0.8rem;"></i>
+                <strong class="text-warning text-lg">${timeStr}</strong>
+                <small class="opacity-50 text-xs">:${secondsStr}</small>
+            </td>
+            <td>
+                <div class="emp-info">${log.nama || log.user_id}</div>
+                <div class="emp-sub">ID: ${log.user_id}</div>
+            </td>
+            <td><span class="badge ${log.type == 0 ? 'badge-success' : 'badge-warning'}">${log.absensi || (log.type == 0 ? 'Masuk' : 'Pulang')}</span></td>
+            <td>
+                <div class="device-info">
+                    <i class="fas fa-wifi"></i>
+                    ${log.device_name || log.device_sn || '-'}
+                </div>
+            </td>
+        </tr>
+    `;
 }
 
+function renderRecentLogs(logs) {
+    const body = document.getElementById('recent-logs-body');
+    body.innerHTML = logs.map(renderRecentLogRowHtml).join('') || '<tr><td colspan="4" class="empty-state"><i class="fas fa-info-circle"></i><div class="empty-title">No Activity Today</div><div class="empty-subtitle">No attendance records found for today. Pull data from devices to see logs.</div></td></tr>';
+}
+
+// ---------------------------------------------------------------------------
+// Realtime partial refresh — ringan & tanpa blink (#1/#2/#3).
+// Hanya memperbarui data yang bergerak cepat (recent logs, total hari ini,
+// late today). Devices/employees/chart adalah domain refresh penuh / TTL.
+// ---------------------------------------------------------------------------
+
+function buildRecentLogRow(log) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = String(log.id ?? '');
+    tr.innerHTML = renderRecentLogRowHtml(log);
+    return tr;
+}
+
+// Apakah timestamp (WITA wall-clock tersimpan sebagai UTC) jatuh di hari ini (WITA)?
+function timestampIsToday(ts) {
+    if (!ts) return true; // tidak bisa dipastikan → anggap hari ini
+    const dt = new Date(ts);
+    if (Number.isNaN(dt.getTime())) return true;
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}` === getWitaDateString();
+}
+
+/**
+ * Terapkan event `attendance:new` (payload baris lengkap) ke kartu overview
+ * secara lokal — TANPA network request.
+ * @returns {boolean} true jika tertangani (dirender / sengaja dilewati),
+ *                    false jika perlu fallback ke partial refresh jaringan.
+ */
+export function applyLiveAttendanceNewOverview(payload) {
+    if (!payload || payload.id == null) return false;
+
+    // Overview hanya menampilkan aktivitas hari ini (WITA).
+    if (!timestampIsToday(payload.timestamp)) return true; // bukan untuk kartu ini
+
+    const body = document.getElementById('recent-logs-body');
+    if (!body) return false;
+
+    // Baris ini sudah tampil — tidak perlu apa-apa.
+    for (const tr of body.querySelectorAll('tr[data-id]')) {
+        if (tr.dataset.id === String(payload.id)) return true;
+    }
+
+    const s = state.pagination.overview;
+    s.total += 1;
+
+    // Row terbaru hanya valid di page pertama (offset 0); di page lain cukup
+    // naikkan total, row akan muncul saat kembali ke page 0 / refresh penuh.
+    if (s.page === 0) {
+        // Buang baris empty-state jika ada agar tidak menumpuk.
+        const emptyState = body.querySelector('td.empty-state');
+        if (emptyState) body.innerHTML = '';
+
+        const row = buildRecentLogRow(payload);
+        const first = body.querySelector('tr[data-id]');
+        if (first) body.insertBefore(row, first);
+        else body.appendChild(row);
+
+        const rows = body.querySelectorAll('tr[data-id]');
+        if (rows.length > s.size) rows[rows.length - 1].remove();
+    }
+
+    const statLogs = document.getElementById('stat-logs');
+    if (statLogs) {
+        const cur = Number(statLogs.innerText || 0);
+        statLogs.innerText = String(Number.isFinite(cur) ? cur + 1 : 1);
+    }
+    window.updatePaginationUI('overview');
+
+    const lastUpdateEl = document.getElementById('overview-last-update');
+    if (lastUpdateEl) lastUpdateEl.innerText = 'Last Updated: ' + new Date().toLocaleTimeString('id-ID');
+
+    snapshotOverviewCache();
+    return true;
+}
+
+/**
+ * Partial refresh untuk event `attendance:bulk` (tanpa baris). Satu request
+ * ringan ke /api/logs untuk merekonsiliasi recent logs + total hari ini,
+ * plus late-today (dengan cache TTL). TIDAK mem-fetch devices/employees dan
+ * TIDAK men-render chart.
+ */
+export async function refreshOverviewRealtime() {
+    const s = state.pagination.overview;
+    const today = getWitaDateString();
+    try {
+        const res = await fetch(`/api/logs?from=${encodeURIComponent(`${today}T00:00:00+08:00`)}&limit=${s.size}&offset=${s.page * s.size}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const logs = data.data?.list || data.data?.logs || [];
+        const total = data.data?.total || 0;
+
+        s.total = total;
+        renderRecentLogs(logs);
+        window.updatePaginationUI('overview');
+
+        const statLogs = document.getElementById('stat-logs');
+        if (statLogs) statLogs.innerText = String(total);
+
+        // Await agar kartu late today selesai dirender sebelum snapshot cache
+        // (kalau tidak, snapshot bisa menangkap nilai late yang basi).
+        await refreshLateToday(today);
+
+        const lastUpdateEl = document.getElementById('overview-last-update');
+        if (lastUpdateEl) lastUpdateEl.innerText = 'Last Updated: ' + new Date().toLocaleTimeString('id-ID');
+
+        snapshotOverviewCache();
+    } catch (err) {
+        console.error('Failed realtime partial overview refresh', err);
+    }
+}
+
+// Snapshot DOM saat ini ke overviewCache agar cache tetap koheren terhadap
+// update parsial/lokal (tidak menimpa data realtime segar dengan data basi).
+function snapshotOverviewCache() {
+    const statDevices = document.getElementById('stat-devices');
+    const statEmployees = document.getElementById('stat-employees');
+    const statLogs = document.getElementById('stat-logs');
+    const recentLogsBody = document.getElementById('recent-logs-body');
+    const lateTodayBody = document.getElementById('late-today-body');
+    const lateTodayCount = document.getElementById('late-today-count');
+    const lastUpdateEl = document.getElementById('overview-last-update');
+
+    overviewCache = {
+        timestamp: Date.now(),
+        data: {
+            statDevices: statDevices?.innerText || '0',
+            statEmployees: statEmployees?.innerText || '0',
+            statLogs: statLogs?.innerText || '0',
+            recentLogsHtml: recentLogsBody?.innerHTML || '',
+            lateCount: lateTodayCount?.innerText || '0',
+            lateHtml: lateTodayBody?.innerHTML || '',
+            paginationTotal: state.pagination.overview.total,
+            lastUpdate: lastUpdateEl?.innerText || '',
+            chartData: attendanceChart ? {
+                labels: attendanceChart.data.labels,
+                checkinData: attendanceChart.data.datasets[0].data,
+                checkoutData: attendanceChart.data.datasets[1].data
+            } : null
+        }
+    };
+}
+
+function renderLateToday(count, html) {
+    const countEl = document.getElementById('late-today-count');
+    if (countEl) countEl.innerText = count;
+    const body = document.getElementById('late-today-body');
+    if (body) body.innerHTML = html;
+}
+
+// Cache client untuk kartu Late Today — kartu ini tidak perlu fresh per detik;
+// cukup direkonsiliasi berkala (TTL) agar request berat tidak terulang di tiap
+// throttle window.
+let lateTodayCache = { timestamp: 0, count: 0, html: '' };
+const LATE_TODAY_CACHE_TTL = 30000; // 30 detik
+
 async function refreshLateToday(today) {
+    // Cache hit → render dari cache tanpa network.
+    if (lateTodayCache.html && (Date.now() - lateTodayCache.timestamp < LATE_TODAY_CACHE_TTL)) {
+        renderLateToday(lateTodayCache.count, lateTodayCache.html);
+        return;
+    }
+
     try {
         const res = await fetch(`/api/logs?from=${today}T00:00:00&type=0&limit=5000`);
         const data = await res.json();
@@ -336,11 +481,7 @@ async function refreshLateToday(today) {
         }
         const unique = Array.from(seen.values()).slice(0, 10);
 
-        const countEl = document.getElementById('late-today-count');
-        if (countEl) countEl.innerText = seen.size;
-
-        const body = document.getElementById('late-today-body');
-        body.innerHTML = unique.map((log, idx) => {
+        const html = unique.map((log, idx) => {
             // Same convention as the Recent Activity card / Attendance Log page:
             // the stored timestamp is WITA wall-clock as UTC, so read UTC parts.
             const timeParts = getUtcTimestampParts(log.timestamp);
@@ -358,8 +499,12 @@ async function refreshLateToday(today) {
                 </tr>
             `;
         }).join('') || '<tr><td colspan="6" class="empty-state"><i class="fas fa-check-circle text-success mr-2"></i>No late staff today — great job!</td></tr>';
+
+        lateTodayCache = { timestamp: Date.now(), count: seen.size, html };
+        renderLateToday(seen.size, html);
     } catch (err) {
         console.error('Failed to fetch late today', err);
-        document.getElementById('late-today-body').innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load data</td></tr>';
+        const body = document.getElementById('late-today-body');
+        if (body) body.innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load data</td></tr>';
     }
 }

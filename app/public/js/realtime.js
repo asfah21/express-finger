@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { refreshOverview } from './pages/overview.js';
+import { refreshOverviewRealtime, applyLiveAttendanceNewOverview } from './pages/overview.js';
 import { refreshLogs, applyLiveAttendanceNew, shouldSkipLogsRefresh } from './pages/logs.js';
 
 let source = null;
@@ -21,6 +21,9 @@ const RETRY_DELAY_MS = 60000;         // Coba sambung lagi setelah jeda
  *   - attendance:bulk → silent diff refresh + throttle jaringan (maks 1 per
  *     MIN_REFRESH_INTERVAL_MS, trailing edge) agar burst event saat jam sibuk
  *     tidak memicu reload/recompute beruntun.
+ * Di halaman overview, event hanya menyentuh data yang bergerak cepat:
+ *   - attendance:new → update recent logs + total hari ini secara lokal.
+ *   - attendance:bulk → partial refresh ringan (tanpa devices/employees/chart).
  * Report berat (overview chart/daily/pair) TIDAK di-refetch per event — ia
  * di-refresh oleh TTL + job precompute di server.
  */
@@ -51,14 +54,37 @@ export function startRealtimeFeed() {
     };
 }
 
+// Tandai jika ada event bulk dalam window debounce — bulk tidak membawa baris,
+// jadi apa pun event terakhir, kita wajib merekonsiliasi via network (jika
+// tidak, baris bulk bisa tertelan oleh update lokal attendance:new).
+let pendingBulkInWindow = false;
+
 function onAttendanceEvent(event) {
+    if (event.type === 'attendance:bulk') pendingBulkInWindow = true;
+
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
+        const hasBulk = pendingBulkInWindow;
+        pendingBulkInWindow = false;
+
         if (!state.currentUser) return;
 
         if (state.currentPath === 'overview') {
-            // Silent refresh: skip the chart skeleton; network fetch is throttled.
-            scheduleThrottledRefresh('overview', () => refreshOverview(true, { silent: true }));
+            const payload = parseEventPayload(event);
+
+            // attendance:new dengan payload lengkap + tanpa bulk di window →
+            // update lokal (tanpa network).
+            if (!hasBulk && event.type === 'attendance:new' && payload) {
+                if (!applyLiveAttendanceNewOverview(payload)) {
+                    scheduleThrottledRefresh('overview', () => refreshOverviewRealtime());
+                }
+                return;
+            }
+
+            // Ada bulk (atau event lain) → partial refresh ringan (tanpa
+            // devices/employees/chart), tetap di-throttle agar burst tidak
+            // memicu reload beruntun.
+            scheduleThrottledRefresh('overview', () => refreshOverviewRealtime());
             return;
         }
 
@@ -66,7 +92,8 @@ function onAttendanceEvent(event) {
 
         const payload = parseEventPayload(event);
 
-        if (event.type === 'attendance:new' && payload) {
+        // Tanpa bulk di window → attendance:new bisa dirender lokal.
+        if (!hasBulk && event.type === 'attendance:new' && payload) {
             // Full row payload → render locally (no network, no throttle needed).
             applyLiveAttendanceNew(payload);
             return;
