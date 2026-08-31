@@ -16,8 +16,6 @@ import {
   activityLogLimiter,
   csrfTokenProvider,
   csrfProtection,
-  iclockLimiter,
-  iclockDeviceLimiter,
   iclockIpGuard,
   kioskLiveLimiter,
   kioskLiveIpLimiter
@@ -97,13 +95,14 @@ app.get('/multi_live.html', requirePageAuth, (_req, res) => {
 // /auth: limiter umum + limiter khusus login/verify/user-management yang
 // dipasang per-route di routes/auth.js.
 app.use('/auth', authLimiter, authRoutes)
-// /iclock: rate limit (per-IP + per-SN) + IP allowlist opsional + parser teks
-// khusus protokol ZK, sebelum masuk ke controller perangkat (endpoint tanpa
-// autentikasi).
+// /iclock: parser teks khusus protokol ZK + IP allowlist opsional, sebelum
+// masuk ke controller perangkat (endpoint tanpa autentikasi).
+// CATATAN: iclockLimiter & iclockDeviceLimiter sengaja TIDAK dipasang lagi —
+// mesin fingerprint mode ADMS melakukan polling & push rutin, dan rate limit
+// terbukti menunda push (data absensi tidak realtime). Proteksi tetap ada
+// via iclockIpGuard (allowlist opsional ICLOCK_ALLOWED_IPS) + globalLimiter.
 app.use(
   '/iclock',
-  iclockLimiter,
-  iclockDeviceLimiter,
   iclockIpGuard,
   express.text({ type: ['text/plain', 'text/*', 'application/octet-stream'], limit: '20mb' }),
   deviceRoutes

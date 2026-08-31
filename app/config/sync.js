@@ -1,6 +1,8 @@
 export const SYNC_CONFIG = {
     // Interval dalam milidetik. 5 menit = 300000, 1 jam = 3600000
-    PULL_INTERVAL: 600000, // 10 menit
+    // 1 menit agar data mesin fingerprint tampil cepat (mendekati realtime),
+    // sekaligus jadi jaring pengaman bila push /iclock dari mesin lambat.
+    PULL_INTERVAL: 300000, // 5 menit
 
     // Berapa hari simpan file audit di /data/pull?
     KEEP_AUDIT_FILES_DAYS: 3,
