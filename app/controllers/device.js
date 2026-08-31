@@ -3,9 +3,44 @@ import { config } from '../config/index.js'
 import { smartParseMany, saveManyLogs, ensureRawDir, upsertDevice } from '../utils/index.js'
 import { delCacheByPatterns, CACHE_PATTERNS } from '../utils/cache.js'
 import { attendanceBus } from '../utils/events.js'
+import { pullDeviceLogs } from '../utils/zklib.js'
 
 // Simple memory cache to reduce DB load
 const lastDeviceIPs = new Map()
+
+// ---------------------------------------------------------------------------
+// Pull-on-contact
+// Bukti lapangan: mesin fingerprint mode ADMS rajin poll GET /iclock/cdata
+// (tiap ~2-3 detik) tetapi TIDAK mengirim upload absensi via HTTP POST.
+// Solusi: setiap kali mesin menghubungi server, server langsung menjemput
+// log-nya via PULL TCP (node-zklib) di background — data absensi muncul dalam
+// hitungan detik ~30 detik tanpa bergantung pada setting upload di mesin.
+// ---------------------------------------------------------------------------
+const PULL_ON_CONTACT_INTERVAL_MS = Number(process.env.PULL_ON_CONTACT_INTERVAL_MS || 30000)
+const lastPullBySN = new Map()
+const inFlightPull = new Set()
+
+async function pullOnContact(sn, ip, port = 4370) {
+  if (!sn || sn === 'unknown') return
+  const now = Date.now()
+  if (inFlightPull.has(sn)) return
+  if (now - (lastPullBySN.get(sn) || 0) < PULL_ON_CONTACT_INTERVAL_MS) return
+  lastPullBySN.set(sn, now)
+  inFlightPull.add(sn)
+  try {
+    const result = await pullDeviceLogs(ip, port, sn)
+    if (result.count > 0) {
+      console.log(`⚡ [pull-on-contact] ${sn} (${ip}): ${result.count} logs`)
+      delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
+      attendanceBus.emit('attendance:bulk', { count: result.count, source: 'pull-on-contact' })
+    }
+  } catch (err) {
+    // Handler /iclock tetap membalas OK; kegagalan PULL hanya dicatat.
+    console.error(`❌ [pull-on-contact] ${sn} (${ip}):`, err.message)
+  } finally {
+    inFlightPull.delete(sn)
+  }
+}
 
 // Device controller
 export const deviceController = {
@@ -44,7 +79,6 @@ export const deviceController = {
         console.log(`📩 [${deviceSN}] Saved ${rows.length} logs from ${deviceIP}`);
         
         // 5. Invalidate feed attendance karena ada data baru dari push /iclock.
-        // Report berat tidak dijatuhkan per event (refresh via TTL + precompute).
         const deleted = delCacheByPatterns(CACHE_PATTERNS.ATTENDANCE_EVENT)
         if (deleted > 0) {
           console.log(`🧹 Invalidated ${deleted} attendance cache keys after push from ${deviceSN}`)
@@ -75,8 +109,9 @@ export const deviceController = {
         if (lastDeviceIPs.get(deviceSN) !== cleanIp) {
           await upsertDevice(deviceSN, cleanIp)
           lastDeviceIPs.set(deviceSN, cleanIp)
-          // console.log(`🔄 Device Session Updated: SN=${deviceSN} IP=${cleanIp}`);
         }
+        // Fire-and-forget: jemput log mesin via TCP segera (di-throttle).
+        pullOnContact(deviceSN, cleanIp).catch(() => {})
       }
 
       // Menggunakan OK\n seringkali lebih stabil bagi beberapa firmware Solution/ZK
@@ -89,11 +124,8 @@ export const deviceController = {
   /**
    * GET /iclock/cdata?SN=xxx — poll rutin perangkat ADMS untuk mengecek
    * perintah dari server. Sebelumnya rute ini TIDAK terdaftar sehingga
-   * GET /iclock/cdata jatuh ke 404; sebagian firmware Solution/ZK menganggap
-   * server tidak siap dan menunda/meredam push log (gejala delay 1-2 jam).
-   * Balasan 'C:0' adalah ack protokol ADMS ZK standar yang berarti "tidak ada
-   * perintah tertunda" — kanal push perangkat tetap hidup sehingga absensi
-   * diteruskan ke server secara realtime.
+   * GET /iclock/cdata jatuh ke 404. Kini: (1) balasan ack protokol, dan
+   * (2) memicu pull-on-contact agar log mesin langsung dijemput via TCP.
    */
   async handleCdataGet(req, res) {
     try {
@@ -101,15 +133,22 @@ export const deviceController = {
       const deviceSN = url.searchParams.get('SN') || null
       const cleanIp = req.ip.includes('::ffff:') ? req.ip.split('::ffff:')[1] : req.ip
 
-      if (deviceSN && lastDeviceIPs.get(deviceSN) !== cleanIp) {
-        await upsertDevice(deviceSN, cleanIp)
-        lastDeviceIPs.set(deviceSN, cleanIp)
+      if (deviceSN) {
+        if (lastDeviceIPs.get(deviceSN) !== cleanIp) {
+          await upsertDevice(deviceSN, cleanIp)
+          lastDeviceIPs.set(deviceSN, cleanIp)
+        }
+        // Fire-and-forget: jemput log mesin via TCP segera (di-throttle).
+        pullOnContact(deviceSN, cleanIp).catch(() => {})
       }
 
-      // 'C:0' = idle / no pending command (protocol ADMS ZK).
-      return res.status(200).send('C:0\n')
+      // Balasan poll dikendalikan env ICLOCK_CDATA_RESPONSE agar bisa diuji:
+      //   'C:0' (default) = idle / tidak ada perintah tertunda.
+      //   'DATA START'    = minta mesin mengirim data (upload absensi).
+      const body = (process.env.ICLOCK_CDATA_RESPONSE || 'C:0') + '\n'
+      return res.status(200).send(body)
     } catch (e) {
-      return res.status(200).send('C:0\n')
+      return res.status(200).send((process.env.ICLOCK_CDATA_RESPONSE || 'C:0') + '\n')
     }
   }
 }
