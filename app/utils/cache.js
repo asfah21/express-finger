@@ -39,10 +39,10 @@ export const CACHE_KEYS = {
 // Cache patterns untuk invalidasi massal
 export const CACHE_PATTERNS = {
   // Dipicu setiap ada event absensi baru (kiosk / push /iclock / auto-pull).
-  // Hanya feed log terbaru yang dijatuhkan — report berat (overview, daily,
-  // pair summary) TIDAK di-invalidate agar tidak recompute per event; mereka
-  // refresh lewat TTL sendiri + job precompute terjadwal (scheduler).
-  ATTENDANCE_EVENT: ['logs:list'],
+  // Seluruh report (feed log, daily, overview, pair) ikut di-invalidate agar
+  // dashboard tampil realtime. Recompute dijaga oleh singleFlight + job
+  // precompute terjadwal (scheduler), sehingga aman untuk beban event rutin.
+  ATTENDANCE_EVENT: ['logs:list', 'logs:daily', 'overview:stats', 'overview:chart', 'pair:summary'],
   // Nuke penuh — dipakai operasi manual (sync all, force pull, ubah settings)
   // yang memang mengharapkan refresh total seketika.
   ATTENDANCE: ['logs:list', 'logs:daily', 'overview:stats', 'overview:chart', 'pair:summary'],

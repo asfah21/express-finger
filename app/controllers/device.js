@@ -84,5 +84,32 @@ export const deviceController = {
     } catch (e) {
       return res.status(200).send('OK\n')
     }
+  },
+
+  /**
+   * GET /iclock/cdata?SN=xxx — poll rutin perangkat ADMS untuk mengecek
+   * perintah dari server. Sebelumnya rute ini TIDAK terdaftar sehingga
+   * GET /iclock/cdata jatuh ke 404; sebagian firmware Solution/ZK menganggap
+   * server tidak siap dan menunda/meredam push log (gejala delay 1-2 jam).
+   * Balasan 'C:0' adalah ack protokol ADMS ZK standar yang berarti "tidak ada
+   * perintah tertunda" — kanal push perangkat tetap hidup sehingga absensi
+   * diteruskan ke server secara realtime.
+   */
+  async handleCdataGet(req, res) {
+    try {
+      const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'))
+      const deviceSN = url.searchParams.get('SN') || null
+      const cleanIp = req.ip.includes('::ffff:') ? req.ip.split('::ffff:')[1] : req.ip
+
+      if (deviceSN && lastDeviceIPs.get(deviceSN) !== cleanIp) {
+        await upsertDevice(deviceSN, cleanIp)
+        lastDeviceIPs.set(deviceSN, cleanIp)
+      }
+
+      // 'C:0' = idle / no pending command (protocol ADMS ZK).
+      return res.status(200).send('C:0\n')
+    } catch (e) {
+      return res.status(200).send('C:0\n')
+    }
   }
 }
