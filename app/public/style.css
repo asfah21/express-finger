@@ -1754,6 +1754,7 @@ select option {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    transition: opacity 0.2s ease;
 }
 
 .chart-wrapper::-webkit-scrollbar {
