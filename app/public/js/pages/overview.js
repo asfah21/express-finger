@@ -15,8 +15,10 @@ const OVERVIEW_CACHE_TTL = 120000; // 2 menit
 export async function refreshOverview(force = false, { silent = false } = {}) {
     const now = Date.now();
 
-    // Refresh Employee Status chart (cache-nya sendiri, dedupe per 60 detik)
+    // Refresh kedua chart secara independen dari fetch overview (metode yang sama
+    // dengan status chart) agar chart tetap tampil walau fetch overview gagal.
     refreshStatusChart();
+    refreshChart();
 
     // Jika tidak dipaksa refresh dan cache masih valid, skip fetch API
     if (!force && overviewCache.data && (now - overviewCache.timestamp < OVERVIEW_CACHE_TTL)) {
@@ -53,13 +55,6 @@ export async function refreshOverview(force = false, { silent = false } = {}) {
         if (cached.lastUpdate) {
             const el = document.getElementById('overview-last-update');
             if (el) el.innerText = cached.lastUpdate;
-        }
-        // Restore chart dari cache tanpa fetch API
-        if (cached.chartData && attendanceChart) {
-            attendanceChart.data.labels = cached.chartData.labels;
-            attendanceChart.data.datasets[0].data = cached.chartData.checkinData;
-            attendanceChart.data.datasets[1].data = cached.chartData.checkoutData;
-            attendanceChart.update('none'); // Update tanpa animasi
         }
         return; // Skip fetch API
     }
@@ -106,7 +101,6 @@ export async function refreshOverview(force = false, { silent = false } = {}) {
         renderRecentLogs(overview.recent || []);
         window.updatePaginationUI('overview');
 
-        renderChartData(overview.chart || []);
         refreshLateToday(today);
 
         const lastUpdateEl = document.getElementById('overview-last-update');
@@ -496,7 +490,7 @@ function renderStatusChartData(dates, chartData) {
                 labels: labels,
                 datasets: [
                     { label: 'Terlambat', data: late, backgroundColor: 'rgba(245, 158, 11, 0.7)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
-                    { label: 'Sedang Bekerja', data: bekerja, backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                    { label: 'Sedang Bekerja', data: bekerja, backgroundColor: 'rgba(16, 185, 129, 0.7)', borderColor: '#10b981', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
                     { label: 'Tidak Absen Masuk', data: tdkMasuk, backgroundColor: 'rgba(168, 85, 247, 0.7)', borderColor: '#a855f7', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
                     { label: 'Tidak Absen Pulang', data: tdkPulang, backgroundColor: 'rgba(14, 165, 233, 0.7)', borderColor: '#0ea5e9', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
                     { label: 'Tidak Hadir', data: tidakHadir, backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 }
