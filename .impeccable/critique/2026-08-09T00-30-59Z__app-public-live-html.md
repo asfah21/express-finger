@@ -98,7 +98,7 @@ A genuinely well-built, trustworthy kiosk flow — the two-step choice→camera 
 - `cam-live-header` has duplicate `justify-content: space-between`.
 - `state.mode` is assigned but never read.
 - The kiosk uses the Font Awesome CDN while the rest of the app uses lucide — one icon system should win.
-- `lang="id"` matches all copy; commented-out English "Face ID @ GSI Corp 2026" is leftover.
+- `lang="id"` matches all copy; commented-out English "Live Cam @ GSI Corp 2026" is leftover.
 
 ## Questions to Consider
 

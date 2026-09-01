@@ -1,5 +1,5 @@
 /**
- * Live (Face ID) Attendance — Decision Rules
+ * Live Cam Attendance — Decision Rules
  *
  * Pure, DB-agnostic helpers so the backend can be the single source of truth
  * for attendance decisions (duplicate validation) while the rules stay

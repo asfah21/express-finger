@@ -107,7 +107,6 @@ export async function refreshOverview(force = false, { silent = false } = {}) {
         window.updatePaginationUI('overview');
 
         renderChartData(overview.chart || []);
-        prefetchAttendanceRanges();
         refreshLateToday(today);
 
         const lastUpdateEl = document.getElementById('overview-last-update');
@@ -144,29 +143,6 @@ function setChartDimming(canvasId, dim) {
     const canvas = document.getElementById(canvasId);
     const wrapper = canvas && canvas.closest('.chart-wrapper');
     if (wrapper) wrapper.style.opacity = dim ? '0.55' : '1';
-}
-
-// Prefetch range chart lain di background agar perpindahan filter terasa instan.
-let attendancePrefetchDone = false;
-function prefetchAttendanceRanges() {
-    if (attendancePrefetchDone) return;
-    attendancePrefetchDone = true;
-    setTimeout(() => {
-        const rangeSelect = document.getElementById('chart-range');
-        const current = rangeSelect ? parseInt(rangeSelect.value) : 7;
-        [7, 14, 30].forEach(days => {
-            if (days === current || attendanceChartCache[days]) return;
-            fetch(`/api/stats/overview?days=${days}`)
-                .then(res => (res.ok ? res.json() : null))
-                .then(payload => {
-                    const chart = payload?.data?.chart || [];
-                    if (chart.length) {
-                        attendanceChartCache[days] = { timestamp: Date.now(), chart };
-                    }
-                })
-                .catch(() => { /* abaikan gagal prefetch */ });
-        });
-    }, 1500);
 }
 
 /**
@@ -251,22 +227,14 @@ function renderChartData(chartRows) {
     showChartLoading(false);
     setChartDimming('attendance-chart', false);
 
+    // Hancurkan chart lama jika ada, lalu buat ulang. destroy + create berjalan
+    // sinkron (tanpa repaint di antaranya), jadi tidak menyebabkan kedip.
     if (attendanceChart) {
-        // Update in place — hindari destroy/recreate yang menyebabkan kedip.
-        attendanceChart.data.labels = labels;
-        attendanceChart.data.datasets[0].data = checkinData;
-        attendanceChart.data.datasets[1].data = checkoutData;
-        attendanceChart.options.plugins.legend.labels.color = textColor;
-        attendanceChart.options.plugins.legend.labels.font.size = isMobile ? 10 : 12;
-        attendanceChart.options.scales.x.grid.color = gridColor;
-        attendanceChart.options.scales.x.ticks.color = textColor;
-        attendanceChart.options.scales.x.ticks.maxRotation = isMobile ? 45 : 0;
-        attendanceChart.options.scales.x.ticks.font.size = isMobile ? 9 : 11;
-        attendanceChart.options.scales.y.grid.color = gridColor;
-        attendanceChart.options.scales.y.ticks.color = textColor;
-        attendanceChart.options.scales.y.ticks.font.size = isMobile ? 9 : 11;
-        attendanceChart.update();
-    } else {
+        attendanceChart.destroy();
+        attendanceChart = null;
+    }
+
+    try {
         attendanceChart = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -324,8 +292,9 @@ function renderChartData(chartRows) {
                 }
             }
         });
-        // Prefetch range lain di background (sekali per sesi).
-        prefetchAttendanceRanges();
+    } catch (err) {
+        console.error('Failed to create attendance chart:', err);
+        attendanceChart = null;
     }
 
     // Simpan ke cache per rentang (key = jumlah hari) agar perpindahan filter instan.
@@ -513,75 +482,65 @@ function renderStatusChartData(dates, chartData) {
     showStatusChartLoading(false);
     setChartDimming('status-chart', false);
 
+    // Hancurkan chart lama jika ada, lalu buat ulang. destroy + create berjalan
+    // sinkron (tanpa repaint di antaranya), jadi tidak menyebabkan kedip.
     if (statusChart) {
-        // Update in place — hindari destroy/recreate yang bikin kedip.
-        statusChart.data.labels = labels;
-        const ds = statusChart.data.datasets;
-        ds[0].data = late;
-        ds[1].data = bekerja;
-        ds[2].data = tdkMasuk;
-        ds[3].data = tdkPulang;
-        ds[4].data = tidakHadir;
-        statusChart.options.plugins.legend.labels.color = textColor;
-        statusChart.options.plugins.legend.labels.font.size = isMobile ? 9 : 11;
-        statusChart.options.scales.x.grid.color = gridColor;
-        statusChart.options.scales.x.ticks.color = textColor;
-        statusChart.options.scales.x.ticks.maxRotation = isMobile ? 45 : 0;
-        statusChart.options.scales.x.ticks.font.size = isMobile ? 9 : 11;
-        statusChart.options.scales.y.grid.color = gridColor;
-        statusChart.options.scales.y.ticks.color = textColor;
-        statusChart.options.scales.y.ticks.font.size = isMobile ? 9 : 11;
-        statusChart.update();
-        return;
+        statusChart.destroy();
+        statusChart = null;
     }
 
-    statusChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { label: 'Terlambat', data: late, backgroundColor: 'rgba(245, 158, 11, 0.7)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
-                { label: 'Sedang Bekerja', data: bekerja, backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
-                { label: 'Tidak Absen Masuk', data: tdkMasuk, backgroundColor: 'rgba(168, 85, 247, 0.7)', borderColor: '#a855f7', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
-                { label: 'Tidak Absen Pulang', data: tdkPulang, backgroundColor: 'rgba(14, 165, 233, 0.7)', borderColor: '#0ea5e9', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
-                { label: 'Tidak Hadir', data: tidakHadir, backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        color: textColor,
-                        boxWidth: 12,
-                        boxHeight: 12,
-                        font: { size: isMobile ? 9 : 11 }
-                    }
-                }
+    try {
+        statusChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Terlambat', data: late, backgroundColor: 'rgba(245, 158, 11, 0.7)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                    { label: 'Sedang Bekerja', data: bekerja, backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                    { label: 'Tidak Absen Masuk', data: tdkMasuk, backgroundColor: 'rgba(168, 85, 247, 0.7)', borderColor: '#a855f7', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                    { label: 'Tidak Absen Pulang', data: tdkPulang, backgroundColor: 'rgba(14, 165, 233, 0.7)', borderColor: '#0ea5e9', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 },
+                    { label: 'Tidak Hadir', data: tidakHadir, backgroundColor: 'rgba(239, 68, 68, 0.7)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 3, barPercentage: 0.9, categoryPercentage: 0.85 }
+                ]
             },
-            scales: {
-                x: {
-                    grid: { color: gridColor },
-                    ticks: {
-                        color: textColor,
-                        maxRotation: isMobile ? 45 : 0,
-                        font: { size: isMobile ? 9 : 11 }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: textColor,
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            font: { size: isMobile ? 9 : 11 }
+                        }
                     }
                 },
-                y: {
-                    beginAtZero: true,
-                    grid: { color: gridColor },
-                    ticks: {
-                        color: textColor,
-                        stepSize: 1,
-                        font: { size: isMobile ? 9 : 11 }
+                scales: {
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            maxRotation: isMobile ? 45 : 0,
+                            font: { size: isMobile ? 9 : 11 }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            stepSize: 1,
+                            font: { size: isMobile ? 9 : 11 }
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    } catch (err) {
+        console.error('Failed to create status chart:', err);
+        statusChart = null;
+    }
 }
 
 // Expose refreshStatusChart to window for the range selector onChange
