@@ -1,13 +1,6 @@
 import { dailyPullState, getTodayWITA } from '../../app/utils/scheduler.js'
-import { config } from '../../app/config/index.js'
 
-describe('daily pull scheduler', () => {
-    it('provides valid default config for daily pull', () => {
-        expect(config.DAILY_PULL_ENABLED).toBe(true)
-        expect(config.DAILY_PULL_HOUR).toBe(1)
-        expect(config.DAILY_PULL_MINUTE).toBe(0)
-    })
-
+describe('daily pull scheduler (hardcoded)', () => {
     it('formats today in WITA timezone as YYYY-MM-DD', () => {
         const todayStr = getTodayWITA()
         expect(todayStr).toMatch(/^\d{4}-\d{2}-\d{2}$/)
@@ -27,3 +20,4 @@ describe('daily pull scheduler', () => {
         dailyPullState.pendingDevices.clear()
     })
 })
+

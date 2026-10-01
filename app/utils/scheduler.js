@@ -12,23 +12,65 @@ import { attendanceBus } from './events.js';
 import { config } from '../config/index.js';
 
 
+import { getBusinessDateString, getBusinessDateBounds } from './timezone.js';
+
 let isRunning = false;
 let isPingRunning = false;
 let isAutoSyncEmployeeRunning = false;
 let isTemplateSyncRunning = false;
 let lastTemplateSyncTime = 0;
 
-// --- Daily Pull State ---
-// Melacak device yang belum berhasil di-pull hari ini (per device, bukan global).
+// --- Daily Pull State (Hardcoded: 01:00 WITA, retry tiap 5 menit sampai berhasil 1x per hari) ---
 export const dailyPullState = {
-    lastRunDate: null,       // 'YYYY-MM-DD' dalam WITA; null = belum pernah run hari ini
-    pendingDevices: new Set(), // device.id yang belum berhasil
-    isRunning: false,        // lock guard agar tidak concurrent
+    lastRunDate: null,         // 'YYYY-MM-DD' dalam WITA
+    pendingDevices: new Set(), // device.id yang belum berhasil hari ini
+    isRunning: false,          // lock guard agar tidak concurrent
 };
 
-/** Mengembalikan tanggal hari ini dalam timezone bisnis (WITA) sebagai string 'YYYY-MM-DD' */
 export function getTodayWITA() {
-    return new Date().toLocaleDateString('en-CA', { timeZone: config.BUSINESS_TIME_ZONE });
+    return getBusinessDateString();
+}
+
+/**
+ * Inisialisasi daftar device yang harus di-pull hari ini.
+ * Memeriksa activity_logs untuk melihat device mana yang sudah sukses hari ini,
+ * sehingga aman saat server di-restart (tidak dobel pull jika sudah sukses,
+ * dan tetap lanjut retry jika belum sukses).
+ */
+export async function initDailyPendingDevices() {
+    const today = getTodayWITA();
+    dailyPullState.lastRunDate = today;
+
+    try {
+        const { from, to } = getBusinessDateBounds(today);
+        const { rows: completedLogs } = await pool.query(
+            `SELECT detail FROM activity_logs 
+             WHERE action = 'daily_pull' 
+               AND status = 'success' 
+               AND created_at >= $1 AND created_at <= $2`,
+            [from, to]
+        );
+
+        const completedDeviceIds = new Set(
+            completedLogs.map(r => {
+                const m = /\[device:(\d+)\]/.exec(r.detail || '');
+                return m ? Number(m[1]) : null;
+            }).filter(Boolean)
+        );
+
+        const devices = await getDevices();
+        const pullDevices = devices.filter(
+            d => (d.sync_mode === 'PULL' || d.sync_mode === 'HYBRID') && d.is_active !== false
+        );
+
+        dailyPullState.pendingDevices = new Set(
+            pullDevices.filter(d => !completedDeviceIds.has(d.id)).map(d => d.id)
+        );
+
+        console.log(`📅 [Daily Pull] Status hari ini (${today}): ${completedDeviceIds.size} device selesai, ${dailyPullState.pendingDevices.size} device pending.`);
+    } catch (err) {
+        console.error('❌ [Daily Pull] Gagal inisialisasi pending devices:', err.message);
+    }
 }
 
 export async function startPullScheduler() {
@@ -64,40 +106,43 @@ export async function startPullScheduler() {
         await runReportPrecomputeTask();
     }, 60000);
 
-    // --- Daily Pull Scheduler ---
-    if (config.DAILY_PULL_ENABLED) {
-        const hour   = config.DAILY_PULL_HOUR;   // default 1 (01:00 WITA)
-        const minute = config.DAILY_PULL_MINUTE; // default 0
-
-        // Trigger utama: jam HH:MM setiap hari (timezone bisnis)
-        cron.schedule(`${minute} ${hour} * * *`, async () => {
-            console.log(`📅 [Daily Pull] Trigger harian (${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} ${config.BUSINESS_TIME_ZONE})`);
-            await runDailyPullTask(true);
-        }, { timezone: config.BUSINESS_TIME_ZONE });
-
-        // Retry setiap 5 menit jika masih ada device pending
-        cron.schedule('*/5 * * * *', async () => {
-            if (dailyPullState.pendingDevices.size > 0) {
-                console.log(`🔁 [Daily Pull] ${dailyPullState.pendingDevices.size} device masih pending, retry...`);
-                await runDailyPullTask(false);
-            }
-        }, { timezone: config.BUSINESS_TIME_ZONE });
-
-        console.log(`📅 Daily Pull Scheduler aktif: setiap hari jam ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} ${config.BUSINESS_TIME_ZONE}, retry tiap 5 mnt jika gagal.`);
-    } else {
-        console.log('📅 Daily Pull Scheduler: NONAKTIF (DAILY_PULL_ENABLED=false)');
+    // --- Daily Pull Scheduler (Hardcoded: 01:00 WITA, retry tiap 5 menit sampai sukses) ---
+    // Inisialisasi status hari ini saat boot & jalankan jika ada yang pending
+    await initDailyPendingDevices();
+    if (dailyPullState.pendingDevices.size > 0) {
+        await runDailyPullTask();
     }
+
+    // Trigger utama: Jam 01:00 WITA setiap hari
+    cron.schedule('0 1 * * *', async () => {
+        console.log('📅 [Daily Pull] Trigger harian (01:00 WITA). Memulai sinkronisasi harian...');
+        await initDailyPendingDevices();
+        await runDailyPullTask();
+    }, { timezone: 'Asia/Makassar' });
+
+    // Retry otomatis setiap 5 menit jika masih ada device yang belum berhasil
+    cron.schedule('*/5 * * * *', async () => {
+        const today = getTodayWITA();
+        if (dailyPullState.lastRunDate !== today) {
+            await initDailyPendingDevices();
+        }
+
+        if (dailyPullState.pendingDevices.size > 0) {
+            console.log(`🔁 [Daily Pull Retry] ${dailyPullState.pendingDevices.size} device masih pending, mencoba kembali...`);
+            await runDailyPullTask();
+        }
+    }, { timezone: 'Asia/Makassar' });
+
+    console.log('📅 Daily Pull Scheduler aktif: Tiap hari jam 01:00 WITA, retry terus tiap 5 menit sampai berhasil 1x.');
 }
 
 /**
- * Daily Pull Task — menarik attendance + employee dari semua device online
- * yang bertipe PULL atau HYBRID, satu kali per hari.
- *
- * @param {boolean} isNewDayTrigger - true = trigger harian (reset state), false = retry
+ * Daily Pull Task — menarik absensi & data pegawai dari semua mesin online
+ * yang bertipe PULL atau HYBRID. Terus diulang sampai berhasil 1x.
  */
-export async function runDailyPullTask(isNewDayTrigger = false) {
+export async function runDailyPullTask() {
     if (dailyPullState.isRunning) {
-        console.warn('⚠️ [Daily Pull] Masih berjalan, skip siklus ini.');
+        console.warn('⚠️ [Daily Pull] Sedang berjalan, lewati siklus ini.');
         return;
     }
 
@@ -105,17 +150,6 @@ export async function runDailyPullTask(isNewDayTrigger = false) {
     const today = getTodayWITA();
 
     try {
-        // Reset state jika trigger harian atau hari sudah berganti
-        if (isNewDayTrigger || dailyPullState.lastRunDate !== today) {
-            const devices = await getDevices();
-            const pullDevices = devices.filter(
-                d => (d.sync_mode === 'PULL' || d.sync_mode === 'HYBRID') && d.is_active !== false
-            );
-            dailyPullState.pendingDevices = new Set(pullDevices.map(d => d.id));
-            dailyPullState.lastRunDate = today;
-            console.log(`📅 [Daily Pull] Hari baru (${today}): ${pullDevices.length} device dipending.`);
-        }
-
         if (dailyPullState.pendingDevices.size === 0) return;
 
         const devices = await getDevices();
@@ -124,40 +158,42 @@ export async function runDailyPullTask(isNewDayTrigger = false) {
         for (const device of devices) {
             if (!dailyPullState.pendingDevices.has(device.id)) continue;
 
-            // Skip device offline — ping task sudah update status tiap 5 mnt
-            if (device.status !== 'online') {
-                console.log(`⏭️  [Daily Pull] Skip ${device.name || device.sn} (${device.ip}) — offline`);
+            const port = device.port || 4370;
+
+            // Periksa koneksi mesin langsung
+            const isOnline = await checkDeviceStatus(device.ip, port);
+            if (!isOnline) {
+                console.warn(`⏳ [Daily Pull] ${device.name || device.sn} (${device.ip}) tidak dapat dihubungi (offline). Akan dicoba lagi 5 menit lagi.`);
+                await pool.query('UPDATE devices SET status = $1 WHERE id = $2', ['offline', device.id]);
                 continue;
             }
 
-            const port = device.port || 4370;
             let attOk = false;
             let empOk = false;
 
-            // --- Pull Attendance ---
+            // 1. Tarik Log Absensi
             try {
                 const attResult = await pullDeviceLogs(device.ip, port, device.sn);
                 attOk = true;
                 if (attResult.count > 0) anyNewData = true;
-                console.log(`✅ [Daily Pull] Attendance ${device.name || device.sn}: ${attResult.count} log`);
+                console.log(`✅ [Daily Pull] Absensi ${device.name || device.sn}: ${attResult.count} log ditarik.`);
             } catch (err) {
-                console.warn(`⏳ [Daily Pull] Attendance ${device.name || device.sn} gagal: ${err.message}`);
+                console.error(`❌ [Daily Pull] Gagal tarik absensi ${device.name || device.sn}: ${err.message}`);
             }
 
-            // --- Pull Employee ---
+            // 2. Tarik Data Pegawai (User)
             try {
                 const empResult = await pullDeviceUsersSync(device.ip, port);
                 empOk = true;
-                console.log(`✅ [Daily Pull] Employee ${device.name || device.sn}: written ${empResult.count}, skipped ${empResult.skipped ?? 0}`);
+                console.log(`✅ [Daily Pull] Pegawai ${device.name || device.sn}: ditulis ${empResult.count}, dilewati ${empResult.skipped ?? 0}.`);
             } catch (err) {
-                console.warn(`⏳ [Daily Pull] Employee ${device.name || device.sn} gagal: ${err.message}`);
+                console.error(`❌ [Daily Pull] Gagal tarik pegawai ${device.name || device.sn}: ${err.message}`);
             }
 
-            // Tandai berhasil hanya jika KEDUANYA sukses
+            // Hanya tandai berhasil hari ini jika absensi DAN pegawai keduanya sukses
             if (attOk && empOk) {
                 dailyPullState.pendingDevices.delete(device.id);
 
-                // Update last_sync & mark online
                 await pool.query(
                     'UPDATE devices SET last_sync = now(), status = $1, last_online = now() WHERE id = $2',
                     ['online', device.id]
@@ -167,13 +203,17 @@ export async function runDailyPullTask(isNewDayTrigger = false) {
                     username: 'system',
                     action: 'daily_pull',
                     category: 'sync',
-                    detail: `Daily pull (${today}): ${device.name || device.sn} (${device.ip}). Attendance + Employee berhasil.`,
-                    ip: '127.0.0.1'
+                    detail: `[device:${device.id}] Daily pull (${today}): ${device.name || device.sn} (${device.ip}). Attendance + Employee berhasil.`,
+                    ip: '127.0.0.1',
+                    status: 'success'
                 });
+
+                console.log(`🎉 [Daily Pull] Selesai 100% untuk ${device.name || device.sn}.`);
+            } else {
+                console.warn(`⏳ [Daily Pull] ${device.name || device.sn} belum tuntas sepenuhnya (Absensi: ${attOk ? 'OK' : 'FAIL'}, Pegawai: ${empOk ? 'OK' : 'FAIL'}). Akan diulang 5 menit lagi.`);
             }
         }
 
-        // Invalidate cache attendance jika ada data baru
         if (anyNewData) {
             invalidateAttendanceFeed();
             attendanceBus.emit('attendance:bulk', { count: 0, source: 'daily_pull' });
@@ -181,13 +221,13 @@ export async function runDailyPullTask(isNewDayTrigger = false) {
 
         const remaining = dailyPullState.pendingDevices.size;
         if (remaining === 0) {
-            console.log(`🎉 [Daily Pull] Semua device berhasil di-pull untuk hari ${today}.`);
+            console.log(`✨ [Daily Pull] Semua mesin fingerprint berhasil disinkronkan untuk tanggal ${today}.`);
         } else {
-            console.log(`⏳ [Daily Pull] ${remaining} device masih pending, akan retry di siklus berikutnya.`);
+            console.log(`⏳ [Daily Pull] Masih ada ${remaining} mesin yang belum berhasil. Scheduler akan mengulang dalam 5 menit.`);
         }
 
     } catch (err) {
-        console.error('❌ [Daily Pull] Critical error:', err.message);
+        console.error('❌ [Daily Pull] Error sistem:', err.message);
     } finally {
         dailyPullState.isRunning = false;
     }
