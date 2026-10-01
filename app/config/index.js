@@ -77,6 +77,12 @@ export const config = {
   FACE_SERVICE_TOKEN: process.env.FACE_SERVICE_TOKEN || '',
   FACE_SERVICE_TIMEOUT_MS: Number(process.env.FACE_SERVICE_TIMEOUT_MS || 15_000),
   BUSINESS_TIME_ZONE: process.env.BUSINESS_TIME_ZONE || 'Asia/Makassar',
+  // --- Daily Auto-Pull Scheduler ---
+  // Otomatis pull attendance + employee dari semua device PULL/HYBRID tiap hari.
+  // Jika gagal, retry tiap 5 menit sampai berhasil (per device).
+  DAILY_PULL_ENABLED: process.env.DAILY_PULL_ENABLED !== 'false', // Default true
+  DAILY_PULL_HOUR: Number(process.env.DAILY_PULL_HOUR ?? 1),    // Default 01:00 WITA
+  DAILY_PULL_MINUTE: Number(process.env.DAILY_PULL_MINUTE ?? 0), // Default menit 0
   // Sliding session renewal — kiosk attendance devices (role 'public') get
   // their session auto-extended on each heartbeat so an Android WebView kiosk
   // never has to re-login while it stays online.
